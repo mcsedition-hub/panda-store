@@ -8,7 +8,7 @@ from panda_store.core.access import workspace_access
 @api_view(["GET"])
 def hello(request, workspace_id):
     workspace = workspace_access(request.user, workspace_id, module="example")
-    return Response({"message": f"Le module d’exemple est actif dans {workspace.name}."})
+    return Response({"message": f"The example module is enabled in {workspace.name}."})
 
 
 urlpatterns = [path("hello/", hello)]

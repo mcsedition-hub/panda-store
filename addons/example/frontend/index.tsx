@@ -3,7 +3,7 @@ import { api, moduleUrl } from '../../../web/src/api';
 import type { ModuleProps } from '../../../web/src/contracts';
 
 export default function Example({ workspace }: ModuleProps) {
-  const [message, setMessage] = useState('Connexion au module…');
+  const [message, setMessage] = useState('Connecting to module…');
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
@@ -18,15 +18,14 @@ export default function Example({ workspace }: ModuleProps) {
     <>
       <div className="page-heading">
         <span className="eyebrow">EXTENSIONS</span>
-        <h1>Une place pour vos idées.</h1>
+        <h1>A place for your ideas.</h1>
         <p>
-          Ce module utilise le même registre, les mêmes permissions et la même interface que les
-          modules officiels.
+          This module uses the same registry, permissions and interface as the built-in modules.
         </p>
       </div>
       <div className="notice lichen">
         <img className="example-icon" src="/modules/extensions.webp" alt="" />
-        <h2>Le premier module d’exemple.</h2>
+        <h2>Your first example module.</h2>
         {error ? (
           <p className="error" role="alert">
             {error}
@@ -39,7 +38,7 @@ export default function Example({ workspace }: ModuleProps) {
           target="_blank"
           rel="noreferrer"
         >
-          Explorer son code ↗
+          Explore the code ↗
         </a>
       </div>
     </>

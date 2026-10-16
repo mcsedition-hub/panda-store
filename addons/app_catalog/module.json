@@ -1,7 +1,15 @@
 {
-  "id": "app_catalog", "name": "Mes apps", "version": "0.1.0",
-  "core": ">=0.1,<0.2", "depends": {}, "required": true,
-  "family": "frost", "icon": "connexions",
-  "description": "Le catalogue partagé de vos applications et de leurs métadonnées.",
-  "capabilities": ["apps.read", "metadata.read"]
+  "id": "app_catalog",
+  "name": "My apps",
+  "version": "0.1.0",
+  "core": ">=0.1,<0.2",
+  "depends": {},
+  "required": true,
+  "family": "frost",
+  "icon": "connexions",
+  "description": "Your shared catalog of apps and their store metadata.",
+  "capabilities": [
+    "apps.read",
+    "metadata.read"
+  ]
 }

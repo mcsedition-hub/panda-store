@@ -35,17 +35,18 @@ function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: b
       <section className="login-story">
         <img className="brand" src="/brand/logo-dark.svg" alt="Panda Store" />
         <div className="login-editorial">
-          <span className="eyebrow">L’ATELIER DE VOS APPS</span>
+          <span className="eyebrow">A WORKSHOP FOR YOUR APPS</span>
           <h1>
-            Chaque app a<br />
-            son public.
+            Every app has
             <br />
-            <em>Allons le chercher.</em>
+            its people.
+            <br />
+            <em>Let’s find yours.</em>
           </h1>
           <p>
-            Comprendre votre app. Trouver un angle.
+            Know your app. Find your angle.
             <br />
-            Donner forme à la prochaine idée.
+            Give your next idea a place to grow.
           </p>
           <div className="login-objects" aria-hidden="true">
             <img src="/modules/connexions.webp" alt="" />
@@ -53,20 +54,20 @@ function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: b
             <img src="/modules/veille.webp" alt="" />
           </div>
         </div>
-        <span className="login-foot">Votre atelier, sur votre infrastructure.</span>
+        <span className="login-foot">Your workshop. Your infrastructure.</span>
       </section>
       <section className="login-form-panel">
         <div className="login-form-wrap">
-          <span className="eyebrow">BIENVENUE DANS L’ATELIER</span>
-          <h2>On s’y remet ?</h2>
-          <p>Connectez-vous à votre espace Panda Store.</p>
+          <span className="eyebrow">WELCOME TO YOUR WORKSHOP</span>
+          <h2>Ready when you are.</h2>
+          <p>Sign in to your Panda Store workspace.</p>
           <form onSubmit={submit}>
             <label>
-              Identifiant
+              Username
               <input name="username" autoComplete="username" required autoFocus />
             </label>
             <label>
-              Mot de passe
+              Password
               <input name="password" type="password" autoComplete="current-password" required />
             </label>
             {error && (
@@ -75,16 +76,13 @@ function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: b
               </p>
             )}
             <button className="button primary full" disabled={busy}>
-              {busy ? 'Connexion…' : 'Entrer dans l’atelier →'}
+              {busy ? 'Signing in…' : 'Enter the workshop →'}
             </button>
           </form>
           {demo && (
             <div className="demo-note">
-              <strong>Une première visite ?</strong>
-              <p>
-                Cette installation est en mode démonstration. Utilisez le compte créé lors de son
-                installation.
-              </p>
+              <strong>First time here?</strong>
+              <p>This is a demo installation. Use the account created during setup.</p>
             </div>
           )}
           <a
@@ -93,7 +91,7 @@ function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: b
             target="_blank"
             rel="noreferrer"
           >
-            Code source · Elastic License 2.0 ↗
+            Source code · Elastic License 2.0 ↗
           </a>
         </div>
       </section>
@@ -129,9 +127,9 @@ function ModuleManager({
   return (
     <>
       <div className="page-heading">
-        <span className="eyebrow">VOTRE BOÎTE À OUTILS</span>
-        <h1>À chacun ses modules.</h1>
-        <p>Activez les outils utiles à cet espace. Les dépendances sont activées ensemble.</p>
+        <span className="eyebrow">YOUR TOOLBOX</span>
+        <h1>Make room for your tools.</h1>
+        <p>Choose the tools this workspace needs. Required modules are enabled together.</p>
       </div>
       {error && (
         <p className="error" role="alert">
@@ -153,19 +151,17 @@ function ModuleManager({
               onClick={() => toggle(module)}
             >
               {busy === module.id
-                ? 'Modification…'
+                ? 'Updating…'
                 : module.required
-                  ? 'Module essentiel'
+                  ? 'Core module'
                   : module.enabled
-                    ? 'Désactiver'
-                    : 'Activer le module'}
+                    ? 'Disable'
+                    : 'Enable module'}
             </button>
           </article>
         ))}
       </div>
-      <p className="note">
-        Les prochaines extensions — Audit ASO, Veille, Publication et Mesure — sont en préparation.
-      </p>
+      <p className="note">Up next: ASO Audit, Research, Publishing and Analytics.</p>
     </>
   );
 }
@@ -252,16 +248,16 @@ export default function App() {
   if (loading)
     return (
       <div className="boot" role="status">
-        Ouverture de l’atelier…
+        Opening your workshop…
       </div>
     );
   if (!session)
     return (
       <main className="boot">
-        <h1>Connexion à l’atelier impossible.</h1>
+        <h1>Your workshop is out of reach.</h1>
         <p role="alert">{error}</p>
         <button className="button secondary" onClick={() => window.location.reload()}>
-          Réessayer
+          Try again
         </button>
       </main>
     );
@@ -272,12 +268,12 @@ export default function App() {
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
-        Aller au contenu
+        Skip to content
       </a>
       <aside className="sidebar">
         <img className="brand" src="/brand/logo-dark.svg" alt="Panda Store" />
         <div className="workspace-picker">
-          <label htmlFor="workspace">ESPACE DE TRAVAIL</label>
+          <label htmlFor="workspace">WORKSPACE</label>
           <select
             id="workspace"
             value={workspaceId}
@@ -311,32 +307,32 @@ export default function App() {
             aria-current={current === 'modules' ? 'page' : undefined}
           >
             <img src="/modules/extensions.webp" alt="" />
-            <span>Les modules</span>
+            <span>Modules</span>
           </button>
         </nav>
         <div className="sidebar-bottom">
           <span className="edition">COMMUNITY · ALPHA</span>
           <p>
-            Un atelier qui grandit
+            A workshop that grows
             <br />
-            avec vos idées.
+            with your ideas.
           </p>
           <a href="https://github.com/mcsedition-hub/panda-store" target="_blank" rel="noreferrer">
-            Contribuer sur GitHub ↗
+            Join us on GitHub ↗
           </a>
         </div>
       </aside>
       <div className="workspace-shell">
         <header className="topbar">
           <span className="breadcrumb">
-            L’atelier <span>/</span>{' '}
-            {current === 'modules' ? 'Modules' : (activeModule?.name ?? 'Chargement')}
+            Workshop <span>/</span>{' '}
+            {current === 'modules' ? 'Modules' : (activeModule?.name ?? 'Loading')}
           </span>
           <div className="topbar-right">
-            {session.demo_mode && <span className="demo-tag">Mode démo</span>}
+            {session.demo_mode && <span className="demo-tag">Demo mode</span>}
             <span className="user-name">{session.user.username}</span>
             <button className="text-button" onClick={signOut}>
-              Déconnexion
+              Sign out
             </button>
           </div>
         </header>
@@ -348,18 +344,15 @@ export default function App() {
           )}
           {!workspace && (
             <div className="empty">
-              <h1>Votre espace vous attend.</h1>
-              <p>
-                Aucun espace accessible. Demandez à l’administrateur de vous ajouter à un espace de
-                travail.
-              </p>
+              <h1>Your workspace is waiting.</h1>
+              <p>You do not have access to a workspace yet. Ask your administrator to add you.</p>
             </div>
           )}
           {workspace && current === 'modules' && (
             <ModuleManager modules={modules} workspace={workspace} reload={refreshModules} />
           )}
           {workspace && current !== 'modules' && ModuleView && (
-            <Suspense fallback={<p role="status">Ouverture du module…</p>}>
+            <Suspense fallback={<p role="status">Opening module…</p>}>
               <ModuleView
                 key={`${workspaceId}:${current}`}
                 workspace={workspace}
@@ -375,19 +368,19 @@ export default function App() {
           {workspace && current !== 'modules' && !ModuleView && (
             <p role="status">
               {modules.length
-                ? 'Ce module n’est pas actif dans cet espace.'
-                : 'Chargement des modules…'}
+                ? 'This module is not enabled in this workspace.'
+                : 'Loading modules…'}
             </p>
           )}
         </main>
         <footer className="app-footer">
-          <span>Panda Store · votre prochaine idée commence ici.</span>
+          <span>Panda Store · your next idea starts here.</span>
           <a
             href="https://www.elastic.co/licensing/elastic-license"
             target="_blank"
             rel="noreferrer"
           >
-            Code source accessible · ELv2
+            Source available · ELv2
           </a>
         </footer>
       </div>

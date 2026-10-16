@@ -47,15 +47,15 @@ export default function AppleStore({
   return (
     <>
       <div className="page-heading">
-        <span className="eyebrow">CONNEXIONS</span>
-        <h1>Faisons les présentations.</h1>
-        <p>Une fiche claire est le premier matériau d’une bonne création.</p>
+        <span className="eyebrow">CONNECTIONS</span>
+        <h1>Let’s meet your app.</h1>
+        <p>Good creative work starts with a clear picture.</p>
       </div>
       <div className="notice">
-        <strong>Le parcours App Store, en démonstration.</strong>
+        <strong>Try the App Store import flow.</strong>
         <p>
-          Les applications ci-dessous sont fictives. Leur import est enregistré dans votre espace.
-          La connexion à votre compte Apple sera ajoutée dans une prochaine version.
+          These apps are fictional. Importing one saves it to your workspace. Connecting your own
+          Apple account is coming in a future version.
         </p>
       </div>
       {error && (
@@ -63,8 +63,8 @@ export default function AppleStore({
           {error}
         </p>
       )}
-      {loading && <p role="status">Chargement du catalogue…</p>}
-      {!demoMode && <p>Le mode démonstration est désactivé sur cette installation.</p>}
+      {loading && <p role="status">Loading catalog…</p>}
+      {!demoMode && <p>Demo mode is disabled for this installation.</p>}
       <div className="import-list">
         {apps.map((app) => (
           <article className="import-row" key={app.external_id}>
@@ -83,12 +83,14 @@ export default function AppleStore({
               disabled={!!busy || workspace.role === 'viewer'}
               onClick={() => importApp(app.external_id)}
             >
-              {busy === app.external_id ? 'Import en cours…' : 'Importer →'}
+              {busy === app.external_id ? 'Importing…' : 'Import →'}
             </button>
           </article>
         ))}
       </div>
-      <p className="note">Réimporter la même app met sa fiche à jour sans créer de doublon.</p>
+      <p className="note">
+        Importing the same app again updates its details without creating a duplicate.
+      </p>
     </>
   );
 }

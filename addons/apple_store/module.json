@@ -1,7 +1,16 @@
 {
-  "id": "apple_store", "name": "Connexions", "version": "0.1.0",
-  "core": ">=0.1,<0.2", "depends": {"app_catalog": ">=0.1,<0.2"},
-  "family": "frost", "icon": "connexions",
-  "description": "Import de démonstration App Store. Connexion réelle à venir.",
-  "capabilities": ["stores.demo_catalog", "stores.demo_import"]
+  "id": "apple_store",
+  "name": "Connections",
+  "version": "0.1.0",
+  "core": ">=0.1,<0.2",
+  "depends": {
+    "app_catalog": ">=0.1,<0.2"
+  },
+  "family": "frost",
+  "icon": "connexions",
+  "description": "Try an App Store demo import. Live account connections are coming later.",
+  "capabilities": [
+    "stores.demo_catalog",
+    "stores.demo_import"
+  ]
 }

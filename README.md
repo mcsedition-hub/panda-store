@@ -1,29 +1,31 @@
 # Panda Store
 
-L'atelier modulaire pour développer l'audience de vos applications mobiles.
-Code source accessible et auto-hébergeable, sous [Elastic License 2.0](LICENSE).
+A modular workshop to grow your mobile apps.
+Self-hostable and source available under the [Elastic License 2.0](LICENSE).
 
-**Alpha 0.1.0 — démonstration locale.** Cette première version permet de parcourir
-le produit, de développer des modules et de vérifier une boucle complète :
-import d'une app fictive → brief → trois scripts → retouche → validation → export.
-Elle n'appelle ni Apple, ni Google, ni une IA et ne publie aucun contenu.
+English is the default product language. [Lire le README en français](README.fr.md).
 
-## Ce qui fonctionne
+**Alpha 0.1.0 — local demo.** Explore the product, develop modules and try a
+complete workflow: import a fictional app → write a brief → create three scripts
+→ edit → approve → export. This version does not call Apple, Google or an AI
+provider, and does not publish content.
 
-- Connexion par session, espaces de travail et rôles propriétaire/éditeur/lecteur.
-- Registre de modules avec dépendances, compatibilité et activation par espace.
-- Catalogue de deux apps fictives, import persistant et historique des métadonnées.
-- Brief éditable, trois variantes produites par des modèles de rédaction locaux.
-- Historique des générations, édition, validation séparée et export Markdown.
-- Module d'exemple utilisant les mêmes conventions que les modules intégrés.
+## What works
 
-Les visuels Audit ASO, Veille, Publication, Mesure et Agents font partie de
-l'identité graphique ; leurs fonctionnalités ne sont pas encore implémentées.
-Voir la [feuille de route](docs/roadmap.md).
+- Session-based sign-in, workspaces and owner/editor/viewer roles.
+- A module registry with dependencies, compatibility checks and per-workspace activation.
+- Two fictional apps, persistent imports and a history of metadata snapshots.
+- Editable briefs and three script variants built from local writing templates.
+- Generation history, script editing, separate approval and Markdown exports.
+- An example extension using the same conventions as the built-in modules.
 
-## Démarrer en local
+The ASO Audit, Research, Publishing, Analytics and Agents illustrations are part
+of the visual identity. Their features are not implemented yet.
+See the [roadmap](docs/roadmap.md).
 
-Prérequis : Python 3.12 et Node.js 24. Depuis la racine du dépôt :
+## Run locally
+
+Requirements: Python 3.12 and Node.js 24. From the repository root:
 
 ```sh
 python3.12 -m venv .venv
@@ -34,7 +36,7 @@ python3.12 -m venv .venv
 npm --prefix web ci
 ```
 
-Dans deux terminaux :
+Start the backend and frontend in separate terminals:
 
 ```sh
 .venv/bin/python manage.py runserver 127.0.0.1:8000
@@ -44,34 +46,33 @@ Dans deux terminaux :
 npm --prefix web run dev
 ```
 
-Ouvrir **http://127.0.0.1:5173**. L'identifiant se trouve dans
-`PANDA_DEMO_USERNAME` et le mot de passe dans `PANDA_DEMO_PASSWORD` du fichier
-local `.env`. Le script crée des secrets aléatoires une seule fois ; ce fichier
-n'est pas versionné. Il ne faut jamais le publier.
+Open **http://127.0.0.1:5173**. Use `PANDA_DEMO_USERNAME` and
+`PANDA_DEMO_PASSWORD` from your local `.env` file. The bootstrap script generates
+random secrets once. The file is excluded from Git; never publish it.
 
-Choisir **Connexions**, importer **Runclub**, puis ouvrir le **Studio** pour
-préparer trois pistes. L'espace initial est vide pour tester le vrai parcours
-d'import. En mode local, SQLite et l'exécution synchrone des tâches suffisent :
-aucun compte externe ni clé IA n'est nécessaire.
+Choose **Connections**, import **Runclub**, then use the **Studio** to create
+three directions. The initial workspace is empty so you can try the actual import
+flow. Local development uses SQLite and synchronous tasks: no external account
+or paid AI key is required.
 
-## Démo avec Docker Compose
+## Docker Compose demo
 
-Avec Docker Engine et Compose démarrés :
+With Docker Engine and Compose running:
 
 ```sh
 python3 scripts/bootstrap.py
 docker compose up --build
 ```
 
-Ouvrir **http://127.0.0.1:8080** avec les mêmes identifiants de `.env`.
-Cette variante utilise PostgreSQL, Redis, un worker Celery, Django et Nginx.
-La base est distincte de la base SQLite locale. `docker compose down` conserve
-les données dans les volumes. L'option `--volumes` les supprimerait.
+Open **http://127.0.0.1:8080** using the same credentials from `.env`.
+This configuration uses PostgreSQL, Redis, a Celery worker, Django and Nginx.
+Its database is separate from the local SQLite database. `docker compose down`
+preserves data volumes; adding `--volumes` would delete them.
 
-Compose est limité à localhost et au mode démo. Ce n'est pas une configuration
-de production. Voir [SECURITY.md](SECURITY.md) pour les limites actuelles.
+Compose is limited to localhost and demo mode. This is not a production
+configuration. Read [SECURITY.md](SECURITY.md) for current limitations.
 
-## Développer et vérifier
+## Development checks
 
 ```sh
 .venv/bin/ruff check .
@@ -84,35 +85,36 @@ npm --prefix web run format:check
 npm --prefix web run build
 ```
 
-La CI est configurée pour exécuter les tests serveur avec PostgreSQL et les
-tests d'interface avec jsdom. Les tests d'interface ne remplacent pas une revue
-visuelle dans un navigateur.
+CI runs backend tests against PostgreSQL and frontend tests with jsdom.
+Frontend tests do not replace a visual review in a browser.
 
 ```text
-panda_store/       configuration Django, comptes, espaces, registre
-addons/           modules Django + manifestes + interfaces React
-web/              coque React/TypeScript, design et ressources locales
-docs/             architecture, modules, licence et feuille de route
-tests/            tests d'intégration et d'isolation des espaces
-deploy/           proxy local de la démo Compose
+panda_store/       Django configuration, accounts, workspaces and module registry
+addons/           Django modules, manifests and React interfaces
+web/              React/TypeScript shell, design and local assets
+docs/             architecture, module contracts, licensing and roadmap
+tests/            workflow and workspace isolation tests
+deploy/           local Compose reverse proxy
 ```
 
+Detailed technical and policy documents are currently in French:
+
 - [Architecture](docs/architecture.md)
-- [Créer un module](docs/modules.md)
-- [Environnement de développement](docs/development.md)
-- [Contributions](CONTRIBUTING.md)
+- [Module development](docs/modules.md)
+- [Development environment](docs/development.md)
+- [Contributing](CONTRIBUTING.md)
 
-## Licence et offre cloud
+## Licensing and the cloud edition
 
-ELv2 permet notamment l'usage interne et l'auto-hébergement. Elle interdit de
-fournir à des tiers un service hébergé ou géré donnant accès à un ensemble
-substantiel des fonctionnalités du logiciel. Elle **n'interdit pas toute
-activité commerciale**. Le texte de la licence prévaut.
+ELv2 allows internal use and self-hosting. It prohibits providing the software
+to third parties as a hosted or managed service that exposes a substantial set
+of its features. It **does not prohibit all commercial activity**.
+The full licence text governs.
 
-Cette restriction protège le projet d'une reprise en service cloud concurrent.
-Le cloud officiel est prévu, mais n'est pas lancé. Cette édition est
-**source available**, pas open source au sens OSI. Les modalités des
-contributions externes sont en préparation : [détails](docs/licensing.md).
+This restriction protects the project against being repackaged as a competing
+hosted service. An official cloud offering is planned but has not launched.
+This edition is **source available**, not OSI open source. The agreement needed
+for external code contributions is being prepared; see [licensing](docs/licensing.md).
 
-L'organisation modulaire s'inspire d'Odoo ; Panda Store possède son propre code,
-ses interfaces et ses visuels. Aucun code ni visuel Odoo n'est embarqué.
+Odoo inspired the modular organization. Panda Store has its own code, interface
+and visual identity; no Odoo code or visual assets are included.

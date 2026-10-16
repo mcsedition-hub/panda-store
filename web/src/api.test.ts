@@ -15,18 +15,18 @@ describe('session API client', () => {
         headers: expect.objectContaining({ 'X-CSRFToken': 'test-csrf' }),
       }),
     );
-    await expect(api('https://other.example/api/')).rejects.toThrow('Chemin API invalide');
+    await expect(api('https://other.example/api/')).rejects.toThrow('Invalid API path');
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
   it('shows field validation errors and tolerates non-JSON outages', async () => {
     const fetcher = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ error: { goal: ['Le but est requis.'] } }), { status: 400 }),
+        new Response(JSON.stringify({ error: { goal: ['A goal is required.'] } }), { status: 400 }),
       )
       .mockResolvedValueOnce(new Response('<html>Offline</html>', { status: 503 }));
     vi.stubGlobal('fetch', fetcher);
-    await expect(api('/api/example/')).rejects.toThrow('Le but est requis.');
+    await expect(api('/api/example/')).rejects.toThrow('A goal is required.');
     await expect(api('/api/example/')).rejects.toThrow('503');
   });
   it('accepts successful responses with no body', async () => {

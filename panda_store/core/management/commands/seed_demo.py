@@ -28,7 +28,7 @@ class Command(BaseCommand):
             user.save(update_fields=["password"])
         workspace, _ = Workspace.objects.get_or_create(
             pk=DEMO_WORKSPACE_ID,
-            defaults={"name": "Mon atelier"},
+            defaults={"name": "My workshop"},
         )
         Membership.objects.get_or_create(
             user=user,

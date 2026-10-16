@@ -5,29 +5,27 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
     <>
       <div className="page-heading heading-split">
         <div>
-          <span className="eyebrow">VOS APPS, AU MÊME ENDROIT</span>
-          <h1>Tout part de votre app.</h1>
-          <p>Son univers, son public, ses prochaines histoires.</p>
+          <span className="eyebrow">YOUR APPS, ALL TOGETHER</span>
+          <h1>It starts with your app.</h1>
+          <p>Its world. Its people. Its next stories.</p>
         </div>
         <button className="button primary" onClick={() => navigate('apple_store')}>
-          Importer une app <span aria-hidden="true">↗</span>
+          Import an app <span aria-hidden="true">↗</span>
         </button>
       </div>
       {apps.length === 0 ? (
         <section className="welcome-panel">
           <div className="welcome-copy">
-            <span className="small-index">01 / LE POINT DE DÉPART</span>
+            <span className="small-index">01 / A PLACE TO START</span>
             <h2>
-              Une app.
-              <br />
-              Des idées à faire grandir.
+              One app.
+              <br />A world of possibilities.
             </h2>
             <p>
-              Importez votre première application pour retrouver ses métadonnées et préparer un
-              brief dans le Studio.
+              Import your first app to bring its details together and shape a brief in the Studio.
             </p>
             <button className="button dark" onClick={() => navigate('apple_store')}>
-              Choisir une app →
+              Choose an app →
             </button>
           </div>
           <div className="welcome-art" aria-hidden="true">
@@ -43,11 +41,7 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
                   {app.name.charAt(0)}
                 </div>
                 <span className="pill">
-                  {app.is_demo
-                    ? 'App fictive'
-                    : app.platform === 'ios'
-                      ? 'App Store'
-                      : 'Google Play'}
+                  {app.is_demo ? 'Demo app' : app.platform === 'ios' ? 'App Store' : 'Google Play'}
                 </span>
               </div>
               <h2>{app.name}</h2>
@@ -64,29 +58,29 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
                   navigate('studio');
                 }}
               >
-                Ouvrir dans le Studio →
+                Open in Studio →
               </button>
             </article>
           ))}
         </div>
       )}
       <section className="journey">
-        <span className="eyebrow">D’UNE APP À UNE IDÉE</span>
+        <span className="eyebrow">FROM APP TO IDEA</span>
         <div className="journey-steps">
           <div>
             <span>01</span>
-            <h3>Comprendre</h3>
-            <p>Rassembler les informations qui rendent votre app singulière.</p>
+            <h3>Understand</h3>
+            <p>Gather the details that make your app yours.</p>
           </div>
           <div>
             <span>02</span>
-            <h3>Explorer</h3>
-            <p>Définir un public, une intention et plusieurs angles.</p>
+            <h3>Explore</h3>
+            <p>Choose an audience, a goal and a few fresh angles.</p>
           </div>
           <div>
             <span>03</span>
-            <h3>Créer</h3>
-            <p>Relire, affiner et exporter les scripts que vous retenez.</p>
+            <h3>Create</h3>
+            <p>Review, refine and export the scripts you want to use.</p>
           </div>
         </div>
       </section>

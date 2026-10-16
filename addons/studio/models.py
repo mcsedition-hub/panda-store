@@ -10,8 +10,8 @@ from panda_store.core.models import Workspace
 class Brief(models.Model):
     app = models.OneToOneField(MobileApp, on_delete=models.CASCADE, related_name="brief")
     audience = models.CharField(max_length=500, blank=True)
-    goal = models.CharField(max_length=500, default="Donner envie de découvrir l’application.")
-    tone = models.CharField(max_length=80, default="Simple et complice")
+    goal = models.CharField(max_length=500, default="Encourage people to try the app.")
+    tone = models.CharField(max_length=80, default="Clear and friendly")
     updated_at = models.DateTimeField(auto_now=True)
 
 

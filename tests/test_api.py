@@ -129,7 +129,7 @@ def test_generation_edit_approval_export_and_retries(
     export = api.get(url(workspace, f"studio/runs/{run.pk}/export/"))
     assert export.status_code == 200
     assert "Mon nouvel angle" in export.content.decode()
-    assert "à relire" in export.content.decode()
+    assert "needs review" in export.content.decode()
     other = Workspace.objects.create(name="Other owned workspace")
     Membership.objects.create(user=owner, workspace=other, role="owner")
     activate_modules(other, ["studio"])
@@ -151,7 +151,7 @@ def test_broker_failure_is_visible(api, workspace, imported, django_capture_on_c
             api.post(endpoint, {"request_id": str(uuid.uuid4())}, format="json")
     result = api.get(endpoint).data[0]
     assert result["status"] == "failed"
-    assert "indisponible" in result["error"]
+    assert "unavailable" in result["error"]
 
 
 def test_failed_generation_can_be_retried_as_new_run(

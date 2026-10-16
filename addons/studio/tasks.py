@@ -30,6 +30,6 @@ def generate_scripts(run_id):
         logger.exception("Script generation failed for run %s", run.pk)
         GenerationRun.objects.filter(pk=run.pk).update(
             status=GenerationRun.Status.FAILED,
-            error="La génération n’a pas abouti. Vous pouvez lancer une nouvelle tentative.",
+            error="Script generation failed. You can start a new attempt.",
             completed_at=timezone.now(),
         )

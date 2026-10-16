@@ -41,7 +41,7 @@ function CreativeEditor({
       );
       setDraft(next);
       onSave(next);
-      setSaved(approve ? 'Script validé.' : 'Modifications enregistrées.');
+      setSaved(approve ? 'Script approved.' : 'Changes saved.');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -53,14 +53,14 @@ function CreativeEditor({
       <div className="creative-top">
         <span className="creative-number">0{creative.variant}</span>
         <span className={`pill ${draft.approved ? 'approved' : ''}`}>
-          {draft.approved ? 'Validé' : dirty ? 'Modifications en cours' : 'À relire'}
+          {draft.approved ? 'Approved' : dirty ? 'Unsaved changes' : 'Needs review'}
         </span>
       </div>
       <h3>{creative.angle}</h3>
       <label>
-        Accroche
+        Hook
         <textarea
-          aria-label={`Accroche — ${creative.angle}`}
+          aria-label={`Hook — ${creative.angle}`}
           className="hook-input"
           rows={3}
           maxLength={500}
@@ -70,9 +70,9 @@ function CreativeEditor({
         />
       </label>
       <label>
-        Déroulé
+        Script
         <textarea
-          aria-label={`Déroulé — ${creative.angle}`}
+          aria-label={`Script — ${creative.angle}`}
           rows={12}
           maxLength={6000}
           value={draft.script}
@@ -81,9 +81,9 @@ function CreativeEditor({
         />
       </label>
       <label>
-        Appel à l’action
+        Call to action
         <textarea
-          aria-label={`Appel à l’action — ${creative.angle}`}
+          aria-label={`Call to action — ${creative.angle}`}
           rows={2}
           maxLength={300}
           value={draft.cta}
@@ -107,14 +107,14 @@ function CreativeEditor({
           onClick={() => save()}
           disabled={!canWrite || busy || !dirty}
         >
-          {busy ? 'Enregistrement…' : 'Enregistrer'}
+          {busy ? 'Saving…' : 'Save'}
         </button>
         <button
           className="text-button"
           onClick={() => save(true)}
           disabled={!canWrite || busy || dirty || draft.approved}
         >
-          Valider ce script
+          Approve script
         </button>
       </div>
     </article>
@@ -215,8 +215,8 @@ export default function Studio({
         });
         setRuns((old) => [next, ...old]);
         setRunId(next.id);
-        setNotice('Le brief est enregistré.');
-      } else setNotice('Brief enregistré.');
+        setNotice('Your brief is saved.');
+      } else setNotice('Brief saved.');
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -228,10 +228,10 @@ export default function Studio({
       <section className="empty">
         <img src="/modules/studio.webp" alt="" />
         <span className="eyebrow">STUDIO</span>
-        <h1>Une bonne idée a besoin d’un point de départ.</h1>
-        <p>Importez une app pour préparer votre premier brief.</p>
+        <h1>Every good idea starts somewhere.</h1>
+        <p>Import an app to write your first brief.</p>
         <button className="button primary" onClick={() => navigate('apple_store')}>
-          Choisir une app →
+          Choose an app →
         </button>
       </section>
     );
@@ -241,13 +241,13 @@ export default function Studio({
         <div>
           <span className="eyebrow">STUDIO / {selectedApp.name.toUpperCase()}</span>
           <h1>
-            Une app. Trois façons
-            <br className="desktop-break" /> de raconter son histoire.
+            One app. Three ways
+            <br className="desktop-break" /> to tell its story.
           </h1>
-          <p>Posez l’intention, puis travaillez chaque angle à votre façon.</p>
+          <p>Set the direction, then make each angle your own.</p>
         </div>
         <label className="compact-label">
-          Application
+          App
           <select
             value={selectedApp.id}
             disabled={busy || pending}
@@ -267,8 +267,8 @@ export default function Studio({
       <div className="studio-disclosure">
         <span className="signal-dot" />
         <p>
-          <strong>Atelier de démonstration.</strong> Les scripts viennent de modèles de rédaction,
-          sans appel IA ni recherche concurrentielle. Ils restent à adapter et à vérifier.
+          <strong>Demo workshop.</strong> These scripts use writing templates, without AI or
+          competitor research. Adapt and review them before use.
         </p>
       </div>
       {error && (
@@ -277,15 +277,15 @@ export default function Studio({
         </p>
       )}
       {loading ? (
-        <p role="status">Préparation du Studio…</p>
+        <p role="status">Getting the Studio ready…</p>
       ) : loadFailed ? (
-        <p>Le brief n’a pas pu être chargé. Rouvrez le module pour réessayer.</p>
+        <p>We could not load the brief. Reopen this module to try again.</p>
       ) : (
         <>
           <section className="brief-panel">
             <div className="brief-intro">
-              <span className="small-index">01 / LE BRIEF</span>
-              <h2>À qui parle-t-on ?</h2>
+              <span className="small-index">01 / THE BRIEF</span>
+              <h2>Who are we talking to?</h2>
               <p>{selectedApp.metadata?.data.subtitle}</p>
               <div className="feature-tags">
                 {selectedApp.metadata?.data.features.map((feature) => (
@@ -301,7 +301,7 @@ export default function Studio({
               }}
             >
               <label>
-                Le public
+                Audience
                 <textarea
                   name="audience"
                   rows={2}
@@ -313,7 +313,7 @@ export default function Studio({
               </label>
               <div className="brief-fields">
                 <label>
-                  L’intention
+                  Goal
                   <input
                     name="goal"
                     required
@@ -324,7 +324,7 @@ export default function Studio({
                   />
                 </label>
                 <label>
-                  Le ton
+                  Tone
                   <input
                     name="tone"
                     required
@@ -341,7 +341,7 @@ export default function Studio({
                   className="button primary"
                   disabled={!canWrite || busy || pending || !demoMode}
                 >
-                  {busy || pending ? 'Préparation en cours…' : 'Préparer trois pistes →'}
+                  {busy || pending ? 'Preparing your scripts…' : 'Create three directions →'}
                 </button>
                 <button
                   type="button"
@@ -349,7 +349,7 @@ export default function Studio({
                   disabled={!canWrite || busy}
                   onClick={() => submit(false)}
                 >
-                  Enregistrer le brief
+                  Save brief
                 </button>
               </div>
               {notice && (
@@ -362,22 +362,22 @@ export default function Studio({
           <section className="results">
             <div className="results-heading">
               <div>
-                <span className="small-index">02 / LES PISTES</span>
-                <h2>{run ? 'De quoi commencer.' : 'La suite s’écrit ici.'}</h2>
+                <span className="small-index">02 / THE DIRECTIONS</span>
+                <h2>{run ? 'Something to work with.' : 'Your next chapter starts here.'}</h2>
               </div>
               <div className="results-tools">
                 {runs.length > 1 && (
                   <label>
                     Session
                     <select
-                      aria-label="Session de création"
+                      aria-label="Creative session"
                       value={run?.id}
                       onChange={(e) => setRunId(e.target.value)}
                     >
                       {runs.map((item, index) => (
                         <option key={item.id} value={item.id}>
                           Session {runs.length - index} ·{' '}
-                          {new Date(item.created_at).toLocaleDateString('fr-FR')}
+                          {new Date(item.created_at).toLocaleDateString('en-US')}
                         </option>
                       ))}
                     </select>
@@ -388,7 +388,7 @@ export default function Studio({
                     className="button secondary"
                     href={moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`)}
                   >
-                    Exporter les scripts ↓
+                    Export scripts ↓
                   </a>
                 )}
               </div>
@@ -396,14 +396,14 @@ export default function Studio({
             {!run && (
               <div className="results-empty">
                 <p>
-                  Votre brief donnera naissance à trois angles : le déclic, la démonstration et le
-                  point de vue du créateur.
+                  Your brief becomes three directions: a small first step, a walkthrough and the
+                  creator’s story.
                 </p>
               </div>
             )}
             {pending && (
               <p className="notice" role="status">
-                Les trois pistes sont en préparation. Vous pourrez les retrouver dans cet espace.
+                Your three directions are taking shape. They will be saved in this workspace.
               </p>
             )}
             {run?.status === 'failed' && (

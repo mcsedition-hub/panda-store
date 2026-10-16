@@ -13,11 +13,11 @@ def workspace_access(user, workspace_id, *, write=False, owner=False, module=Non
         workspace_id=workspace_id,
     )
     if owner and membership.role != Membership.Role.OWNER:
-        raise PermissionDenied("Seul le propriétaire peut gérer les modules.")
+        raise PermissionDenied("Only the workspace owner can manage modules.")
     if write and membership.role == Membership.Role.VIEWER:
-        raise PermissionDenied("Ce compte dispose d’un accès en lecture seule.")
+        raise PermissionDenied("This account has read-only access.")
     if module and not membership.workspace.modules.filter(module_id=module).exists():
-        raise PermissionDenied("Ce module n’est pas activé dans cet espace.")
+        raise PermissionDenied("This module is not enabled in this workspace.")
     return membership.workspace
 
 
@@ -40,7 +40,7 @@ def deactivate_module(workspace, module_id):
     registry = get_registry()
     module = registry.modules.get(module_id)
     if module is None or module.required:
-        raise ValidationError("Ce module ne peut pas être désactivé.")
+        raise ValidationError("This module cannot be disabled.")
     enabled = set(workspace.modules.values_list("module_id", flat=True))
     dependents = [m for m in enabled if m != module_id and module_id in registry.resolve([m])]
     if dependents:

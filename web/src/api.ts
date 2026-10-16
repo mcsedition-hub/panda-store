@@ -7,11 +7,11 @@ function errorText(value: unknown): string {
   if (typeof value === 'string') return value;
   if (Array.isArray(value)) return value.map(errorText).join(' ');
   if (value && typeof value === 'object') return Object.values(value).map(errorText).join(' ');
-  return 'La requête n’a pas abouti. Réessayez.';
+  return 'The request could not be completed. Please try again.';
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
-  if (!path.startsWith('/api/')) throw new Error('Chemin API invalide.');
+  if (!path.startsWith('/api/')) throw new Error('Invalid API path.');
   const response = await fetch(path, {
     ...options,
     credentials: 'same-origin',
@@ -20,7 +20,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (!response.ok) {
     const data = await response.json().catch(() => null);
     throw new Error(
-      data ? errorText(data.error ?? data) : `Service indisponible (${response.status}).`,
+      data ? errorText(data.error ?? data) : `Service unavailable (${response.status}).`,
     );
   }
   return response.status === 204 ? (undefined as T) : response.json();

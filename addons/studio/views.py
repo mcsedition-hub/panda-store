@@ -27,8 +27,8 @@ def default_brief(app):
     snapshot = app.snapshots.first()
     return {
         "audience": snapshot.data.get("audience", "") if snapshot else "",
-        "goal": "Donner envie de découvrir l’application.",
-        "tone": "Simple et complice",
+        "goal": "Encourage people to try the app.",
+        "tone": "Clear and friendly",
     }
 
 
@@ -50,12 +50,12 @@ def runs(request, workspace_id, app_id):
     if request.method == "GET":
         return Response(RunSerializer(app.runs.prefetch_related("creatives")[:20], many=True).data)
     if not settings.PANDA_DEMO_MODE:
-        raise PermissionDenied("Le fournisseur de démonstration est désactivé.")
+        raise PermissionDenied("The demo provider is disabled.")
     serializer = GenerateRequest(data=request.data)
     serializer.is_valid(raise_exception=True)
     snapshot = app.snapshots.first()
     if snapshot is None:
-        raise ValidationError("Importez les métadonnées avant de créer des scripts.")
+        raise ValidationError("Import app metadata before creating scripts.")
     saved_brief = Brief.objects.filter(app=app).first()
     brief_data = BriefSerializer(saved_brief).data if saved_brief else default_brief(app)
     inputs = {"metadata": snapshot.data, "snapshot_id": str(snapshot.pk), "brief": brief_data}
@@ -66,7 +66,7 @@ def runs(request, workspace_id, app_id):
             defaults={"app": app, "inputs": inputs, "created_by": request.user},
         )
         if run.app_id != app.id or run.inputs != inputs:
-            return Response({"error": "Cet identifiant de requête a déjà été utilisé."}, status=409)
+            return Response({"error": "This request ID has already been used."}, status=409)
         if created:
 
             def dispatch():
@@ -76,7 +76,7 @@ def runs(request, workspace_id, app_id):
                     logger.exception("Could not enqueue run %s", run.pk)
                     GenerationRun.objects.filter(pk=run.pk).update(
                         status=GenerationRun.Status.FAILED,
-                        error="Le service de tâches est indisponible. Réessayez plus tard.",
+                        error="The task service is unavailable. Please try again later.",
                     )
 
             transaction.on_commit(dispatch)
@@ -109,18 +109,18 @@ def export_run(request, workspace_id, run_id):
         workspace=workspace,
         status=GenerationRun.Status.SUCCEEDED,
     )
-    lines = [f"# {run.app.name} — scripts", "", "Mode démonstration : modèles, sans appel IA.", ""]
+    lines = [f"# {run.app.name} — scripts", "", "Demo mode: writing templates, no AI calls.", ""]
     for creative in run.creatives.all():
         lines += [
             f"## {creative.variant}. {creative.angle}",
             "",
-            f"Hook : {creative.hook}",
+            f"Hook: {creative.hook}",
             "",
             creative.script,
             "",
-            f"Appel à l’action : {creative.cta}",
+            f"Call to action: {creative.cta}",
             "",
-            f"Validation : {'validé' if creative.approved else 'à relire'}",
+            f"Review: {'approved' if creative.approved else 'needs review'}",
             "",
         ]
     response = HttpResponse("\n".join(lines), content_type="text/markdown; charset=utf-8")

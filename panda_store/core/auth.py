@@ -34,10 +34,10 @@ def sign_in(request):
         if len(username) > 150 or len(password) > 1024:
             raise ValueError
     except (ValueError, AttributeError):
-        return JsonResponse({"error": "Identifiants invalides."}, status=400)
+        return JsonResponse({"error": "Invalid credentials."}, status=400)
     user = authenticate(request, username=username, password=password)
     if user is None:
-        return JsonResponse({"error": "Identifiant ou mot de passe incorrect."}, status=401)
+        return JsonResponse({"error": "Incorrect username or password."}, status=401)
     login(request, user)
     return JsonResponse(
         {
