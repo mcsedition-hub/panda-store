@@ -19,7 +19,8 @@ Elle n'appelle ni Apple, ni Google, ni une IA et ne publie aucun contenu.
 
 ## Ce qui fonctionne
 
-- Connexion par session, espaces de travail et rôles propriétaire/éditeur/lecteur.
+- Accès direct à la console locale, espaces de travail et rôles propriétaire/éditeur/lecteur.
+- Connexion par session facultative pour les installations utilisant des comptes.
 - Registre de modules avec dépendances, compatibilité et activation par espace.
 - Catalogue de deux apps fictives, import persistant et historique des métadonnées.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
@@ -53,10 +54,18 @@ Dans deux terminaux :
 npm --prefix web run dev
 ```
 
-Ouvrir **http://127.0.0.1:5173**. L'identifiant se trouve dans
-`PANDA_DEMO_USERNAME` et le mot de passe dans `PANDA_DEMO_PASSWORD` du fichier
-local `.env`. Le script crée des secrets aléatoires une seule fois ; ce fichier
-n'est pas versionné. Il ne faut jamais le publier.
+Ouvrir **http://127.0.0.1:5173** : la console affiche directement l'espace de travail,
+sans écran de connexion. La configuration locale active `PANDA_LOCAL_ACCESS=true`
+et utilise le compte créé par `seed_demo`. Les imports et modifications sont enregistrés.
+Pour une installation existante, ajouter cette variable à `.env` et redémarrer Django.
+Le script conserve les fichiers `.env` existants et ne crée les secrets aléatoires
+qu'au premier lancement. Ce fichier n'est pas versionné ; ne jamais le publier.
+
+L'accès local est destiné à une installation individuelle liée à localhost : toute
+personne pouvant l'atteindre peut entrer dans l'espace configuré. Pour demander
+une connexion, définir `PANDA_LOCAL_ACCESS=false` puis utiliser les identifiants
+`PANDA_DEMO_USERNAME` / `PANDA_DEMO_PASSWORD` de `.env`. Les sessions Django,
+les rôles et la protection CSRF s'appliquent dans les deux modes.
 
 Choisir **Connections**, importer **Runclub**, puis ouvrir le **Studio** pour
 préparer trois pistes. L'espace initial est vide pour tester le vrai parcours
@@ -72,7 +81,8 @@ python3 scripts/bootstrap.py
 docker compose up --build
 ```
 
-Ouvrir **http://127.0.0.1:8080** avec les mêmes identifiants de `.env`.
+Ouvrir **http://127.0.0.1:8080** : avec la configuration locale par défaut,
+la console s'ouvre directement.
 Cette variante utilise PostgreSQL, Redis, un worker Celery, Django et Nginx.
 La base est distincte de la base SQLite locale. `docker compose down` conserve
 les données dans les volumes. L'option `--volumes` les supprimerait.

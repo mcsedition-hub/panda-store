@@ -27,6 +27,8 @@ le backend et le frontend avant de proposer la mise à jour.
 | DJANGO_CSRF_TRUSTED_ORIGINS | Origines autorisées pour le développement |
 | DATABASE_URL | SQLite local ou PostgreSQL |
 | PANDA_DEMO_MODE | Autorise les données fictives et modèles locaux |
+| PANDA_LOCAL_ACCESS | Accès direct sans formulaire de connexion, activé dans l'installation locale |
+| PANDA_LOCAL_USERNAME | Compte utilisé pour l'accès direct ; par défaut PANDA_DEMO_USERNAME |
 | PANDA_DEMO_USERNAME / PASSWORD | Compte créé par seed_demo, sans reset ultérieur |
 | PANDA_MODULE_PACKAGES | Liste complète des apps de modules installées |
 | CELERY_TASK_ALWAYS_EAGER | Exécution synchrone pour le développement |

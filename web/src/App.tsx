@@ -8,6 +8,7 @@ interface Session {
   csrf_token: string;
   demo_mode: boolean;
   preview_mode?: boolean;
+  local_access?: boolean;
 }
 
 function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: boolean }) {
@@ -181,13 +182,33 @@ export default function App() {
   const selectedApp = apps.find((a) => a.id === selectedId) ?? apps[0] ?? null;
 
   useEffect(() => {
-    api<Session>('/api/session/')
-      .then((data) => {
+    let active = true;
+    const controller = new AbortController();
+    async function openWorkshop() {
+      try {
+        let data = await api<Session>('/api/session/', { signal: controller.signal });
+        if (!active) return;
         setCsrfToken(data.csrf_token);
+        if (data.local_access && !data.user) {
+          data = await api<Session>('/api/session/local/', {
+            method: 'POST',
+            signal: controller.signal,
+          });
+          if (!active) return;
+          setCsrfToken(data.csrf_token);
+        }
         setSession(data);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      } catch (err) {
+        if (active) setError((err as Error).message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void openWorkshop();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, []);
   useEffect(() => {
     if (!session?.user) return;
@@ -335,8 +356,10 @@ export default function App() {
                 {session.preview_mode ? 'Visual preview' : 'Demo mode'}
               </span>
             )}
-            <span className="user-name">{session.user.username}</span>
-            {!session.preview_mode && (
+            <span className="user-name">
+              {session.local_access ? 'Local workspace' : session.user.username}
+            </span>
+            {!session.preview_mode && !session.local_access && (
               <button className="text-button" onClick={signOut}>
                 Sign out
               </button>

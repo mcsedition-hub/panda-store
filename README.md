@@ -19,7 +19,8 @@ provider, and does not publish content.
 
 ## What works
 
-- Session-based sign-in, workspaces and owner/editor/viewer roles.
+- Direct access to the local console, workspaces and owner/editor/viewer roles.
+- Optional session-based sign-in for installations that require accounts.
 - A module registry with dependencies, compatibility checks and per-workspace activation.
 - Two fictional apps, persistent imports and a history of metadata snapshots.
 - Editable briefs and three script variants built from local writing templates.
@@ -53,9 +54,17 @@ Start the backend and frontend in separate terminals:
 npm --prefix web run dev
 ```
 
-Open **http://127.0.0.1:5173**. Use `PANDA_DEMO_USERNAME` and
-`PANDA_DEMO_PASSWORD` from your local `.env` file. The bootstrap script generates
-random secrets once. The file is excluded from Git; never publish it.
+Open **http://127.0.0.1:5173**. The console opens directly into your workspace,
+without a sign-in screen. The local setup enables `PANDA_LOCAL_ACCESS=true`
+and uses the account created by `seed_demo`; imports and edits are saved normally.
+For an existing installation, add this setting to `.env` and restart Django.
+The bootstrap script preserves existing `.env` files and generates random secrets
+only on first setup. The file is excluded from Git; never publish it.
+
+Local access is for a single-user installation bound to localhost: anyone who can
+reach it can enter the configured workspace. To require accounts, set
+`PANDA_LOCAL_ACCESS=false` and use `PANDA_DEMO_USERNAME` / `PANDA_DEMO_PASSWORD`
+from `.env`. Django sessions, workspace roles and CSRF protection apply in both modes.
 
 Choose **Connections**, import **Runclub**, then use the **Studio** to create
 three directions. The initial workspace is empty so you can try the actual import
@@ -71,7 +80,7 @@ python3 scripts/bootstrap.py
 docker compose up --build
 ```
 
-Open **http://127.0.0.1:8080** using the same credentials from `.env`.
+Open **http://127.0.0.1:8080**. With the default local setup, the console opens directly.
 This configuration uses PostgreSQL, Redis, a Celery worker, Django and Nginx.
 Its database is separate from the local SQLite database. `docker compose down`
 preserves data volumes; adding `--volumes` would delete them.

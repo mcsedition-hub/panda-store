@@ -18,7 +18,7 @@ def main():
         return
     with os.fdopen(descriptor, "w") as file:
         file.write(content)
-    print("Created .env with random secrets. Local login: PANDA_DEMO_USERNAME/PASSWORD in .env.")
+    print("Created .env with random secrets. The local console opens without a sign-in screen.")
 
 
 if __name__ == "__main__":
