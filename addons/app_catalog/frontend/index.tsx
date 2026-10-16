@@ -29,7 +29,7 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
             </button>
           </div>
           <div className="welcome-art" aria-hidden="true">
-            <img src="/modules/connexions.webp" alt="" />
+            <img src="/modules/applications.webp" alt="" />
           </div>
         </section>
       ) : (

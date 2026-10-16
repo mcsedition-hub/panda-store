@@ -6,7 +6,7 @@
   "depends": {},
   "required": true,
   "family": "frost",
-  "icon": "connexions",
+  "icon": "applications",
   "description": "Your shared catalog of apps and their store metadata.",
   "capabilities": [
     "apps.read",
