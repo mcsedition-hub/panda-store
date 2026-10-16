@@ -7,6 +7,7 @@ interface Session {
   user: { id: string; username: string } | null;
   csrf_token: string;
   demo_mode: boolean;
+  preview_mode?: boolean;
 }
 
 function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: boolean }) {
@@ -329,14 +330,26 @@ export default function App() {
             {current === 'modules' ? 'Modules' : (activeModule?.name ?? 'Loading')}
           </span>
           <div className="topbar-right">
-            {session.demo_mode && <span className="demo-tag">Demo mode</span>}
+            {session.demo_mode && (
+              <span className="demo-tag">
+                {session.preview_mode ? 'Visual preview' : 'Demo mode'}
+              </span>
+            )}
             <span className="user-name">{session.user.username}</span>
-            <button className="text-button" onClick={signOut}>
-              Sign out
-            </button>
+            {!session.preview_mode && (
+              <button className="text-button" onClick={signOut}>
+                Sign out
+              </button>
+            )}
           </div>
         </header>
         <main id="main" className="main-content">
+          {session.preview_mode && (
+            <p className="notice" role="status">
+              Visual preview · fictional apps and sample scripts. Read-only; no account or store
+              connection.
+            </p>
+          )}
           {error && (
             <p className="error" role="alert">
               {error}
@@ -362,6 +375,7 @@ export default function App() {
                 navigate={setCurrent}
                 refreshApps={refreshApps}
                 demoMode={session.demo_mode}
+                previewMode={session.preview_mode}
               />
             </Suspense>
           )}

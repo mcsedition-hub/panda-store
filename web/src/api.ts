@@ -12,6 +12,12 @@ function errorText(value: unknown): string {
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!path.startsWith('/api/')) throw new Error('Invalid API path.');
+  // An explicit local visual preview uses fictional, read-only fixtures.
+  // Vite removes this branch and its dynamic import from production builds.
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('preview') === '1') {
+    const { previewApi } = await import('./preview/api');
+    return previewApi<T>(path, options);
+  }
   const response = await fetch(path, {
     ...options,
     credentials: 'same-origin',

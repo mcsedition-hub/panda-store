@@ -46,6 +46,7 @@ export interface ModuleProps {
   navigate: (module: string) => void;
   refreshApps: () => Promise<void>;
   demoMode: boolean;
+  previewMode?: boolean;
 }
 export interface Creative {
   id: string;

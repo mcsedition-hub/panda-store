@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/brand/logo-dark.svg">
+    <img src="web/public/brand/logo-light.svg" alt="Panda Store" width="380">
+  </picture>
+</p>
+
 # Panda Store
 
 A modular workshop to grow your mobile apps.
@@ -71,6 +78,13 @@ preserves data volumes; adding `--volumes` would delete them.
 
 Compose is limited to localhost and demo mode. This is not a production
 configuration. Read [SECURITY.md](SECURITY.md) for current limitations.
+
+### Visual preview without the backend
+
+For a read-only look at the interface, start `npm --prefix web run dev` and open
+**http://127.0.0.1:5173/?preview=1**. This explicit development-only preview uses
+fictional apps and sample scripts. It makes no backend requests and cannot save,
+import, generate or publish anything. Production builds exclude this preview.
 
 ## Development checks
 

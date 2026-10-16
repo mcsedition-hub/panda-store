@@ -128,6 +128,7 @@ export default function Studio({
   selectApp,
   navigate,
   demoMode,
+  previewMode,
 }: ModuleProps) {
   const [brief, setBrief] = useState<Brief>({
     audience: '',
@@ -383,7 +384,7 @@ export default function Studio({
                     </select>
                   </label>
                 )}
-                {run?.status === 'succeeded' && (
+                {run?.status === 'succeeded' && !previewMode && (
                   <a
                     className="button secondary"
                     href={moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`)}

@@ -1,0 +1,98 @@
+[
+  {
+    "app_id": "demo.runclub",
+    "brief": {
+      "audience": "People who want to get back into running and build a lasting routine.",
+      "goal": "Encourage people to try the app.",
+      "tone": "Clear and friendly"
+    },
+    "run": {
+      "id": "sample-demo.runclub",
+      "status": "succeeded",
+      "provider": "demo_templates",
+      "error": "",
+      "created_at": "2026-10-16T12:00:00Z",
+      "completed_at": "2026-10-16T12:00:00Z",
+      "creatives": [
+        {
+          "variant": 1,
+          "angle": "The small first step",
+          "hook": "What if getting started is the hardest part? Meet Runclub.",
+          "script": "Audience: People who want to get back into running and build a lasting routine.\nGoal: Encourage people to try the app.\nTone to aim for: Clear and friendly\n\n0–3 s · Open with an everyday moment your audience recognizes.\n3–12 s · Open Runclub and show: Gradual training plans.\n12–20 s · Show one action from start to finish using real screen footage.\n20–25 s · Close with the first small step someone can take in the app.\n\nShot list: a familiar situation, a screen recording, a closing piece to camera.",
+          "cta": "Discover Runclub and take your first step.",
+          "id": "sample-demo.runclub-1",
+          "approved": false,
+          "updated_at": "2026-10-16T12:00:00Z"
+        },
+        {
+          "variant": 2,
+          "angle": "The walkthrough",
+          "hook": "Here is what you can actually do with Runclub.",
+          "script": "Audience: People who want to get back into running and build a lasting routine.\nGoal: Encourage people to try the app.\nTone to aim for: Clear and friendly\n\n0–3 s · Preview the result you will demonstrate, without invented stats.\n3–10 s · Show how to get started with Gradual training plans.\n10–18 s · Move on to Challenges with friends and explain why it helps.\n18–25 s · Return to the result and give viewers a moment to take it in.\n\nShot list: a continuous app recording, a voiceover and captions.",
+          "cta": "Try it for yourself with Runclub.",
+          "id": "sample-demo.runclub-2",
+          "approved": false,
+          "updated_at": "2026-10-16T12:00:00Z"
+        },
+        {
+          "variant": 3,
+          "angle": "The creator’s story",
+          "hook": "Why build Runclub? It started with a simple need.",
+          "script": "Audience: People who want to get back into running and build a lasting routine.\nGoal: Encourage people to try the app.\nTone to aim for: Clear and friendly\n\n0–4 s · The creator describes a problem they actually experienced.\n4–12 s · Connect that need to Gradual training plans, using a specific example.\n12–20 s · Show Runclub in use and explain a design choice or a limitation.\n20–30 s · Invite viewers to try it and share their feedback.\n\nShot list: a piece to camera, an app recording and a behind-the-scenes detail. Do not present an actor as a real customer.",
+          "cta": "Try Runclub and tell us what you think.",
+          "id": "sample-demo.runclub-3",
+          "approved": false,
+          "updated_at": "2026-10-16T12:00:00Z"
+        }
+      ]
+    }
+  },
+  {
+    "app_id": "demo.pause",
+    "brief": {
+      "audience": "People who want to take regular breaks during their day.",
+      "goal": "Encourage people to try the app.",
+      "tone": "Clear and friendly"
+    },
+    "run": {
+      "id": "sample-demo.pause",
+      "status": "succeeded",
+      "provider": "demo_templates",
+      "error": "",
+      "created_at": "2026-10-16T12:00:00Z",
+      "completed_at": "2026-10-16T12:00:00Z",
+      "creatives": [
+        {
+          "variant": 1,
+          "angle": "The small first step",
+          "hook": "What if getting started is the hardest part? Meet Pause.",
+          "script": "Audience: People who want to take regular breaks during their day.\nGoal: Encourage people to try the app.\nTone to aim for: Clear and friendly\n\n0–3 s · Open with an everyday moment your audience recognizes.\n3–12 s · Open Pause and show: Guided breaks.\n12–20 s · Show one action from start to finish using real screen footage.\n20–25 s · Close with the first small step someone can take in the app.\n\nShot list: a familiar situation, a screen recording, a closing piece to camera.",
+          "cta": "Discover Pause and take your first step.",
+          "id": "sample-demo.pause-1",
+          "approved": false,
+          "updated_at": "2026-10-16T12:00:00Z"
+        },
+        {
+          "variant": 2,
+          "angle": "The walkthrough",
+          "hook": "Here is what you can actually do with Pause.",
+          "script": "Audience: People who want to take regular breaks during their day.\nGoal: Encourage people to try the app.\nTone to aim for: Clear and friendly\n\n0–3 s · Preview the result you will demonstrate, without invented stats.\n3–10 s · Show how to get started with Guided breaks.\n10–18 s · Move on to Personal journal and explain why it helps.\n18–25 s · Return to the result and give viewers a moment to take it in.\n\nShot list: a continuous app recording, a voiceover and captions.",
+          "cta": "Try it for yourself with Pause.",
+          "id": "sample-demo.pause-2",
+          "approved": false,
+          "updated_at": "2026-10-16T12:00:00Z"
+        },
+        {
+          "variant": 3,
+          "angle": "The creator’s story",
+          "hook": "Why build Pause? It started with a simple need.",
+          "script": "Audience: People who want to take regular breaks during their day.\nGoal: Encourage people to try the app.\nTone to aim for: Clear and friendly\n\n0–4 s · The creator describes a problem they actually experienced.\n4–12 s · Connect that need to Guided breaks, using a specific example.\n12–20 s · Show Pause in use and explain a design choice or a limitation.\n20–30 s · Invite viewers to try it and share their feedback.\n\nShot list: a piece to camera, an app recording and a behind-the-scenes detail. Do not present an actor as a real customer.",
+          "cta": "Try Pause and tell us what you think.",
+          "id": "sample-demo.pause-3",
+          "approved": false,
+          "updated_at": "2026-10-16T12:00:00Z"
+        }
+      ]
+    }
+  }
+]

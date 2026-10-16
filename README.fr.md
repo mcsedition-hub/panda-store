@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/brand/logo-dark.svg">
+    <img src="web/public/brand/logo-light.svg" alt="Panda Store" width="380">
+  </picture>
+</p>
+
 # Panda Store
 
 [English README](README.md). L’anglais est la langue par défaut du produit.
