@@ -2,12 +2,14 @@ import json
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import User
+from .onboarding import SetupSerializer, configure_installation, setup_available
 
 
 def session_response(request):
@@ -19,7 +21,7 @@ def session_response(request):
             else None,
             "csrf_token": get_token(request),
             "demo_mode": settings.PANDA_DEMO_MODE,
-            "local_access": settings.PANDA_LOCAL_ACCESS,
+            "setup_required": setup_available(),
         }
     )
 
@@ -31,22 +33,22 @@ def session(request):
 
 @require_POST
 @csrf_protect
-def enter_local_workspace(request):
-    if not settings.PANDA_LOCAL_ACCESS:
-        return JsonResponse({"error": "Local access is disabled."}, status=403)
-    if request.user.is_authenticated:
-        return session_response(request)
-    # Reuse the configured workspace account, never an arbitrary user or admin.
-    user = User.objects.filter(
-        username=settings.PANDA_LOCAL_USERNAME,
-        is_active=True,
-        is_staff=False,
-        is_superuser=False,
-    ).first()
-    if user is None:
+def setup(request):
+    if not setup_available():
+        return JsonResponse({"error": "Setup is unavailable or already complete."}, status=409)
+    try:
+        data = json.loads(request.body)
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({"error": "Invalid setup details."}, status=400)
+    serializer = SetupSerializer(data=data)
+    if not serializer.is_valid():
+        return JsonResponse({"error": serializer.errors}, status=400)
+    try:
+        user = configure_installation(serializer.validated_data)
+    except (IntegrityError, ValidationError):
         return JsonResponse(
-            {"error": "The local workspace is not ready. Run python manage.py seed_demo."},
-            status=503,
+            {"error": "Setup has changed or is already complete. Refresh to continue."},
+            status=409,
         )
     login(request, user, backend="django.contrib.auth.backends.ModelBackend")
     return session_response(request)

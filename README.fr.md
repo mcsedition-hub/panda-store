@@ -19,8 +19,8 @@ Elle n'appelle ni Apple, ni Google, ni une IA et ne publie aucun contenu.
 
 ## Ce qui fonctionne
 
-- Accès direct à la console locale, espaces de travail et rôles propriétaire/éditeur/lecteur.
-- Connexion par session facultative pour les installations utilisant des comptes.
+- Configuration initiale de l'organisation et du propriétaire, puis accès à la console.
+- Sessions persistantes, espaces de travail et rôles propriétaire/éditeur/lecteur.
 - Registre de modules avec dépendances, compatibilité et activation par espace.
 - Catalogue de deux apps fictives, import persistant et historique des métadonnées.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
@@ -40,7 +40,6 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
 .venv/bin/python scripts/bootstrap.py
 .venv/bin/python manage.py migrate
-.venv/bin/python manage.py seed_demo
 npm --prefix web ci
 ```
 
@@ -54,18 +53,19 @@ Dans deux terminaux :
 npm --prefix web run dev
 ```
 
-Ouvrir **http://127.0.0.1:5173** : la console affiche directement l'espace de travail,
-sans écran de connexion. La configuration locale active `PANDA_LOCAL_ACCESS=true`
-et utilise le compte créé par `seed_demo`. Les imports et modifications sont enregistrés.
-Pour une installation existante, ajouter cette variable à `.env` et redémarrer Django.
-Le script conserve les fichiers `.env` existants et ne crée les secrets aléatoires
-qu'au premier lancement. Ce fichier n'est pas versionné ; ne jamais le publier.
+Ouvrir **http://127.0.0.1:5173**. Au premier lancement, nommer l'organisation puis
+choisir un identifiant, un e-mail et un mot de passe. L'organisation et le compte
+sont enregistrés dans la base de cette installation ; le mot de passe est haché.
+La console s'ouvre immédiatement. Elle s'ouvre aussi directement lors des visites
+suivantes tant que la session est valide. Après déconnexion ou expiration, utiliser
+les identifiants choisis. Aucun compte cloud ni envoi d'e-mail n'intervient.
 
-L'accès local est destiné à une installation individuelle liée à localhost : toute
-personne pouvant l'atteindre peut entrer dans l'espace configuré. Pour demander
-une connexion, définir `PANDA_LOCAL_ACCESS=false` puis utiliser les identifiants
-`PANDA_DEMO_USERNAME` / `PANDA_DEMO_PASSWORD` de `.env`. Les sessions Django,
-les rôles et la protection CSRF s'appliquent dans les deux modes.
+La configuration locale active `PANDA_SETUP_ENABLED=true`. La configuration initiale
+ne peut être validée qu'une fois. Pour mettre à jour une ancienne alpha, ajouter cette
+variable à `.env` puis appliquer les migrations : l'unique espace de démo peut être
+repris et renommé sans perdre ses apps. Les installations avec d'autres comptes
+conservent leur connexion habituelle. Le script préserve les `.env` existants ;
+ce fichier contient des secrets et ne doit jamais être publié.
 
 Choisir **Connections**, importer **Runclub**, puis ouvrir le **Studio** pour
 préparer trois pistes. L'espace initial est vide pour tester le vrai parcours
@@ -81,8 +81,7 @@ python3 scripts/bootstrap.py
 docker compose up --build
 ```
 
-Ouvrir **http://127.0.0.1:8080** : avec la configuration locale par défaut,
-la console s'ouvre directement.
+Ouvrir **http://127.0.0.1:8080** et suivre la même configuration initiale.
 Cette variante utilise PostgreSQL, Redis, un worker Celery, Django et Nginx.
 La base est distincte de la base SQLite locale. `docker compose down` conserve
 les données dans les volumes. L'option `--volumes` les supprimerait.

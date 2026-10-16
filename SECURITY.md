@@ -9,13 +9,19 @@ par espace, les secrets locaux aléatoires et la validation des manifestes.
 Le proxy Compose limite les tentatives sur la connexion ; `runserver` n'inclut
 pas cette limitation. Le compte de démo n'est pas un administrateur Django.
 
-La configuration locale fournie active `PANDA_LOCAL_ACCESS=true` : l'interface
-ouvre automatiquement une session pour le compte local non administrateur.
-Ce mode donne accès à toute personne pouvant joindre l'installation ; conserver
-la liaison à localhost fournie par Vite, runserver et le port publié de Compose.
-Définir `PANDA_LOCAL_ACCESS=false` pour exiger les identifiants. Sans configuration
-explicite, l'accès direct est désactivé. Son ouverture utilise un POST protégé
-par CSRF et les opérations conservent les contrôles de rôle et d'espace.
+La configuration locale active `PANDA_SETUP_ENABLED=true` pour créer une organisation
+et son propriétaire au premier lancement. Conserver la liaison à localhost fournie
+par Vite, runserver et Compose : le premier visiteur peut configurer une installation
+vide. L'assistant est protégé par CSRF ; une transaction et un enregistrement unique
+empêchent une seconde configuration. Seul l'ancien compte de démo non administrateur,
+isolé dans son espace prédéfini, peut être repris ; les autres bases avec des comptes
+existants ne peuvent pas être réinitialisées par cet assistant.
+
+Le mot de passe passe par les validateurs et le hachage Django. Le propriétaire de
+l'espace n'est pas un administrateur Django. Après configuration, les sessions,
+les rôles et l'isolation des espaces restent requis. L'ancienne ouverture automatique
+sans mot de passe a été retirée. L'e-mail reste local, sans vérification ni récupération
+de mot de passe par e-mail à ce stade.
 
 Avant une offre publique : HTTPS et cookies sécurisés, stockage des secrets,
 gestion des invitations/révocations, limitation distribuée des requêtes,

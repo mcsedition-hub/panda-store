@@ -336,6 +336,109 @@ strong {
   font-size: 12px;
   color: var(--muted);
 }
+.setup-story {
+  gap: 36px;
+}
+.setup-story .login-editorial h1 {
+  font-size: clamp(40px, 4.6vw, 68px);
+}
+.setup-art {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 30px;
+}
+.setup-art img {
+  width: 116px;
+  height: 116px;
+  object-fit: contain;
+}
+.setup-art img + img {
+  width: 134px;
+  height: 134px;
+  transform: rotate(-6deg);
+}
+.setup-form-wrap {
+  max-width: 440px;
+}
+.setup-form-wrap h2 {
+  font-size: clamp(30px, 3vw, 42px);
+}
+.setup-progress {
+  display: flex;
+  gap: 28px;
+  padding: 0;
+  margin: 0 0 46px;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.setup-progress li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.setup-progress li[aria-current],
+.setup-progress li.done {
+  color: var(--ink);
+}
+.setup-progress span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+.setup-progress li[aria-current] span {
+  background: var(--ink);
+  color: var(--opal);
+  border-color: var(--ink);
+}
+.setup-progress li.done span {
+  background: var(--frost);
+}
+.setup-passwords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.setup-form-wrap .field-hint {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: -10px;
+}
+.setup-back {
+  align-self: center;
+}
+.setup-form-wrap .setup-footnote {
+  border-top: 1px solid var(--line);
+  padding-top: 22px;
+  margin: 28px 0 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+@media (max-width: 760px) {
+  .setup-story .login-editorial,
+  .setup-story .login-foot {
+    display: none;
+  }
+  .setup-layout {
+    grid-template-rows: auto 1fr;
+  }
+  .setup-layout .login-form-panel {
+    align-items: flex-start;
+  }
+  .setup-progress {
+    margin-bottom: 32px;
+  }
+}
+@media (max-width: 420px) {
+  .setup-passwords {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
 .app-shell {
   display: flex;
   min-height: 100vh;

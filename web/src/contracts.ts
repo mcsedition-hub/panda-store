@@ -1,3 +1,11 @@
+export interface Session {
+  user: { id: string; username: string } | null;
+  csrf_token: string;
+  demo_mode: boolean;
+  setup_required: boolean;
+  preview_mode?: boolean;
+}
+
 export interface Workspace {
   id: string;
   name: string;

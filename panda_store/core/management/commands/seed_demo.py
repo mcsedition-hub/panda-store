@@ -6,7 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from panda_store.core.access import activate_modules
-from panda_store.core.models import Membership, User, Workspace
+from panda_store.core.models import Installation, Membership, User, Workspace
 
 DEMO_WORKSPACE_ID = uuid.UUID("8883d058-1f9b-472c-86d9-b3777dc29c13")
 
@@ -16,6 +16,10 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if Installation.objects.exists():
+            raise CommandError(
+                "This installation is already configured. Use its existing workspace."
+            )
         if not settings.PANDA_DEMO_MODE:
             raise CommandError("Enable PANDA_DEMO_MODE explicitly before seeding demo data.")
         password = os.getenv("PANDA_DEMO_PASSWORD", "")

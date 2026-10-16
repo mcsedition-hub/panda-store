@@ -35,6 +35,7 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
       user: { id: 'preview-user', username: 'Explorer' },
       csrf_token: '',
       demo_mode: true,
+      setup_required: false,
       preview_mode: true,
     };
   } else if (path === '/api/workspaces/') {

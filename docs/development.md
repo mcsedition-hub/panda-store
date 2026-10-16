@@ -27,9 +27,8 @@ le backend et le frontend avant de proposer la mise à jour.
 | DJANGO_CSRF_TRUSTED_ORIGINS | Origines autorisées pour le développement |
 | DATABASE_URL | SQLite local ou PostgreSQL |
 | PANDA_DEMO_MODE | Autorise les données fictives et modèles locaux |
-| PANDA_LOCAL_ACCESS | Accès direct sans formulaire de connexion, activé dans l'installation locale |
-| PANDA_LOCAL_USERNAME | Compte utilisé pour l'accès direct ; par défaut PANDA_DEMO_USERNAME |
-| PANDA_DEMO_USERNAME / PASSWORD | Compte créé par seed_demo, sans reset ultérieur |
+| PANDA_SETUP_ENABLED | Active l'assistant initial d'une installation vide ou de l'unique espace de démo historique |
+| PANDA_DEMO_USERNAME / PASSWORD | Compte de l'ancien outil seed_demo ; les nouveaux comptes sont créés par l'assistant |
 | PANDA_MODULE_PACKAGES | Liste complète des apps de modules installées |
 | CELERY_TASK_ALWAYS_EAGER | Exécution synchrone pour le développement |
 | CELERY_BROKER_URL | Redis pour les tâches asynchrones |
@@ -38,8 +37,19 @@ le backend et le frontend avant de proposer la mise à jour.
 
 `scripts/bootstrap.py` ne remplace jamais un `.env` existant. Lors de l'ajout
 d'une variable, compléter le fichier local explicitement à partir de l'exemple.
-`seed_demo` ne réinitialise ni le mot de passe d'un utilisateur existant ni ses apps.
-Pour changer un mot de passe : `python manage.py changepassword demo`.
+`seed_demo` est conservé pour les anciennes démos et refuse une installation déjà
+configurée. Le démarrage normal ne l'exécute plus. L'assistant crée le propriétaire,
+l'espace et ses modules dans une transaction unique, puis ouvre une session Django.
+L'enregistrement Installation empêche une seconde configuration, même si deux
+onglets tentent de la terminer simultanément. L'ancienne option `PANDA_LOCAL_ACCESS`
+n'est plus utilisée : aucune session sans mot de passe n'est créée au démarrage.
+Pour changer un mot de passe : `python manage.py changepassword <username>`.
+
+SQLite conserve les comptes, organisations, sessions et données métier dans
+`panda.sqlite3` en local. Compose conserve ces mêmes tables dans le volume PostgreSQL.
+Le navigateur ne conserve pas le mot de passe ; le cookie de session identifie
+une session enregistrée côté serveur. L'e-mail est enregistré mais pas vérifié
+par un envoi ; la récupération de mot de passe par e-mail n'est pas encore implémentée.
 
 ## Vérifications
 

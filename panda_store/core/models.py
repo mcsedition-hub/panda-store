@@ -18,6 +18,18 @@ class Workspace(models.Model):
         return self.name
 
 
+class Installation(models.Model):
+    """The singleton setup record, committed atomically with its owner and workspace."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    owner = models.ForeignKey(User, on_delete=models.PROTECT, null=True)
+    workspace = models.ForeignKey(Workspace, on_delete=models.PROTECT, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="one_installation")]
+
+
 class Membership(models.Model):
     class Role(models.TextChoices):
         OWNER = "owner", "Owner"

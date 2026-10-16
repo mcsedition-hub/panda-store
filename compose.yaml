@@ -36,7 +36,7 @@ services:
       retries: 12
   init:
     <<: *backend
-    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py seed_demo"]
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput"]
     volumes: ["static:/app/staticfiles"]
     depends_on:
       db: {condition: service_healthy}

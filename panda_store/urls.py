@@ -8,7 +8,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", views.health),
     path("api/session/", auth.session),
-    path("api/session/local/", auth.enter_local_workspace),
+    path("api/setup/", auth.setup),
     path("api/session/login/", auth.sign_in),
     path("api/session/logout/", auth.sign_out),
     path("api/workspaces/", views.workspaces),

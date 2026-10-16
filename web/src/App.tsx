@@ -1,15 +1,8 @@
 import { Suspense, useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, setCsrfToken } from './api';
-import type { MobileApp, ModuleInfo, Workspace } from './contracts';
+import type { MobileApp, ModuleInfo, Session, Workspace } from './contracts';
 import { moduleViews } from './modules';
-
-interface Session {
-  user: { id: string; username: string } | null;
-  csrf_token: string;
-  demo_mode: boolean;
-  preview_mode?: boolean;
-  local_access?: boolean;
-}
+import Setup from './Setup';
 
 function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: boolean }) {
   const [error, setError] = useState('');
@@ -186,17 +179,9 @@ export default function App() {
     const controller = new AbortController();
     async function openWorkshop() {
       try {
-        let data = await api<Session>('/api/session/', { signal: controller.signal });
+        const data = await api<Session>('/api/session/', { signal: controller.signal });
         if (!active) return;
         setCsrfToken(data.csrf_token);
-        if (data.local_access && !data.user) {
-          data = await api<Session>('/api/session/local/', {
-            method: 'POST',
-            signal: controller.signal,
-          });
-          if (!active) return;
-          setCsrfToken(data.csrf_token);
-        }
         setSession(data);
       } catch (err) {
         if (active) setError((err as Error).message);
@@ -211,7 +196,7 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user || session.setup_required) return;
     let active = true;
     api<Workspace[]>('/api/workspaces/')
       .then((data) => {
@@ -223,7 +208,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, session?.setup_required]);
   const refreshApps = useCallback(async () => {
     if (workspaceId)
       setApps(await api<MobileApp[]>(`/api/workspaces/${workspaceId}/app_catalog/apps/`));
@@ -283,6 +268,7 @@ export default function App() {
         </button>
       </main>
     );
+  if (session.setup_required) return <Setup onComplete={setSession} />;
   if (!session.user) return <Login onLogin={setSession} demo={session.demo_mode} />;
   const enabled = modules.filter((m) => m.enabled);
   const activeModule = enabled.find((m) => m.id === current);
@@ -356,10 +342,8 @@ export default function App() {
                 {session.preview_mode ? 'Visual preview' : 'Demo mode'}
               </span>
             )}
-            <span className="user-name">
-              {session.local_access ? 'Local workspace' : session.user.username}
-            </span>
-            {!session.preview_mode && !session.local_access && (
+            <span className="user-name">{session.user.username}</span>
+            {!session.preview_mode && (
               <button className="text-button" onClick={signOut}>
                 Sign out
               </button>
