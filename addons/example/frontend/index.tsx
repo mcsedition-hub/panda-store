@@ -17,15 +17,10 @@ export default function Example({ workspace }: ModuleProps) {
   return (
     <>
       <div className="page-heading">
-        <span className="eyebrow">EXTENSIONS</span>
-        <h1>A place for your ideas.</h1>
-        <p>
-          This module uses the same registry, permissions and interface as the built-in modules.
-        </p>
+        <h1>Example module</h1>
       </div>
       <div className="notice lichen">
         <img className="example-icon" src="/modules/extensions.webp" alt="" />
-        <h2>Your first example module.</h2>
         {error ? (
           <p className="error" role="alert">
             {error}
@@ -38,7 +33,7 @@ export default function Example({ workspace }: ModuleProps) {
           target="_blank"
           rel="noreferrer"
         >
-          Explore the code ↗
+          View source
         </a>
       </div>
     </>

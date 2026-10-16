@@ -4,7 +4,7 @@ import type { MobileApp, ModuleInfo, Session, Workspace } from './contracts';
 import { moduleViews } from './modules';
 import Setup from './Setup';
 
-function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: boolean }) {
+function Login({ onLogin }: { onLogin: (session: Session) => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -26,69 +26,36 @@ function Login({ onLogin, demo }: { onLogin: (session: Session) => void; demo: b
     }
   }
   return (
-    <main className="login-layout">
-      <section className="login-story">
-        <img className="brand" src="/brand/logo-dark.svg" alt="Panda Store" />
-        <div className="login-editorial">
-          <span className="eyebrow">A WORKSHOP FOR YOUR APPS</span>
-          <h1>
-            Every app has
-            <br />
-            its people.
-            <br />
-            <em>Let’s find yours.</em>
-          </h1>
-          <p>
-            Know your app. Find your angle.
-            <br />
-            Give your next idea a place to grow.
-          </p>
-          <div className="login-objects" aria-hidden="true">
-            <img src="/modules/connexions.webp" alt="" />
-            <img src="/modules/studio.webp" alt="" />
-            <img src="/modules/veille.webp" alt="" />
-          </div>
-        </div>
-        <span className="login-foot">Your workshop. Your infrastructure.</span>
-      </section>
-      <section className="login-form-panel">
-        <div className="login-form-wrap">
-          <span className="eyebrow">WELCOME TO YOUR WORKSHOP</span>
-          <h2>Ready when you are.</h2>
-          <p>Sign in to your Panda Store workspace.</p>
-          <form onSubmit={submit}>
-            <label>
-              Username
-              <input name="username" autoComplete="username" required autoFocus />
-            </label>
-            <label>
-              Password
-              <input name="password" type="password" autoComplete="current-password" required />
-            </label>
-            {error && (
-              <p className="error" role="alert">
-                {error}
-              </p>
-            )}
-            <button className="button primary full" disabled={busy}>
-              {busy ? 'Signing in…' : 'Enter the workshop →'}
-            </button>
-          </form>
-          {demo && (
-            <div className="demo-note">
-              <strong>First time here?</strong>
-              <p>This is a demo installation. Use the account created during setup.</p>
-            </div>
+    <main className="auth-layout">
+      <img className="brand" src="/brand/logo-light.svg" alt="Panda Store" />
+      <section className="auth-panel">
+        <h1>Sign in</h1>
+        <form onSubmit={submit}>
+          <label>
+            Username
+            <input name="username" autoComplete="username" required autoFocus />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" autoComplete="current-password" required />
+          </label>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
           )}
-          <a
-            className="quiet-link"
-            href="https://github.com/mcsedition-hub/panda-store"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Source code · Elastic License 2.0 ↗
-          </a>
-        </div>
+          <button className="button primary full" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+        <a
+          className="quiet-link"
+          href="https://github.com/mcsedition-hub/panda-store"
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub
+        </a>
       </section>
     </main>
   );
@@ -122,9 +89,7 @@ function ModuleManager({
   return (
     <>
       <div className="page-heading">
-        <span className="eyebrow">YOUR TOOLBOX</span>
-        <h1>Make room for your tools.</h1>
-        <p>Choose the tools this workspace needs. Required modules are enabled together.</p>
+        <h1>Modules</h1>
       </div>
       {error && (
         <p className="error" role="alert">
@@ -156,7 +121,6 @@ function ModuleManager({
           </article>
         ))}
       </div>
-      <p className="note">Up next: ASO Audit, Research, Publishing and Analytics.</p>
     </>
   );
 }
@@ -255,13 +219,13 @@ export default function App() {
   if (loading)
     return (
       <div className="boot" role="status">
-        Opening your workshop…
+        Loading…
       </div>
     );
   if (!session)
     return (
       <main className="boot">
-        <h1>Your workshop is out of reach.</h1>
+        <h1>Unable to connect</h1>
         <p role="alert">{error}</p>
         <button className="button secondary" onClick={() => window.location.reload()}>
           Try again
@@ -269,7 +233,7 @@ export default function App() {
       </main>
     );
   if (session.setup_required) return <Setup onComplete={setSession} />;
-  if (!session.user) return <Login onLogin={setSession} demo={session.demo_mode} />;
+  if (!session.user) return <Login onLogin={setSession} />;
   const enabled = modules.filter((m) => m.enabled);
   const activeModule = enabled.find((m) => m.id === current);
   const ModuleView = activeModule ? moduleViews[current] : null;
@@ -281,7 +245,7 @@ export default function App() {
       <aside className="sidebar">
         <img className="brand" src="/brand/logo-dark.svg" alt="Panda Store" />
         <div className="workspace-picker">
-          <label htmlFor="workspace">WORKSPACE</label>
+          <label htmlFor="workspace">Workspace</label>
           <select
             id="workspace"
             value={workspaceId}
@@ -319,21 +283,16 @@ export default function App() {
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <span className="edition">COMMUNITY · ALPHA</span>
-          <p>
-            A workshop that grows
-            <br />
-            with your ideas.
-          </p>
+          <span className="edition">Community · Alpha</span>
           <a href="https://github.com/mcsedition-hub/panda-store" target="_blank" rel="noreferrer">
-            Join us on GitHub ↗
+            GitHub
           </a>
         </div>
       </aside>
       <div className="workspace-shell">
         <header className="topbar">
           <span className="breadcrumb">
-            Workshop <span>/</span>{' '}
+            {workspace?.name ?? 'Workspace'} <span>/</span>{' '}
             {current === 'modules' ? 'Modules' : (activeModule?.name ?? 'Loading')}
           </span>
           <div className="topbar-right">
@@ -353,8 +312,7 @@ export default function App() {
         <main id="main" className="main-content">
           {session.preview_mode && (
             <p className="notice" role="status">
-              Visual preview · fictional apps and sample scripts. Read-only; no account or store
-              connection.
+              Read-only preview · Sample data
             </p>
           )}
           {error && (
@@ -364,7 +322,7 @@ export default function App() {
           )}
           {!workspace && (
             <div className="empty">
-              <h1>Your workspace is waiting.</h1>
+              <h1>No workspace access</h1>
               <p>You do not have access to a workspace yet. Ask your administrator to add you.</p>
             </div>
           )}
@@ -395,7 +353,7 @@ export default function App() {
           )}
         </main>
         <footer className="app-footer">
-          <span>Panda Store · your next idea starts here.</span>
+          <span>Panda Store</span>
           <a
             href="https://www.elastic.co/licensing/elastic-license"
             target="_blank"

@@ -33,7 +33,7 @@ async function fillSetup() {
   fireEvent.change(await screen.findByLabelText('Organization name'), {
     target: { value: 'Northstar' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Continue →' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
   fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'northstar' } });
   fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.test' } });
   fireEvent.change(screen.getByLabelText('Password'), {
@@ -52,7 +52,7 @@ it('configures organization and owner once, then opens the console immediately',
   );
   await fillSetup();
   expect(mockApi.mock.calls.some(([path]) => path === '/api/setup/')).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: 'Create my workshop →' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
   await screen.findByRole('heading', { name: 'Your apps' });
   expect(screen.queryByLabelText('Organization name')).toBeNull();
   const calls = mockApi.mock.calls.filter(([path]) => path === '/api/setup/');
@@ -71,14 +71,14 @@ it('configures organization and owner once, then opens the console immediately',
 it('preserves entered values when going back and rejects mismatched passwords before saving', async () => {
   render(<App />);
   await fillSetup();
-  fireEvent.click(screen.getByRole('button', { name: '← Organization' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Back' }));
   expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Northstar');
-  fireEvent.click(screen.getByRole('button', { name: 'Continue →' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
   expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('northstar');
   fireEvent.change(screen.getByLabelText('Confirm password'), {
     target: { value: 'Another-password' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Create my workshop →' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
   expect((await screen.findByRole('alert')).textContent).toContain('Passwords do not match.');
   expect(mockApi.mock.calls.some(([path]) => path === '/api/setup/')).toBe(false);
 });
@@ -87,11 +87,11 @@ it('keeps the form available for correction if setup fails', async () => {
   render(<App />);
   await fillSetup();
   mockApi.mockRejectedValueOnce(new Error('This password is too common.'));
-  fireEvent.click(screen.getByRole('button', { name: 'Create my workshop →' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }));
   expect((await screen.findByRole('alert')).textContent).toContain('This password is too common.');
   expect((screen.getByLabelText('Username') as HTMLInputElement).value).toBe('northstar');
   expect(
-    (screen.getByRole('button', { name: 'Create my workshop →' }) as HTMLButtonElement).disabled,
+    (screen.getByRole('button', { name: 'Create account' }) as HTMLButtonElement).disabled,
   ).toBe(false);
 });
 
@@ -107,6 +107,6 @@ it('asks for sign-in, not setup, after a configured installation loses its sessi
   mockApi.mockResolvedValue({ ...initial, setup_required: false });
   render(<App />);
   await screen.findByLabelText('Password');
-  expect(screen.getByRole('button', { name: 'Enter the workshop →' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
   expect(screen.queryByLabelText('Organization name')).toBeNull();
 });

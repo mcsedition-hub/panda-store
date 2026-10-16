@@ -1,89 +1,110 @@
+import { useState } from 'react';
 import type { ModuleProps } from '../../../web/src/contracts';
 
 export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
+  const [search, setSearch] = useState('');
+  const query = search.trim().toLowerCase();
+  const visibleApps = apps.filter((app) =>
+    `${app.name} ${app.bundle_id}`.toLowerCase().includes(query),
+  );
   return (
     <>
       <div className="page-heading heading-split">
-        <div>
-          <span className="eyebrow">YOUR APPS, ALL TOGETHER</span>
-          <h1>It starts with your app.</h1>
-          <p>Its world. Its people. Its next stories.</p>
-        </div>
-        <button className="button primary" onClick={() => navigate('apple_store')}>
-          Import an app <span aria-hidden="true">↗</span>
-        </button>
+        <h1>My apps</h1>
+        {apps.length > 0 && (
+          <button className="button primary" onClick={() => navigate('apple_store')}>
+            Import an app
+          </button>
+        )}
       </div>
       {apps.length === 0 ? (
-        <section className="welcome-panel">
-          <div className="welcome-copy">
-            <span className="small-index">01 / A PLACE TO START</span>
-            <h2>
-              One app.
-              <br />A world of possibilities.
-            </h2>
-            <p>
-              Import your first app to bring its details together and shape a brief in the Studio.
-            </p>
-            <button className="button dark" onClick={() => navigate('apple_store')}>
-              Choose an app →
-            </button>
-          </div>
-          <div className="welcome-art" aria-hidden="true">
-            <img src="/modules/applications.webp" alt="" />
-          </div>
+        <section className="catalog-empty">
+          <img src="/modules/applications.webp" alt="" />
+          <h2>No apps yet</h2>
+          <button className="button primary" onClick={() => navigate('apple_store')}>
+            Import an app
+          </button>
         </section>
       ) : (
-        <div className="app-grid">
-          {apps.map((app) => (
-            <article className="app-card" key={app.id}>
-              <div className="app-card-top">
-                <div className="app-monogram" aria-hidden="true">
-                  {app.name.charAt(0)}
-                </div>
-                <span className="pill">
-                  {app.is_demo ? 'Demo app' : app.platform === 'ios' ? 'App Store' : 'Google Play'}
-                </span>
-              </div>
-              <h2>{app.name}</h2>
-              <p className="app-subtitle">{app.metadata?.data.subtitle ?? app.bundle_id}</p>
-              <p className="app-description">{app.metadata?.data.description}</p>
-              <div className="app-meta">
-                <span>{app.metadata?.data.category}</span>
-                <span>{app.metadata?.data.locale}</span>
-              </div>
-              <button
-                className="button secondary full"
-                onClick={() => {
-                  selectApp(app);
-                  navigate('studio');
-                }}
-              >
-                Open in Studio →
-              </button>
-            </article>
-          ))}
-        </div>
+        <section className="catalog-panel" aria-label="Apps">
+          <div className="catalog-toolbar">
+            <span className="catalog-count">
+              {apps.length} {apps.length === 1 ? 'app' : 'apps'}
+            </span>
+            <input
+              type="search"
+              aria-label="Search apps"
+              placeholder="Search apps"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </div>
+          <div className="catalog-table-wrap">
+            <table className="catalog-table">
+              <thead>
+                <tr>
+                  <th scope="col">App</th>
+                  <th scope="col" className="catalog-store">
+                    Store
+                  </th>
+                  <th scope="col" className="catalog-category">
+                    Category
+                  </th>
+                  <th scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleApps.map((app) => (
+                  <tr key={app.id}>
+                    <td>
+                      <div className="catalog-app">
+                        <div className="app-monogram" aria-hidden="true">
+                          {app.name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="catalog-app-name">
+                            <strong>{app.name}</strong>
+                            {app.is_demo && <span className="pill">Demo</span>}
+                          </div>
+                          <span className="catalog-bundle">{app.bundle_id}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="catalog-store">
+                      {app.platform === 'ios'
+                        ? 'App Store'
+                        : app.platform === 'android'
+                          ? 'Google Play'
+                          : app.platform}
+                    </td>
+                    <td className="catalog-category">{app.metadata?.data.category || '—'}</td>
+                    <td className="catalog-action">
+                      <button
+                        className="button secondary"
+                        aria-label={`Open ${app.name} in Studio`}
+                        onClick={() => {
+                          selectApp(app);
+                          navigate('studio');
+                        }}
+                      >
+                        <span className="catalog-action-full">Open in Studio</span>
+                        <span className="catalog-action-short">Open</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {visibleApps.length === 0 && (
+            <p className="catalog-no-results" role="status">
+              No apps found.
+            </p>
+          )}
+        </section>
       )}
-      <section className="journey">
-        <span className="eyebrow">FROM APP TO IDEA</span>
-        <div className="journey-steps">
-          <div>
-            <span>01</span>
-            <h3>Understand</h3>
-            <p>Gather the details that make your app yours.</p>
-          </div>
-          <div>
-            <span>02</span>
-            <h3>Explore</h3>
-            <p>Choose an audience, a goal and a few fresh angles.</p>
-          </div>
-          <div>
-            <span>03</span>
-            <h3>Create</h3>
-            <p>Review, refine and export the scripts you want to use.</p>
-          </div>
-        </div>
-      </section>
     </>
   );
 }

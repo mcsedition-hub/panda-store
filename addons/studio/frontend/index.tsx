@@ -51,7 +51,6 @@ function CreativeEditor({
   return (
     <article className="creative-card">
       <div className="creative-top">
-        <span className="creative-number">0{creative.variant}</span>
         <span className={`pill ${draft.approved ? 'approved' : ''}`}>
           {draft.approved ? 'Approved' : dirty ? 'Unsaved changes' : 'Needs review'}
         </span>
@@ -216,7 +215,7 @@ export default function Studio({
         });
         setRuns((old) => [next, ...old]);
         setRunId(next.id);
-        setNotice('Your brief is saved.');
+        setNotice('Brief saved.');
       } else setNotice('Brief saved.');
     } catch (err) {
       setError((err as Error).message);
@@ -226,26 +225,24 @@ export default function Studio({
   }
   if (!selectedApp)
     return (
-      <section className="empty">
-        <img src="/modules/studio.webp" alt="" />
-        <span className="eyebrow">STUDIO</span>
-        <h1>Every good idea starts somewhere.</h1>
-        <p>Import an app to write your first brief.</p>
-        <button className="button primary" onClick={() => navigate('apple_store')}>
-          Choose an app →
-        </button>
-      </section>
+      <>
+        <div className="page-heading">
+          <h1>Studio</h1>
+        </div>
+        <section className="catalog-empty">
+          <img src="/modules/studio.webp" alt="" />
+          <h2>No app selected</h2>
+          <button className="button primary" onClick={() => navigate('apple_store')}>
+            Import an app
+          </button>
+        </section>
+      </>
     );
   return (
     <>
       <div className="page-heading heading-split">
         <div>
-          <span className="eyebrow">STUDIO / {selectedApp.name.toUpperCase()}</span>
-          <h1>
-            One app. Three ways
-            <br className="desktop-break" /> to tell its story.
-          </h1>
-          <p>Set the direction, then make each angle your own.</p>
+          <h1>Studio</h1>
         </div>
         <label className="compact-label">
           App
@@ -268,8 +265,7 @@ export default function Studio({
       <div className="studio-disclosure">
         <span className="signal-dot" />
         <p>
-          <strong>Demo workshop.</strong> These scripts use writing templates, without AI or
-          competitor research. Adapt and review them before use.
+          Demo scripts use templates. AI generation and competitor research are not available yet.
         </p>
       </div>
       {error && (
@@ -278,15 +274,14 @@ export default function Studio({
         </p>
       )}
       {loading ? (
-        <p role="status">Getting the Studio ready…</p>
+        <p role="status">Loading brief…</p>
       ) : loadFailed ? (
         <p>We could not load the brief. Reopen this module to try again.</p>
       ) : (
         <>
           <section className="brief-panel">
             <div className="brief-intro">
-              <span className="small-index">01 / THE BRIEF</span>
-              <h2>Who are we talking to?</h2>
+              <h2>Brief</h2>
               <p>{selectedApp.metadata?.data.subtitle}</p>
               <div className="feature-tags">
                 {selectedApp.metadata?.data.features.map((feature) => (
@@ -342,7 +337,7 @@ export default function Studio({
                   className="button primary"
                   disabled={!canWrite || busy || pending || !demoMode}
                 >
-                  {busy || pending ? 'Preparing your scripts…' : 'Create three directions →'}
+                  {busy || pending ? 'Creating scripts…' : 'Create scripts'}
                 </button>
                 <button
                   type="button"
@@ -363,8 +358,7 @@ export default function Studio({
           <section className="results">
             <div className="results-heading">
               <div>
-                <span className="small-index">02 / THE DIRECTIONS</span>
-                <h2>{run ? 'Something to work with.' : 'Your next chapter starts here.'}</h2>
+                <h2>Scripts</h2>
               </div>
               <div className="results-tools">
                 {runs.length > 1 && (
@@ -389,22 +383,19 @@ export default function Studio({
                     className="button secondary"
                     href={moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`)}
                   >
-                    Export scripts ↓
+                    Export scripts
                   </a>
                 )}
               </div>
             </div>
             {!run && (
               <div className="results-empty">
-                <p>
-                  Your brief becomes three directions: a small first step, a walkthrough and the
-                  creator’s story.
-                </p>
+                <p>No scripts yet.</p>
               </div>
             )}
             {pending && (
               <p className="notice" role="status">
-                Your three directions are taking shape. They will be saved in this workspace.
+                Creating scripts…
               </p>
             )}
             {run?.status === 'failed' && (

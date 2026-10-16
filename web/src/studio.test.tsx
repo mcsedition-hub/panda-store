@@ -58,7 +58,7 @@ it('saves the brief before generation, then lets the user edit and approve separ
   render(<Studio {...props} />);
   const audience = await screen.findByLabelText('Audience');
   fireEvent.change(audience, { target: { value: 'Weekend runners' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Create three directions →' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Create scripts' }));
   const hook = await screen.findByLabelText('Hook — Angle 1');
   expect(screen.getAllByRole('article')).toHaveLength(3);
   const mutations = mockApi.mock.calls.filter(([, options]) => options?.method);
@@ -76,7 +76,7 @@ it('saves the brief before generation, then lets the user edit and approve separ
   expect(approve.disabled).toBe(false);
   fireEvent.click(approve);
   await screen.findByText('Script approved.');
-  expect(screen.getByRole('link', { name: 'Export scripts ↓' }).getAttribute('href')).toBe(
+  expect(screen.getByRole('link', { name: 'Export scripts' }).getAttribute('href')).toBe(
     '/api/workspaces/workspace-one/studio/runs/run-one/export/',
   );
 });
@@ -87,7 +87,7 @@ it('does not generate if saving the brief fails', async () => {
     return path.endsWith('brief/') ? brief : [];
   });
   render(<Studio {...props} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Create three directions →' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Create scripts' }));
   await screen.findByRole('alert');
   expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
 });
@@ -97,14 +97,14 @@ it('does not expose stale editable content when loading fails', async () => {
   render(<Studio {...props} />);
   await screen.findByRole('alert');
   await waitFor(() => expect(screen.queryByLabelText('Audience')).toBeNull());
-  expect(screen.queryByRole('button', { name: 'Create three directions →' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Create scripts' })).toBeNull();
 });
 
 it('prevents writes in a read-only workspace', async () => {
   mockApi.mockImplementation(async (path) => (path.endsWith('brief/') ? brief : [run]));
   render(<Studio {...props} workspace={{ ...props.workspace, role: 'viewer' }} />);
   const button = (await screen.findByRole('button', {
-    name: 'Create three directions →',
+    name: 'Create scripts',
   })) as HTMLButtonElement;
   expect(button.disabled).toBe(true);
   expect((screen.getByLabelText('Hook — Angle 1') as HTMLTextAreaElement).disabled).toBe(true);

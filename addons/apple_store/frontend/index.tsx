@@ -47,16 +47,11 @@ export default function AppleStore({
   return (
     <>
       <div className="page-heading">
-        <span className="eyebrow">CONNECTIONS</span>
-        <h1>Let’s meet your app.</h1>
-        <p>Good creative work starts with a clear picture.</p>
+        <h1>Connections</h1>
       </div>
       <div className="notice">
-        <strong>Try the App Store import flow.</strong>
-        <p>
-          These apps are fictional. Importing one saves it to your workspace. Connecting your own
-          Apple account is coming in a future version.
-        </p>
+        <strong>Demo catalog</strong>
+        <p>Sample apps only. Apple and Google Play account connections are not available yet.</p>
       </div>
       {error && (
         <p className="error" role="alert">
@@ -73,7 +68,7 @@ export default function AppleStore({
             </div>
             <div className="import-info">
               <h2>{app.name}</h2>
-              <p>{app.subtitle}</p>
+              <p>{app.bundle_id}</p>
               <span className="note">
                 {app.category} · {app.locale}
               </span>
@@ -83,14 +78,11 @@ export default function AppleStore({
               disabled={!!busy || workspace.role === 'viewer'}
               onClick={() => importApp(app.external_id)}
             >
-              {busy === app.external_id ? 'Importing…' : 'Import →'}
+              {busy === app.external_id ? 'Importing…' : 'Import'}
             </button>
           </article>
         ))}
       </div>
-      <p className="note">
-        Importing the same app again updates its details without creating a duplicate.
-      </p>
     </>
   );
 }
