@@ -18,4 +18,15 @@ class AppSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MobileApp
-        fields = ["id", "name", "platform", "bundle_id", "external_id", "is_demo", "metadata"]
+        fields = [
+            "id",
+            "name",
+            "platform",
+            "bundle_id",
+            "external_id",
+            "is_demo",
+            "metadata",
+            "sync_provider",
+            "last_synced_at",
+            "last_sync_error",
+        ]

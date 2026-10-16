@@ -31,6 +31,9 @@ PANDA_MODULE_PACKAGES = tuple(
     )
 )
 PANDA_CORE_VERSION = "0.1.0"
+PANDA_CREDENTIAL_KEYS = tuple(
+    key.strip() for key in os.getenv("PANDA_CREDENTIAL_KEYS", "").split(",") if key.strip()
+)
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

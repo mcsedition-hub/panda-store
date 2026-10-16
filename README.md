@@ -12,10 +12,10 @@ Self-hostable and source available under the [Elastic License 2.0](LICENSE).
 
 English is the default product language. [Lire le README en français](README.fr.md).
 
-**Alpha 0.1.0 — local demo.** Explore the product, develop modules and try a
-complete workflow: import a fictional app → write a brief → create three scripts
-→ edit → approve → export. This version does not call Apple, Google or an AI
-provider, and does not publish content.
+**Alpha 0.1.0 — local development.** Connect an Apple account and import iOS
+store listings, or explore with fictional apps. Write a brief → create three
+template scripts → edit → approve → export. AI generation, Google Play and
+publishing are not implemented yet.
 
 ## What works
 
@@ -23,6 +23,8 @@ provider, and does not publish content.
 - Persistent sessions, workspaces and owner/editor/viewer roles.
 - A module registry with dependencies, compatibility checks and per-workspace activation.
 - Two fictional apps, persistent imports and a history of metadata snapshots.
+- App Store Connect API keys per workspace, app selection, localized listings,
+  icons, primary-language screenshots and manual metadata refresh.
 - Editable briefs and three script variants built from local writing templates.
 - Generation history, script editing, separate approval and Markdown exports.
 - An example extension using the same conventions as the built-in modules.
@@ -66,10 +68,48 @@ single seeded demo workspace can be renamed and claimed without losing its apps.
 Installations with other existing accounts retain sign-in. The bootstrap script
 preserves existing `.env` files; this file contains secrets and must never be published.
 
-Choose **Connections**, import **Runclub**, then use the **Studio** to create
+Choose **Connections → Try with demo apps**, import **Runclub**, then use the **Studio** to create
 three directions. The initial workspace is empty so you can try the actual import
 flow. Local development uses SQLite and synchronous tasks: no external account
 or paid AI key is required.
+
+## Connect an Apple account
+
+In **Connections → Connect Apple**, enter a connection name, key type, Key ID,
+and upload the `.p8` file. Team keys also require an Issuer ID; individual keys
+use the user's existing access. Create the key in Apple's interface using the
+[App Store Connect API instructions](https://developer.apple.com/help/app-store-connect/get-started/app-store-connect-api/).
+Panda Store never asks for an Apple ID password. No Apple credentials belong in `.env`.
+
+The workspace owner manages connections; editors can import and refresh apps;
+viewers have read-only access. Each workspace can connect multiple accounts.
+Keys are checked with Apple before saving and encrypted in this installation's
+database. Only GET requests are sent to Apple, with short-lived, read-scoped JWTs.
+After connecting, choose an app, import it and open its metadata in **My apps**.
+**Refresh metadata** saves a new snapshot only when the imported content changes.
+
+An iOS version must exist in App Store Connect. The importer prefers the latest
+published iOS version, otherwise the newest draft; its state appears in the app
+detail. Text is imported for all available languages, screenshots for the app's
+primary language. Imports are synchronous and bounded to 60 requests / a 20-second
+operation budget (individual network reads may finish later). Large listings may
+reach this limit; background imports and scheduled refresh are not implemented.
+The connector is covered by simulated Apple API tests; validation against a real
+developer account remains to be completed before release.
+
+`scripts/bootstrap.py` generates `PANDA_CREDENTIAL_KEYS` for new installations.
+To update an existing alpha, back up its database and environment, then run:
+
+```sh
+.venv/bin/python scripts/bootstrap.py --add-credential-key
+.venv/bin/python manage.py migrate
+```
+
+Restart the backend (and workers in Compose). This adds a missing encryption key
+without replacing existing configuration. Back up that key separately from the
+database: losing it makes saved credentials unreadable. Disconnecting removes
+the saved key and stops refreshes while preserving imported apps; revoke the key
+in Apple's interface if you also want to invalidate it at Apple.
 
 ## Docker Compose demo
 

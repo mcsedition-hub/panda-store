@@ -17,6 +17,9 @@ class MobileApp(models.Model):
     external_id = models.CharField(max_length=200)
     bundle_id = models.CharField(max_length=200, blank=True)
     is_demo = models.BooleanField(default=False)
+    sync_provider = models.CharField(max_length=100, blank=True)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    last_sync_error = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

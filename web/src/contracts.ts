@@ -36,6 +36,20 @@ export interface AppMetadata {
   features: string[];
   audience: string;
   source_note: string;
+  icon_url?: string;
+  keywords?: string;
+  version_state?: string;
+  screenshots_locale?: string;
+  screenshots?: { url: string; name: string; display_type: string }[];
+  localizations?: {
+    locale: string;
+    name: string;
+    subtitle: string;
+    description: string;
+    keywords: string;
+    promotional_text: string;
+    whats_new: string;
+  }[];
 }
 export interface MobileApp {
   id: string;
@@ -44,6 +58,9 @@ export interface MobileApp {
   bundle_id: string;
   external_id: string;
   is_demo: boolean;
+  sync_provider?: string;
+  last_synced_at?: string | null;
+  last_sync_error?: string;
   metadata: { id: string; data: AppMetadata; source: string; captured_at: string } | null;
 }
 export interface ModuleProps {
@@ -51,7 +68,9 @@ export interface ModuleProps {
   apps: MobileApp[];
   selectedApp: MobileApp | null;
   selectApp: (app: MobileApp) => void;
-  navigate: (module: string) => void;
+  navigate: (module: string, appId?: string) => void;
+  detailAppId?: string;
+  availableModules?: string[];
   refreshApps: () => Promise<void>;
   demoMode: boolean;
   previewMode?: boolean;

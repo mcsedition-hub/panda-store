@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, setCsrfToken } from './api';
 import type { MobileApp, ModuleInfo, Session, Workspace } from './contracts';
 import { moduleViews } from './modules';
@@ -129,10 +129,17 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
+  const workspaceRef = useRef(workspaceId);
+  workspaceRef.current = workspaceId;
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [apps, setApps] = useState<MobileApp[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [current, setCurrent] = useState('app_catalog');
+  const [detailAppId, setDetailAppId] = useState('');
+  function navigate(module: string, appId = '') {
+    setCurrent(module);
+    setDetailAppId(appId);
+  }
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const workspace = workspaces.find((w) => w.id === workspaceId);
@@ -174,11 +181,16 @@ export default function App() {
     };
   }, [session?.user?.id, session?.setup_required]);
   const refreshApps = useCallback(async () => {
-    if (workspaceId)
-      setApps(await api<MobileApp[]>(`/api/workspaces/${workspaceId}/app_catalog/apps/`));
+    if (workspaceId) {
+      const next = await api<MobileApp[]>(`/api/workspaces/${workspaceId}/app_catalog/apps/`);
+      if (workspaceRef.current === workspaceId) setApps(next);
+    }
   }, [workspaceId]);
   const refreshModules = useCallback(async () => {
-    if (workspaceId) setModules(await api<ModuleInfo[]>(`/api/workspaces/${workspaceId}/modules/`));
+    if (workspaceId) {
+      const next = await api<ModuleInfo[]>(`/api/workspaces/${workspaceId}/modules/`);
+      if (workspaceRef.current === workspaceId) setModules(next);
+    }
   }, [workspaceId]);
   useEffect(() => {
     if (!workspaceId) return;
@@ -186,6 +198,7 @@ export default function App() {
     setApps([]);
     setModules([]);
     setSelectedId('');
+    setDetailAppId('');
     setError('');
     Promise.all([
       api<ModuleInfo[]>(`/api/workspaces/${workspaceId}/modules/`),
@@ -264,7 +277,7 @@ export default function App() {
               key={module.id}
               className={`nav-item ${current === module.id ? 'active' : ''}`}
               onClick={() => {
-                setCurrent(module.id);
+                navigate(module.id);
                 setError('');
               }}
               aria-current={current === module.id ? 'page' : undefined}
@@ -337,7 +350,9 @@ export default function App() {
                 apps={apps}
                 selectedApp={selectedApp}
                 selectApp={(app) => setSelectedId(app.id)}
-                navigate={setCurrent}
+                navigate={navigate}
+                detailAppId={detailAppId}
+                availableModules={enabled.map((module) => module.id)}
                 refreshApps={refreshApps}
                 demoMode={session.demo_mode}
                 previewMode={session.preview_mode}

@@ -13,7 +13,7 @@ def workspace_access(user, workspace_id, *, write=False, owner=False, module=Non
         workspace_id=workspace_id,
     )
     if owner and membership.role != Membership.Role.OWNER:
-        raise PermissionDenied("Only the workspace owner can manage modules.")
+        raise PermissionDenied("Only the workspace owner can perform this action.")
     if write and membership.role == Membership.Role.VIEWER:
         raise PermissionDenied("This account has read-only access.")
     if module and not membership.workspace.modules.filter(module_id=module).exists():

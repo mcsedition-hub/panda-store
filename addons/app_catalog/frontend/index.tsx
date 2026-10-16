@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import type { ModuleProps } from '../../../web/src/contracts';
+import AppDetail from './AppDetail';
 
-export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
+export default function AppCatalog(props: ModuleProps) {
+  const { apps, navigate, selectApp, detailAppId, availableModules } = props;
+  const connectionsEnabled = availableModules?.includes('apple_store') !== false;
   const [search, setSearch] = useState('');
+  const detail = apps.find((app) => app.id === detailAppId);
+  if (detail) return <AppDetail key={detail.id} {...props} app={detail} />;
   const query = search.trim().toLowerCase();
   const visibleApps = apps.filter((app) =>
     `${app.name} ${app.bundle_id}`.toLowerCase().includes(query),
@@ -12,8 +17,11 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
       <div className="page-heading heading-split">
         <h1>My apps</h1>
         {apps.length > 0 && (
-          <button className="button primary" onClick={() => navigate('apple_store')}>
-            Import an app
+          <button
+            className="button primary"
+            onClick={() => navigate(connectionsEnabled ? 'apple_store' : 'modules')}
+          >
+            {connectionsEnabled ? 'Import an app' : 'Enable Connections'}
           </button>
         )}
       </div>
@@ -21,8 +29,11 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
         <section className="catalog-empty">
           <img src="/modules/applications.webp" alt="" />
           <h2>No apps yet</h2>
-          <button className="button primary" onClick={() => navigate('apple_store')}>
-            Import an app
+          <button
+            className="button primary"
+            onClick={() => navigate(connectionsEnabled ? 'apple_store' : 'modules')}
+          >
+            {connectionsEnabled ? 'Import an app' : 'Enable Connections'}
           </button>
         </section>
       ) : (
@@ -83,13 +94,13 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
                     <td className="catalog-action">
                       <button
                         className="button secondary"
-                        aria-label={`Open ${app.name} in Studio`}
+                        aria-label={`Open ${app.name}`}
                         onClick={() => {
                           selectApp(app);
-                          navigate('studio');
+                          navigate('app_catalog', app.id);
                         }}
                       >
-                        <span className="catalog-action-full">Open in Studio</span>
+                        <span className="catalog-action-full">Open app</span>
                         <span className="catalog-action-short">Open</span>
                       </button>
                     </td>

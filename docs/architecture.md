@@ -23,7 +23,7 @@ Il n'y a pas de format XML de vues : les vues métier sont des composants React.
 `MobileApp → Brief → GenerationRun → Creative`
 
 Un utilisateur peut appartenir à plusieurs espaces. Les rôles sont owner,
-editor et viewer. Seul owner gère les modules ; viewer ne modifie pas de données.
+editor et viewer. Seul owner gère les modules et connexions ; viewer ne modifie pas de données.
 Toutes les routes métier contrôlent l'appartenance, le rôle et le module actif.
 Les UUID ne constituent pas un mécanisme d'autorisation. L'administration Django
 est réservée aux administrateurs de l'installation, avec visibilité globale.
@@ -41,6 +41,15 @@ Le connecteur démo fournit des données locales explicitement fictives. Un impo
 met à jour l'app et crée un instantané si la dernière version diffère. Réimporter
 le même contenu à la suite ne le duplique pas ; revenir à une ancienne version
 crée un nouvel instantané chronologique.
+
+Le module Apple conserve `Workspace → AppleConnection → AppleAppBinding → MobileApp`.
+Chaque connexion possède une clé API chiffrée par l'installation et une révision.
+L'appel réseau précède la transaction d'import ; les verrous et la révision empêchent
+un import de recréer une connexion supprimée ou d'enregistrer des résultats avec
+une clé remplacée. Déconnecter conserve les apps et instantanés mais retire leurs
+liens de synchronisation. Les requêtes sont exclusivement GET vers l'API Apple.
+Le client vérifie les pages suivantes et limite les délais, tailles et requêtes.
+Le connecteur reste synchrone ; les gros imports et tâches planifiées viendront ensuite.
 
 Une génération enregistre le brief et les métadonnées utilisés avant de lancer
 la tâche. Le couple espace/request_id protège contre les requêtes répétées ;
@@ -66,5 +75,5 @@ sociaux auront des interfaces séparées. La veille et la génération peuvent
 s'exécuter en tâches ; une publication nécessitera un contenu validé, une
 destination explicite et un mécanisme de reprise idempotent.
 
-La gestion des secrets externes, quotas, budgets IA, stockage des médias,
-facturation et opérations cloud ne fait pas partie de cette alpha.
+Les quotas, budgets IA, stockage durable des médias,
+facturation et opérations cloud ne font pas partie de cette alpha.

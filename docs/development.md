@@ -22,6 +22,7 @@ le backend et le frontend avant de proposer la mise à jour.
 | Variable | Usage |
 | --- | --- |
 | DJANGO_SECRET_KEY | Secret de signature généré localement |
+| PANDA_CREDENTIAL_KEYS | Clés Fernet de cette installation, séparées par des virgules ; première utilisée pour chiffrer les identifiants Apple saisis dans l'interface |
 | DJANGO_DEBUG | Débogage local uniquement |
 | DJANGO_ALLOWED_HOSTS | Hôtes acceptés, séparés par des virgules |
 | DJANGO_CSRF_TRUSTED_ORIGINS | Origines autorisées pour le développement |
@@ -35,8 +36,11 @@ le backend et le frontend avant de proposer la mise à jour.
 | DJANGO_SECURE_COOKIES | Cookies HTTPS par défaut hors DEBUG |
 | POSTGRES_PASSWORD | Mot de passe du PostgreSQL local Compose |
 
-`scripts/bootstrap.py` ne remplace jamais un `.env` existant. Lors de l'ajout
-d'une variable, compléter le fichier local explicitement à partir de l'exemple.
+`scripts/bootstrap.py` ne remplace jamais un `.env` existant. L'option explicite
+`--add-credential-key` ajoute uniquement la clé de chiffrement si son entrée est
+absente, pour mettre à jour les anciennes installations. Redémarrer ensuite les
+processus Django et Celery. Les identifiants Apple restent propres à chaque espace
+et sont saisis dans Connections, jamais dans les variables d'environnement.
 `seed_demo` est conservé pour les anciennes démos et refuse une installation déjà
 configurée. Le démarrage normal ne l'exécute plus. L'assistant crée le propriétaire,
 l'espace et ses modules dans une transaction unique, puis ouvre une session Django.

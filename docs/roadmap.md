@@ -6,7 +6,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | Étape | Résultat attendu | État |
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
-| App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | À construire |
+| App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Implémenté et testé avec API simulée ; validation sur compte Apple réel à faire |
 | Création IA | Générations sourcées, 3 angles, suivi coût/durée, reprise et validation | À construire |
 | Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | À construire |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
@@ -17,10 +17,12 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 
 ## Prochaine tranche
 
-Brancher une application réelle en lecture seule avant de publier du contenu.
-Ajouter une interface de connecteur, les droits minimaux nécessaires, le stockage
-chiffré des identifiants, leur révocation et les erreurs de synchronisation.
-Vérifier les accès avec un compte de test du propriétaire de l'app.
+Vérifier le connecteur Apple avec le compte du propriétaire d'une app réelle :
+permissions, sélection, langues, captures et actualisation. Les clés par espace,
+le chiffrement, le remplacement, la déconnexion locale et les erreurs sont implémentés.
+La révocation chez Apple reste une action à effectuer dans App Store Connect.
+Les imports sont synchrones et limités ; prévoir des tâches pour les catalogues
+volumineux et la synchronisation planifiée.
 
 Ensuite, ajouter un fournisseur IA remplaçable au Studio, des sorties structurées,
 un budget par génération et des évaluations sur un jeu de briefs. Le fournisseur

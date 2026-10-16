@@ -12,10 +12,10 @@
 L'atelier modulaire pour développer l'audience de vos applications mobiles.
 Code source accessible et auto-hébergeable, sous [Elastic License 2.0](LICENSE).
 
-**Alpha 0.1.0 — démonstration locale.** Cette première version permet de parcourir
-le produit, de développer des modules et de vérifier une boucle complète :
-import d'une app fictive → brief → trois scripts → retouche → validation → export.
-Elle n'appelle ni Apple, ni Google, ni une IA et ne publie aucun contenu.
+**Alpha 0.1.0 — développement local.** Connecter un compte Apple pour importer
+des fiches iOS, ou utiliser les apps fictives : import → brief → trois scripts
+issus de modèles → retouche → validation → export. Google Play, la génération IA
+et la publication ne sont pas encore implémentés.
 
 ## Ce qui fonctionne
 
@@ -23,6 +23,8 @@ Elle n'appelle ni Apple, ni Google, ni une IA et ne publie aucun contenu.
 - Sessions persistantes, espaces de travail et rôles propriétaire/éditeur/lecteur.
 - Registre de modules avec dépendances, compatibilité et activation par espace.
 - Catalogue de deux apps fictives, import persistant et historique des métadonnées.
+- Connexions App Store Connect par espace, textes localisés, icônes, captures dans
+  la langue principale et actualisation manuelle des métadonnées.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
 - Historique des générations, édition, validation séparée et export Markdown.
 - Module d'exemple utilisant les mêmes conventions que les modules intégrés.
@@ -67,10 +69,25 @@ repris et renommé sans perdre ses apps. Les installations avec d'autres comptes
 conservent leur connexion habituelle. Le script préserve les `.env` existants ;
 ce fichier contient des secrets et ne doit jamais être publié.
 
-Choisir **Connections**, importer **Runclub**, puis ouvrir le **Studio** pour
+Choisir **Connections → Try with demo apps**, importer **Runclub**, puis ouvrir le **Studio** pour
 préparer trois pistes. L'espace initial est vide pour tester le vrai parcours
 d'import. En mode local, SQLite et l'exécution synchrone des tâches suffisent :
 aucun compte externe ni clé IA n'est nécessaire.
+
+Pour un compte réel, choisir **Connections → Connect Apple** puis saisir le nom,
+le type et l'identifiant de la clé, son fichier `.p8` et l'Issuer ID pour une clé
+d'équipe. Ces identifiants sont enregistrés chiffrés par espace, jamais dans le
+`.env`. Le propriétaire gère les clés ; les éditeurs peuvent importer et actualiser.
+Le connecteur ne fait que des lectures. Il privilégie la version iOS publiée, sinon
+la version brouillon la plus récente. Les appels Apple sont testés avec des réponses
+simulées ; une validation sur compte réel reste nécessaire avant release.
+
+Sur une ancienne installation, sauvegarder la base et le `.env`, puis lancer
+`python scripts/bootstrap.py --add-credential-key`, appliquer les migrations et
+redémarrer le backend. Les nouvelles installations génèrent cette clé automatiquement.
+Conserver la clé de chiffrement pour pouvoir relire les identifiants enregistrés.
+Voir le [parcours Apple détaillé](README.md#connect-an-apple-account) pour les limites
+et la déconnexion.
 
 ## Démo avec Docker Compose
 

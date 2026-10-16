@@ -8,8 +8,11 @@
   },
   "family": "frost",
   "icon": "connexions",
-  "description": "Try an App Store demo import. Live account connections are coming later.",
+  "description": "Connect Apple accounts and import iOS store listings.",
   "capabilities": [
+    "stores.apple_connect",
+    "stores.apple_import",
+    "stores.apple_sync",
     "stores.demo_catalog",
     "stores.demo_import"
   ]
