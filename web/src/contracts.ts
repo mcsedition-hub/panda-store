@@ -1,0 +1,73 @@
+export interface Workspace {
+  id: string;
+  name: string;
+  role: 'owner' | 'editor' | 'viewer';
+}
+export interface ModuleInfo {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  enabled: boolean;
+  required: boolean;
+  family: 'frost' | 'coral' | 'lichen';
+  icon: string;
+  depends: Record<string, string>;
+  capabilities: string[];
+}
+export interface AppMetadata {
+  name: string;
+  external_id: string;
+  bundle_id: string;
+  platform: string;
+  subtitle: string;
+  description: string;
+  category: string;
+  locale: string;
+  version: string;
+  features: string[];
+  audience: string;
+  source_note: string;
+}
+export interface MobileApp {
+  id: string;
+  name: string;
+  platform: string;
+  bundle_id: string;
+  external_id: string;
+  is_demo: boolean;
+  metadata: { id: string; data: AppMetadata; source: string; captured_at: string } | null;
+}
+export interface ModuleProps {
+  workspace: Workspace;
+  apps: MobileApp[];
+  selectedApp: MobileApp | null;
+  selectApp: (app: MobileApp) => void;
+  navigate: (module: string) => void;
+  refreshApps: () => Promise<void>;
+  demoMode: boolean;
+}
+export interface Creative {
+  id: string;
+  variant: number;
+  angle: string;
+  hook: string;
+  script: string;
+  cta: string;
+  approved: boolean;
+  updated_at: string;
+}
+export interface Run {
+  id: string;
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  provider: string;
+  error: string;
+  created_at: string;
+  completed_at: string | null;
+  creatives: Creative[];
+}
+export interface Brief {
+  audience: string;
+  goal: string;
+  tone: string;
+}

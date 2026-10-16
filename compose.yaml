@@ -1,0 +1,69 @@
+name: panda-store
+
+x-backend: &backend
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql://panda:${POSTGRES_PASSWORD:?Run python3 scripts/bootstrap.py}@db:5432/panda
+    CELERY_BROKER_URL: redis://redis:6379/0
+    CELERY_TASK_ALWAYS_EAGER: "false"
+    DJANGO_DEBUG: "false"
+    # This Compose file is for localhost HTTP demos only.
+    DJANGO_SECURE_COOKIES: "false"
+    PANDA_DEMO_MODE: "true"
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: panda
+      POSTGRES_USER: panda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run python3 scripts/bootstrap.py}
+    volumes: ["database:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U panda -d panda"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["broker:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  init:
+    <<: *backend
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py seed_demo"]
+    volumes: ["static:/app/staticfiles"]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+  api:
+    <<: *backend
+    depends_on:
+      init: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "panda_store", "worker", "--loglevel=info", "--concurrency=2"]
+    depends_on:
+      init: {condition: service_completed_successfully}
+  web:
+    build: {context: ., dockerfile: web/Dockerfile}
+    ports: ["127.0.0.1:8080:80"]
+    volumes: ["static:/staticfiles:ro"]
+    depends_on:
+      api: {condition: service_healthy}
+      worker: {condition: service_started}
+
+volumes:
+  database:
+  broker:
+  static:

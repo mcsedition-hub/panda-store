@@ -1,0 +1,7 @@
+{
+  "id": "example", "name": "Module d’exemple", "version": "0.1.0",
+  "core": ">=0.1,<0.2", "depends": {"app_catalog": ">=0.1,<0.2"},
+  "family": "lichen", "icon": "extensions",
+  "description": "Une extension minimale qui utilise les mêmes conventions que nos modules.",
+  "capabilities": ["example.read"]
+}

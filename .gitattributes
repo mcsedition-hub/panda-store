@@ -1,0 +1,3 @@
+* text=auto
+# Keep upstream font licence notices verbatim, including their original whitespace.
+web/public/fonts/licenses/* -text -whitespace

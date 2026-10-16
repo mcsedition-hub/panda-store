@@ -1,0 +1,23 @@
+name: Signaler un problème
+description: Un comportement reproductible de Panda Store
+body:
+  - type: markdown
+    attributes:
+      value: Ne pas publier de secret ou de vulnérabilité exploitable ici. Voir SECURITY.md.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes et résultat observé
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version et environnement
+      placeholder: commit, OS, navigateur, SQLite ou Compose

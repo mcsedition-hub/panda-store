@@ -1,0 +1,7 @@
+{
+  "id": "studio", "name": "Studio", "version": "0.1.0",
+  "core": ">=0.1,<0.2", "depends": {"app_catalog": ">=0.1,<0.2"},
+  "family": "coral", "icon": "studio",
+  "description": "Un brief et trois pistes de scripts, à relire, modifier et exporter.",
+  "capabilities": ["briefs.edit", "scripts.demo_generate", "scripts.edit", "scripts.export"]
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "external_id": "demo.runclub", "bundle_id": "demo.panda.runclub", "platform": "ios",
+    "name": "Runclub", "subtitle": "Courir à son rythme, ensemble.", "locale": "fr-FR",
+    "category": "Forme et santé", "version": "1.4.0",
+    "description": "Une application fictive pour reprendre la course sans pression. Des séances progressives, un journal de sorties et des rendez-vous entre amis.",
+    "features": ["Plans de course progressifs", "Journal de sorties", "Défis entre amis"],
+    "audience": "Les personnes qui veulent reprendre la course et garder une routine durable.",
+    "source_note": "Données fictives fournies avec Panda Store. Aucun appel à Apple."
+  },
+  {
+    "external_id": "demo.pause", "bundle_id": "demo.panda.pause", "platform": "ios",
+    "name": "Pause", "subtitle": "Quelques minutes pour souffler.", "locale": "fr-FR",
+    "category": "Style de vie", "version": "1.0.0",
+    "description": "Une application fictive proposant des pauses guidées, un minuteur et un journal personnel pour ménager des moments de calme dans la journée.",
+    "features": ["Pauses guidées", "Minuteur personnalisable", "Journal personnel"],
+    "audience": "Les personnes qui souhaitent faire des pauses régulières pendant leur journée.",
+    "source_note": "Données fictives fournies avec Panda Store. Aucun appel à Apple."
+  }
+]

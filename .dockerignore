@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+.venv
+**/node_modules
+web/dist
+output
+**/__pycache__
+.pytest_cache
+.ruff_cache
+*.sqlite3
+staticfiles
+media
