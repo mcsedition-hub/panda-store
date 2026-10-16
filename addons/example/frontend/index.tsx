@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
-import { api, moduleUrl } from "../../../web/src/api";
-import type { ModuleProps } from "../../../web/src/contracts";
+import { useEffect, useState } from 'react';
+import { api, moduleUrl } from '../../../web/src/api';
+import type { ModuleProps } from '../../../web/src/contracts';
 
 export default function Example({ workspace }: ModuleProps) {
-  const [message, setMessage] = useState("Connexion au module…");
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState('Connexion au module…');
+  const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
-    api<{ message: string }>(moduleUrl(workspace.id, "example", "hello/"))
+    api<{ message: string }>(moduleUrl(workspace.id, 'example', 'hello/'))
       .then((data) => active && setMessage(data.message))
       .catch((err) => active && setError(err.message));
     return () => {
@@ -20,8 +20,8 @@ export default function Example({ workspace }: ModuleProps) {
         <span className="eyebrow">EXTENSIONS</span>
         <h1>Une place pour vos idées.</h1>
         <p>
-          Ce module utilise le même registre, les mêmes permissions et la même
-          interface que les modules officiels.
+          Ce module utilise le même registre, les mêmes permissions et la même interface que les
+          modules officiels.
         </p>
       </div>
       <div className="notice lichen">

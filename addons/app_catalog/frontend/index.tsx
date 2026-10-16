@@ -1,4 +1,4 @@
-import type { ModuleProps } from "../../../web/src/contracts";
+import type { ModuleProps } from '../../../web/src/contracts';
 
 export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
   return (
@@ -9,10 +9,7 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
           <h1>Tout part de votre app.</h1>
           <p>Son univers, son public, ses prochaines histoires.</p>
         </div>
-        <button
-          className="button primary"
-          onClick={() => navigate("apple_store")}
-        >
+        <button className="button primary" onClick={() => navigate('apple_store')}>
           Importer une app <span aria-hidden="true">↗</span>
         </button>
       </div>
@@ -26,13 +23,10 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
               Des idées à faire grandir.
             </h2>
             <p>
-              Importez votre première application pour retrouver ses métadonnées
-              et préparer un brief dans le Studio.
+              Importez votre première application pour retrouver ses métadonnées et préparer un
+              brief dans le Studio.
             </p>
-            <button
-              className="button dark"
-              onClick={() => navigate("apple_store")}
-            >
+            <button className="button dark" onClick={() => navigate('apple_store')}>
               Choisir une app →
             </button>
           </div>
@@ -50,19 +44,15 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
                 </div>
                 <span className="pill">
                   {app.is_demo
-                    ? "App fictive"
-                    : app.platform === "ios"
-                      ? "App Store"
-                      : "Google Play"}
+                    ? 'App fictive'
+                    : app.platform === 'ios'
+                      ? 'App Store'
+                      : 'Google Play'}
                 </span>
               </div>
               <h2>{app.name}</h2>
-              <p className="app-subtitle">
-                {app.metadata?.data.subtitle ?? app.bundle_id}
-              </p>
-              <p className="app-description">
-                {app.metadata?.data.description}
-              </p>
+              <p className="app-subtitle">{app.metadata?.data.subtitle ?? app.bundle_id}</p>
+              <p className="app-description">{app.metadata?.data.description}</p>
               <div className="app-meta">
                 <span>{app.metadata?.data.category}</span>
                 <span>{app.metadata?.data.locale}</span>
@@ -71,7 +61,7 @@ export default function AppCatalog({ apps, navigate, selectApp }: ModuleProps) {
                 className="button secondary full"
                 onClick={() => {
                   selectApp(app);
-                  navigate("studio");
+                  navigate('studio');
                 }}
               >
                 Ouvrir dans le Studio →
