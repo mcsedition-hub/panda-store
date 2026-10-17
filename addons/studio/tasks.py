@@ -105,3 +105,8 @@ def generate_scripts(run_id):
         stopped.set()
         heartbeat.join(timeout=2)
         update_generation(run)
+
+
+# Celery discovers this conventional module; register the Studio tasks split into
+# separate files as well. Keep this after the shared helpers used by those modules.
+from . import creative_tasks, research_tasks  # noqa: E402, F401

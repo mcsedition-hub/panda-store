@@ -1,4 +1,7 @@
 import copy
+import os
+import subprocess
+import sys
 import uuid
 from unittest.mock import patch
 
@@ -12,6 +15,25 @@ from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import encrypt
 from panda_store.core.models import AIConnection, Membership, Workspace
 from panda_store.workflows import services
+
+
+def test_celery_discovers_all_studio_tasks_without_loading_urls():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import django; django.setup(); "
+            "from panda_store.celery import app; app.autodiscover_tasks(force=True); "
+            "assert {'addons.studio.tasks.generate_scripts', "
+            "'addons.studio.creative_tasks.generate_ai_scripts', "
+            "'addons.studio.research_tasks.research'} <= set(app.tasks)",
+        ],
+        env={**os.environ, "DJANGO_SETTINGS_MODULE": "panda_store.settings_test"},
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture
