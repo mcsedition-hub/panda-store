@@ -133,6 +133,80 @@ it('loads the library without an AI audit and recovers from a load error', async
   expect(screen.queryByLabelText('Reference set')).toBeNull();
 });
 
+const listingExample = {
+  ...savedGuidance,
+  id: 'example',
+  guidance: 'The saved description distinguishes free and paid benefits.',
+  observation_context: {
+    storefront: 'US',
+    language: 'en',
+    domain: 'Audio entertainment',
+    method: 'Manual browser review',
+    observed_app_version: '9.1.90',
+  },
+  source: {
+    ...savedGuidance.source,
+    id: 'example',
+    publisher: 'Spotify',
+    title: 'US App Store listing · Audio entertainment',
+    url: 'https://apps.apple.com/us/app/spotify-music-and-podcasts/id324684580',
+    kind: 'public_listing_observation',
+  },
+};
+
+it('distinguishes dated public examples from guidance and keeps old audits unchanged', async () => {
+  mockData(async (path) =>
+    path.endsWith('/knowledge/')
+      ? { entries: [savedGuidance, listingExample] }
+      : [{ ...run, ai: { provider: 'google', model: 'model' }, knowledge: [savedGuidance] }],
+  );
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  expect(screen.queryByRole('region', { name: 'Public listing examples' })).toBeNull();
+  fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'current' } });
+  const examples = await screen.findByRole('region', { name: 'Public listing examples' });
+  expect(within(examples).getByText(listingExample.guidance)).toBeTruthy();
+  expect(within(examples).queryByText(savedGuidance.guidance)).toBeNull();
+  expect(
+    within(examples).getByText(/US · English · Audio entertainment · Manual browser review/),
+  ).toBeTruthy();
+  expect(within(examples).getByText(/Saved text observations, not live research/)).toBeTruthy();
+  expect(within(examples).getByRole('link').getAttribute('href')).toBe(listingExample.source.url);
+  fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'saved' } });
+  expect(screen.queryByText(listingExample.guidance)).toBeNull();
+});
+
+it('shows the dated observation behind a cited public listing example', async () => {
+  mockData(async () => [
+    {
+      ...run,
+      report: {
+        ...run.report,
+        checks: [
+          {
+            ...check,
+            sources: [
+              {
+                ...listingExample.source,
+                guidance: listingExample.guidance,
+                observation_context: listingExample.observation_context,
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+  render(<ASO {...props} />);
+  await screen.findByText('Observation used');
+  expect(screen.getByText(/Public listing example · Reviewed/)).toBeTruthy();
+  expect(
+    screen.getByText(/US · English · Audio entertainment · Manual browser review/),
+  ).toBeTruthy();
+  expect(screen.getByText(listingExample.guidance)).toBeTruthy();
+});
+
 it('does not substitute current guidance for an older audit without saved notes', async () => {
   mockData(async () => [{ ...run, ai: { provider: 'google', model: 'model' } }]);
   render(<ASO {...props} />);

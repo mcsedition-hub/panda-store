@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "version": "aso-visual-research-2026-10-17.1",
-  "status": "reviewed_research_not_runtime_context",
+  "status": "text_annotations_active_visual_research_pending",
   "reviewed_on": "2026-10-17",
-  "purpose": "Preparation for screenshot analysis and browser research. This file is not loaded by corpus.knowledge(), supplied to current audits, or displayed in the Sources tab.",
+  "purpose": "Backing research for the three text annotations selected in editorial.json. Those text annotations are supplied to current audits and shown in Sources. This file's screenshot observations and visual source notes are not loaded by corpus.knowledge(); screenshot analysis and live browser research remain unimplemented.",
   "sources": [
     {
       "id": "apple-accurate-metadata",

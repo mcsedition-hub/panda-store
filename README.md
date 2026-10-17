@@ -179,7 +179,8 @@ and changed URLs. It does not prove feature claims, semantic relevance, translat
 quality or improved conversion. The separate model review filters semantic errors,
 but is not independent app testing or a guarantee of correctness.
 Zero AI proposals is a valid result. The current
-review uses five reviewed annotations from Apple, Phiture, AppTweak and SplitMetrics.
+review uses five guidance annotations from Apple, Phiture, AppTweak and SplitMetrics,
+plus three dated public listing examples from Duolingo, Spotify and Tinder.
 Apple guidance remains the primary reference; practitioner/vendor methods supplement
 it without supplying app metrics or official requirements.
 Open **ASO → Sources** to inspect the exact notes saved with the selected audit or
@@ -191,10 +192,15 @@ does not automatically include it in AI context. There is no live web research.
 Visual analysis, competitors, search demand, download measurement, Google Play
 audits and publishing are not implemented. No score or growth guarantee is produced.
 
-Preparation for visual research includes [reviewed source notes and three public
-listing studies](addons/aso/knowledge/visual-research.json): Duolingo, Spotify and
-Tinder, inspected in a browser on October 17, 2026 (US App Store, English, iPhone
-gallery). These observations are not included in AI audits or the Sources tab.
+The [backing research](addons/aso/knowledge/visual-research.json) records a browser
+review on October 17, 2026 (US App Store, English, iPhone gallery). Selected **text**
+observations now supplement reviews of names, subtitles and descriptions. They are
+frozen with each new AI audit, provided to both model calls and visible in
+**Sources → Public listing examples** with their date and context. They cannot
+justify keyword or promotional-text recommendations, replace an official source,
+or establish features or performance of the audited app. Screenshot observations
+remain research material and are not sent to the text reviewer. Historical audits
+keep their previous references. No browser research runs during an audit.
 The [planned research workflow](docs/architecture.md#recherche-sur-trois-fiches-de-référence)
 requires opening three well-known apps from different domains, recording coverage
 and checking relevance separately from niche competitors. Public examples provide

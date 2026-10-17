@@ -113,6 +113,36 @@
       "topics": ["screenshots", "experiments", "audience"],
       "use": "Historical example of testing creative alternatives for a specific game and audience.",
       "limitations": "Publication date is not established. Vendor-reported results, incomplete raw methodology and historical store context: no universal orientation rule or transferable uplift."
+    },
+    {
+      "id": "duolingo-public-listing",
+      "publisher": "Duolingo",
+      "title": "US App Store listing · Education",
+      "url": "https://apps.apple.com/us/app/duolingo-learn-languages/id570060128",
+      "kind": "public_listing_observation",
+      "stores": ["app_store"],
+      "topics": ["metadata", "public_listing_example"],
+      "use": "Dated text observations from a browser review; structural inspiration, not performance evidence."
+    },
+    {
+      "id": "spotify-public-listing",
+      "publisher": "Spotify",
+      "title": "US App Store listing · Audio entertainment",
+      "url": "https://apps.apple.com/us/app/spotify-music-and-podcasts/id324684580",
+      "kind": "public_listing_observation",
+      "stores": ["app_store"],
+      "topics": ["metadata", "public_listing_example"],
+      "use": "Dated text observations from a browser review; structural inspiration, not performance evidence."
+    },
+    {
+      "id": "tinder-public-listing",
+      "publisher": "Tinder",
+      "title": "US App Store listing · Dating",
+      "url": "https://apps.apple.com/us/app/tinder-dating-app-date-chat/id547702041",
+      "kind": "public_listing_observation",
+      "stores": ["app_store"],
+      "topics": ["metadata", "public_listing_example"],
+      "use": "Dated text observations from a browser review; structural inspiration, not performance evidence."
     }
   ]
 }

@@ -70,11 +70,17 @@ def audit_listing(workflow_id):
         services.heartbeat(workflow_id, token)
         if "ai" in run.inputs:
             choice = run.inputs["ai"]
+            examples = sum(
+                note["source"].get("kind") == "public_listing_observation"
+                for note in run.inputs["knowledge"]
+            )
             output = services.start_step(
                 workflow_id,
                 token,
                 "editorial",
-                f"Reviewing {run.locale} text with {choice['provider']} / {choice['model']}.",
+                f"Reviewing {run.locale} text with {choice['provider']} / {choice['model']}. "
+                f"Using {len(run.inputs['knowledge'])} saved reference notes, including "
+                f"{examples} public listing examples. No live web research.",
             )
             if output is None:
                 output = editorial.analyze(run, report["checks"])

@@ -1,5 +1,5 @@
 {
-  "version": "aso-knowledge-2026-10-17.1",
+  "version": "aso-knowledge-2026-10-17.2",
   "entries": [
     {
       "id": "apple-product-page",
@@ -40,6 +40,51 @@
       "fields": ["name", "subtitle", "description", "promotional_text"],
       "guidance": "Move from research to a specific hypothesis, prepare variants, design an experiment and inspect its outcome. Tie a proposed message change to an observed weakness and a testable expectation; isolate the change so that an eventual result can be interpreted.",
       "limitations": "Vendor methodology, not an Apple requirement. This audit proposes copy hypotheses and runs no experiment. Simulated store pages and advertising audiences are not interchangeable with native store tests or organic installs. Do not assume Apple supports native A/B testing of these text fields."
+    },
+    {
+      "id": "duolingo-public-listing",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["name", "subtitle", "description"],
+      "guidance": "Observed in Duolingo's public listing: the name establishes language learning; the subtitle adds examples and other subjects. The description explains short lessons, groups subjects and separates the paid offer. Possible structural inspiration: make the purpose clear, use the subtitle for complementary information and organize the description by documented uses.",
+      "limitations": "A dated observation, not an Apple rule or evidence of better conversion. This education app is not necessarily a competitor. Use only a relevant structural analogy; do not copy its wording, brand or features into the audited app. English US wording does not establish suitability for another language or market. No screenshots, hidden keywords, demand or performance data are supplied.",
+      "observation_context": {
+        "storefront": "US",
+        "language": "en",
+        "domain": "Education",
+        "method": "Manual browser review",
+        "observed_app_version": "7.144.0"
+      }
+    },
+    {
+      "id": "spotify-public-listing",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["name", "subtitle", "description"],
+      "guidance": "Observed in Spotify's public listing: name and subtitle enumerate listening formats and uses. The description separates free and Premium benefits; downloads for offline listening appear in the paid offer, with audiobook availability qualifications. Possible structural inspiration: explain concrete uses while retaining payment and market qualifications relevant to the audited app.",
+      "limitations": "A dated observation, not an Apple rule or proof of product behavior or conversion. This audio app is not necessarily a competitor. Its offline, paid and regional features describe Spotify only; never infer these properties for the audited app. Do not copy its wording or brand. English US observations do not supply local search terms, hidden keywords, screenshots or metrics.",
+      "observation_context": {
+        "storefront": "US",
+        "language": "en",
+        "domain": "Audio entertainment",
+        "method": "Manual browser review",
+        "observed_app_version": "9.1.90"
+      }
+    },
+    {
+      "id": "tinder-public-listing",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["name", "subtitle", "description"],
+      "guidance": "Observed in Tinder's public listing: name and subtitle foreground meeting and dating. The description uses sections for usage, self-expression, safety messaging and subscriptions, and identifies profile imagery as illustrative models. Possible structural inspiration: organize documented uses and relevant qualifications into scannable sections rather than an undifferentiated description.",
+      "limitations": "A dated observation, not an Apple rule or evidence of safety, authentic testimonials or conversion. This dating app is not necessarily a competitor. Section choices must fit the audited app's documented features; do not import dating or verification claims, wording or brand. English US observations do not supply local search terms, hidden keywords, screenshots or metrics.",
+      "observation_context": {
+        "storefront": "US",
+        "language": "en",
+        "domain": "Dating",
+        "method": "Manual browser review",
+        "observed_app_version": "17.39.2"
+      }
     }
   ]
 }

@@ -34,8 +34,9 @@ Le banc de dix cas synthétiques comprend des contrôles automatiques,
 de rapports relisibles et d'une grille de revue humaine. Les premiers critères
 restent provisoires : la calibration par des spécialistes, les cas réels consentis
 et un jeu réservé restent à faire. Voir [l'évaluation ASO](aso-evaluation.md).
-La bibliothèque utilisée par l'IA contient cinq annotations vérifiées, avec leurs
-limites et leur périmètre. `Sources` permet d'inspecter les notes conservées pour
+La bibliothèque utilisée par l'IA contient cinq annotations de méthode et trois
+exemples de fiches publiques, avec leurs limites et leur périmètre.
+`Sources` permet d'inspecter les notes conservées pour
 chaque audit et celles destinées aux nouveaux audits. Apple reste la référence
 officielle ; Phiture, AppTweak et SplitMetrics apportent des méthodes de travail.
 La suite porte sur les captures d'écran, cette calibration et les outils de recherche. La
@@ -48,7 +49,10 @@ Apple. L'indexation et le graphe restent à implémenter.
 La préparation des captures comprend désormais une [revue documentaire et trois
 fiches examinées dans le navigateur](../addons/aso/knowledge/visual-research.json) :
 Duolingo, Spotify et Tinder, dans trois domaines différents, le 17 octobre 2026.
-Ces notes ne sont pas encore injectées dans l'IA. La tranche recherche devra
+Trois annotations textuelles issues de cette revue sont injectées dans les nouveaux
+audits et visibles dans Sources ; les observations visuelles restent à intégrer.
+La revue des affirmations distingue exemples et preuves propres à l'app.
+La tranche recherche devra
 ouvrir trois fiches à chaque exécution, afficher ses sources et sa couverture,
 vérifier la pertinence des exemples, puis figer les observations avec l'audit.
 Une consultation incomplète doit rester visible. Ajouter la recherche de niche

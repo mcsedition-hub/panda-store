@@ -277,9 +277,11 @@ nombres ou changements d’URLs. Elle ne prouve pas la fidélité des promesses,
 interprétation des sources ou la valeur commerciale : toutes les propositions IA
 sont marquées hypothèses à relire. Elles peuvent alimenter un brouillon, jamais
 écrire chez Apple. Les règles, l’activité et le rapport historique restent distincts.
-Le corpus courant contient cinq annotations originales : deux guides Apple, le
+Le corpus courant contient cinq annotations de méthode : deux guides Apple, le
 cadre ASO de Phiture, la méthodologie de recherche de mots-clés AppTweak et celle
-d'expérimentation SplitMetrics. Chaque annotation porte son champ d'application,
+d'expérimentation SplitMetrics. Trois observations de fiches publiques complètent
+la revue du nom, du sous-titre et de la description : Duolingo, Spotify et Tinder.
+Chaque annotation porte son champ d'application,
 son store, sa date de revue, le type de source et ses limites. Les seuils chiffrés
 et affirmations algorithmiques non corroborés ne sont pas ingérés. Le catalogue
 plus large inclut des références Google et des études de cas qui ne sont pas
@@ -459,9 +461,21 @@ La [première revue manuelle](../addons/aso/knowledge/visual-research.json) du
 texte anglais et galerie iPhone, parcourue jusqu'à sa fin dans le navigateur.
 Elle conserve des observations originales et des liens, sans redistribuer les
 images. Le téléchargement des assets ayant été refusé, aucune copie ni empreinte
-des images n'est archivée. Ce fichier est une préparation documentaire : ni
-`corpus.knowledge()`, ni les audits existants, ni l'onglet Sources ne le chargent.
-Les audits antérieurs ne disposaient pas de cette recherche sur trois fiches.
+des images n'est archivée. Ce fichier conserve la recherche d'origine.
+Depuis `aso-knowledge-2026-10-17.2`, trois annotations textuelles sélectionnées
+dans `editorial.json` sont utilisées dans les nouveaux audits IA et
+visibles sous « Public listing examples » dans Sources. Les observations visuelles
+restent hors du contexte IA. Les audits antérieurs gardent leurs propres notes.
+
+Les instructions de rédaction `.4` et de contrôle des affirmations `.3` distinguent
+ces exemples datés des règles et des fonctionnalités de l'app auditée. Ils peuvent
+inspirer une structure pertinente, sans transfert de marque, de fonction ou de
+promesse, ni recherche de mots-clés. La validation exige toujours une source
+officielle applicable et refuse une citation de ces exemples pour les mots-clés
+ou le texte promotionnel. Le contexte d'observation accompagne les citations
+acceptées. Les deux appels reçoivent les mêmes notes sauvegardées ; l'activité
+indique leur nombre et l'absence de recherche web en direct. Six cas synthétiques
+supplémentaires évaluent les transferts injustifiés et une analogie acceptable.
 
 Le futur workflow devra :
 

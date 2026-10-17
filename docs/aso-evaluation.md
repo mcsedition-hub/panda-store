@@ -176,21 +176,28 @@ reliable semantic accuracy.
 
 ## Evidence-review regressions
 
-The seven fixed cases in `grounding_cases.json` isolate the two observed errors
+The first seven fixed cases in `grounding_cases.json` isolate the two observed errors
 and controls: unjustified offline operation, false product verification, faithful
 account scope, explicit uncertainty, an explicitly documented offline capability,
 overstating that capability to network-dependent features, and describing a feature
 without claiming it was tested. Labels are project judgments recorded by the
 assistant, not independent expert calibration. They are never sent to the reviewer.
 
+Six additional cases exercise the dated public listing examples: treating an
+example as an Apple rule, claiming conversion gains, transferring an offline
+feature, inventing a live browser visit, inferring local keyword demand, and a
+positive control that uses a structural analogy while preserving the target
+app's paid-backup qualification. The reviewer receives the same eight frozen
+annotations as the writer; the expected verdict remains outside its context.
+
 ```sh
 # Offline: list the case count. No credentials or requests.
 .venv/bin/python manage.py evaluate_aso_grounding
 
-# Explicit live check: seven bounded calls using the production reviewer.
+# Explicit live check: thirteen bounded calls using the production reviewer.
 .venv/bin/python -u manage.py evaluate_aso_grounding \
   --live --workspace WORKSPACE_UUID --provider google --model MODEL_ID \
-  --max-calls 7 --output output/aso-eval/evidence-regressions
+  --max-calls 13 --output output/aso-eval/evidence-regressions
 ```
 
 The directory must be new. Private JSON records preserve context, verdicts,
@@ -203,6 +210,13 @@ fresh run with `aso-grounding-2026-10-17.2` each produced
 all seven expected verdicts: both original errors were rejected, the qualified
 positive/abstention controls accepted, and the overbroad offline claim rejected.
 This is a small regression result, not a universal hallucination guarantee.
+
+A further live run on October 17 used `gemini-4-argon`, reviewer
+`aso-grounding-2026-10-17.3` and the eight annotations in corpus `.2`. All thirteen
+fixed cases received the expected verdict: the five invalid uses of public
+examples were rejected, while the qualified structural analogy was accepted.
+This is one run on one model, with project-authored labels; other providers and
+independent specialist calibration remain to be evaluated for these new cases.
 
 The full pipeline with writer `apple-editorial-2026-10-17.3` and reviewer `.1`
 completed ten distinct cases across two runs: nine met expectations; one exposed

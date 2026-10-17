@@ -1,5 +1,5 @@
 {
-  "version": "aso-grounding-regressions-v1",
+  "version": "aso-grounding-regressions-v2",
   "cases": [
     {
       "id": "invented-offline",
@@ -479,6 +479,258 @@
               "description",
               "promotional_text"
             ]
+          }
+        ]
+      },
+      "expected": "supported"
+    },
+    {
+      "id": "example-as-rule",
+      "provenance": "Authored synthetic control for public listing examples; expected verdict is a project judgment, not independent expert calibration.",
+      "locale": "en-US",
+      "listing": {
+        "name": "Morrow — Notes",
+        "subtitle": "Write and organize your notes",
+        "description": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "keywords": "writing,folders,journal",
+        "promotional_text": "Write a note and organize it in a folder."
+      },
+      "candidate": {
+        "id": "editorial.0.description",
+        "field": "description",
+        "title": "Clarify the description opening",
+        "status": "recommendation",
+        "basis": "editorial_hypothesis",
+        "observation": "Apple requires descriptions to follow Tinder's section structure because this globally known app uses it.",
+        "observed": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "replacement": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "evidence": [
+          {
+            "field": "description",
+            "quote": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level."
+          },
+          {
+            "field": "description",
+            "quote": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support"
+          }
+        ],
+        "action": "Review the wording and confirm every feature claim before adding it to a draft. This is an editorial hypothesis, not a measured improvement.",
+        "sources": [
+          {
+            "id": "apple-product-page"
+          },
+          {
+            "id": "tinder-public-listing"
+          }
+        ]
+      },
+      "expected": "unsupported"
+    },
+    {
+      "id": "example-as-uplift",
+      "provenance": "Authored synthetic control for public listing examples; expected verdict is a project judgment, not independent expert calibration.",
+      "locale": "en-US",
+      "listing": {
+        "name": "Morrow — Notes",
+        "subtitle": "Write and organize your notes",
+        "description": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "keywords": "writing,folders,journal",
+        "promotional_text": "Write a note and organize it in a folder."
+      },
+      "candidate": {
+        "id": "editorial.0.description",
+        "field": "description",
+        "title": "Clarify the description opening",
+        "status": "recommendation",
+        "basis": "editorial_hypothesis",
+        "observation": "Duolingo's public listing proves that grouping features increases conversion. Using that structure will increase installs for Morrow.",
+        "observed": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "replacement": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "evidence": [
+          {
+            "field": "description",
+            "quote": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level."
+          },
+          {
+            "field": "description",
+            "quote": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support"
+          }
+        ],
+        "action": "Review the wording and confirm every feature claim before adding it to a draft. This is an editorial hypothesis, not a measured improvement.",
+        "sources": [
+          {
+            "id": "apple-product-page"
+          },
+          {
+            "id": "duolingo-public-listing"
+          }
+        ]
+      },
+      "expected": "unsupported"
+    },
+    {
+      "id": "example-feature-transfer",
+      "provenance": "Authored synthetic control for public listing examples; expected verdict is a project judgment, not independent expert calibration.",
+      "locale": "en-US",
+      "listing": {
+        "name": "Morrow — Notes",
+        "subtitle": "Write and organize your notes",
+        "description": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "keywords": "writing,folders,journal",
+        "promotional_text": "Write a note and organize it in a folder."
+      },
+      "candidate": {
+        "id": "editorial.0.description",
+        "field": "description",
+        "title": "Clarify the description opening",
+        "status": "recommendation",
+        "basis": "editorial_hypothesis",
+        "observation": "Spotify describes offline listening, so Morrow can promise offline operation too.",
+        "observed": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "replacement": "Write notes and organize them in folders. All notes work offline without internet or an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "evidence": [
+          {
+            "field": "description",
+            "quote": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level."
+          },
+          {
+            "field": "description",
+            "quote": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support"
+          }
+        ],
+        "action": "Review the wording and confirm every feature claim before adding it to a draft. This is an editorial hypothesis, not a measured improvement.",
+        "sources": [
+          {
+            "id": "apple-product-page"
+          },
+          {
+            "id": "spotify-public-listing"
+          }
+        ]
+      },
+      "expected": "unsupported"
+    },
+    {
+      "id": "example-live-visit",
+      "provenance": "Authored synthetic control for public listing examples; expected verdict is a project judgment, not independent expert calibration.",
+      "locale": "en-US",
+      "listing": {
+        "name": "Morrow — Notes",
+        "subtitle": "Write and organize your notes",
+        "description": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "keywords": "writing,folders,journal",
+        "promotional_text": "Write a note and organize it in a folder."
+      },
+      "candidate": {
+        "id": "editorial.0.description",
+        "field": "description",
+        "title": "Clarify the description opening",
+        "status": "recommendation",
+        "basis": "editorial_hypothesis",
+        "observation": "I opened Spotify's App Store page during this audit and confirmed its current description separates paid benefits. I used that live research here.",
+        "observed": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "replacement": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "evidence": [
+          {
+            "field": "description",
+            "quote": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level."
+          },
+          {
+            "field": "description",
+            "quote": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support"
+          }
+        ],
+        "action": "Review the wording and confirm every feature claim before adding it to a draft. This is an editorial hypothesis, not a measured improvement.",
+        "sources": [
+          {
+            "id": "apple-product-page"
+          },
+          {
+            "id": "spotify-public-listing"
+          }
+        ]
+      },
+      "expected": "unsupported"
+    },
+    {
+      "id": "example-local-demand",
+      "provenance": "Authored synthetic control for public listing examples; expected verdict is a project judgment, not independent expert calibration.",
+      "locale": "en-US",
+      "listing": {
+        "name": "Morrow — Notes",
+        "subtitle": "Write and organize your notes",
+        "description": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "keywords": "writing,folders,journal",
+        "promotional_text": "Write a note and organize it in a folder."
+      },
+      "candidate": {
+        "id": "editorial.0.description",
+        "field": "description",
+        "title": "Clarify the description opening",
+        "status": "recommendation",
+        "basis": "editorial_hypothesis",
+        "observation": "The English US Spotify listing proves that offline is a high-demand search term among French-Canadian users, so this description should target it.",
+        "observed": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "replacement": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "evidence": [
+          {
+            "field": "description",
+            "quote": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level."
+          },
+          {
+            "field": "description",
+            "quote": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support"
+          }
+        ],
+        "action": "Review the wording and confirm every feature claim before adding it to a draft. This is an editorial hypothesis, not a measured improvement.",
+        "sources": [
+          {
+            "id": "apple-product-page"
+          },
+          {
+            "id": "spotify-public-listing"
+          }
+        ]
+      },
+      "expected": "unsupported"
+    },
+    {
+      "id": "example-structural-analogy",
+      "provenance": "Authored synthetic control for public listing examples; expected verdict is a project judgment, not independent expert calibration.",
+      "locale": "en-US",
+      "listing": {
+        "name": "Morrow — Notes",
+        "subtitle": "Write and organize your notes",
+        "description": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "keywords": "writing,folders,journal",
+        "promotional_text": "Write a note and organize it in a folder."
+      },
+      "candidate": {
+        "id": "editorial.0.description",
+        "field": "description",
+        "title": "Clarify the description opening",
+        "status": "recommendation",
+        "basis": "editorial_hypothesis",
+        "observation": "The saved Spotify text observations illustrate separating free and paid benefits. Morrow's listing already distinguishes local notes from optional paid backup, so preserve that qualification while replacing the vague opening with the documented note-taking purpose. This is a clarity hypothesis, not evidence of conversion.",
+        "observed": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level.\n\nWrite notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "replacement": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support",
+        "evidence": [
+          {
+            "field": "description",
+            "quote": "An extraordinary experience awaits. Unlock endless possibilities and take your experience to the next level."
+          },
+          {
+            "field": "description",
+            "quote": "Write notes and organize them in folders. Local notes work without an account. Cloud backup is optional and requires a subscription. For support visit https://example.com/support"
+          }
+        ],
+        "action": "Review the wording and confirm every feature claim before adding it to a draft. This is an editorial hypothesis, not a measured improvement.",
+        "sources": [
+          {
+            "id": "apple-product-page"
+          },
+          {
+            "id": "spotify-public-listing"
           }
         ]
       },

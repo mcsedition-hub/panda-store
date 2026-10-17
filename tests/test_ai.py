@@ -376,7 +376,14 @@ def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
     assert generate.call_args_list[1].kwargs["max_output_tokens"] == grounding.MAX_OUTPUT_TOKENS
     assert run.report["editorial"]["grounding"]["reviewed_items"] == 6
     assert run.inputs["knowledge_version"] == editorial.KNOWLEDGE_VERSION
-    assert len(run.inputs["knowledge"]) == 5
+    assert len(run.inputs["knowledge"]) == 8
+    assert generate.call_args_list[1].args[4]["guidance"] == run.inputs["knowledge"]
+    examples = [
+        item
+        for item in run.inputs["knowledge"]
+        if item["source"]["kind"] == "public_listing_observation"
+    ]
+    assert len(examples) == 3 and all(item["observation_context"] for item in examples)
     with patch("addons.aso.editorial.knowledge", return_value=[]):
         saved = api.get(f"/api/workspaces/{workspace.pk}/aso/apps/{listing[0].pk}/runs/").data[0]
     assert saved["knowledge"] == run.inputs["knowledge"]

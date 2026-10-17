@@ -1,6 +1,7 @@
 import copy
 import io
 import json
+from importlib.resources import files
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -16,6 +17,10 @@ from panda_store.core.credentials import encrypt
 from panda_store.core.models import AIConnection
 from tests.aso_support import supported_review
 from tests.test_aso_evaluation import propose, response
+
+REVIEW_CASE_COUNT = len(
+    json.loads(files("addons.aso.evaluation").joinpath("grounding_cases.json").read_text())["cases"]
+)
 
 
 def sample():
@@ -161,11 +166,11 @@ def test_calibration_is_offline_by_default_and_checks_budget_before_calling(tmp_
     with patch("addons.aso.editorial.generate") as generate:
         call_command("evaluate_aso_grounding", stdout=io.StringIO())
         with pytest.raises(CommandError, match="max-calls"):
-            call_command("evaluate_aso_grounding", **options, max_calls=6)
+            call_command("evaluate_aso_grounding", **options, max_calls=REVIEW_CASE_COUNT - 1)
         assert not options["output"].exists()
         connection.delete()
         with pytest.raises(CommandError, match="Connect this provider"):
-            call_command("evaluate_aso_grounding", **options, max_calls=7)
+            call_command("evaluate_aso_grounding", **options, max_calls=REVIEW_CASE_COUNT)
     generate.assert_not_called()
 
 
@@ -194,7 +199,7 @@ def test_calibration_stops_after_provider_error_and_preserves_earlier_response(t
                 workspace=str(workspace.pk),
                 provider="google",
                 model="gemini-3.8-flash",
-                max_calls=7,
+                max_calls=REVIEW_CASE_COUNT,
                 output=tmp_path / "result",
                 stdout=io.StringIO(),
             )
