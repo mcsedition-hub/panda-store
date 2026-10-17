@@ -194,9 +194,9 @@ def test_adapter_uses_official_endpoint_and_discards_provider_errors(provider):
         assert KEY not in str(request.url)
         return httpx.Response(429, json={"error": KEY})
 
-    real_client = httpx.Client
+    real_client = httpx.AsyncClient
     with patch(
-        "panda_store.ai.providers.httpx.Client",
+        "panda_store.ai.providers.httpx.AsyncClient",
         side_effect=lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw),
     ):
         with pytest.raises(providers.ProviderError, match="quota") as error:
@@ -521,14 +521,15 @@ def review_inputs(listing):
     }
 
 
+@pytest.mark.parametrize("failure_code", ["quota_exhausted", "timeout"])
 def test_evidence_review_failure_and_retry_reuse_the_saved_copy(
-    api, workspace, listing, connection
+    api, workspace, listing, connection, failure_code
 ):
     response, _ = start(api, workspace, listing)
     run = AuditRun.objects.get(pk=response.data["id"])
     with patch(
         "addons.aso.editorial.generate",
-        side_effect=[output(), providers.ProviderError("Provider quota reached.")],
+        side_effect=[output(), providers.ProviderError("Provider interrupted.", code=failure_code)],
     ) as generate:
         audit_listing(str(run.workflow_id))
     assert generate.call_count == 2

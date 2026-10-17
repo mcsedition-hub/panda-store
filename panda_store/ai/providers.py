@@ -1,10 +1,11 @@
 """Official endpoints only. No credentials or raw provider failures reach logs/UI."""
 
+import asyncio
 import json
 import re
-import time
 
 import httpx
+from django.conf import settings
 
 from .errors import ProviderError, failure
 
@@ -16,7 +17,8 @@ HOSTS = {
 }
 
 
-def request(provider, key, path, *, payload=None, params=None):
+async def _request(provider, key, path, payload, params, deadline):
+    """Bound the entire exchange, including a slow first byte or a stalled body."""
     headers = (
         {"Authorization": f"Bearer {key}"}
         if provider == "openai"
@@ -26,10 +28,12 @@ def request(provider, key, path, *, payload=None, params=None):
             else {"x-api-key": key, "anthropic-version": "2023-06-01"}
         )
     )
-    started = time.monotonic()
-    try:
-        with httpx.Client(timeout=httpx.Timeout(70, connect=10), follow_redirects=False) as client:
-            with client.stream(
+    # HTTPX read timeouts measure inactivity, not total duration. The outer deadline
+    # also cancels a provider that keeps sending small chunks indefinitely.
+    timeout = httpx.Timeout(deadline if payload is not None else 70, connect=10, write=30, pool=10)
+    async with asyncio.timeout(deadline):
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            async with client.stream(
                 "POST" if payload is not None else "GET",
                 HOSTS[provider] + path,
                 headers=headers,
@@ -38,15 +42,13 @@ def request(provider, key, path, *, payload=None, params=None):
             ) as response:
                 body = bytearray()
                 failed = not 200 <= response.status_code < 300
-                for chunk in response.iter_bytes():
+                async for chunk in response.aiter_bytes():
                     body.extend(chunk)
                     if failed and len(body) > 65536:
                         body.clear()
                         break
-                    if len(body) > 2_000_000 or time.monotonic() - started > 90:
-                        raise ProviderError(
-                            "The provider response exceeded the time or size limit."
-                        )
+                    if len(body) > 2_000_000:
+                        raise ProviderError("The provider response exceeded the size limit.")
                 if failed:
                     try:
                         data = json.loads(body)
@@ -55,13 +57,23 @@ def request(provider, key, path, *, payload=None, params=None):
                     raise failure(
                         provider, response.status_code, data, response.headers.get("retry-after")
                     )
+    return body
+
+
+def request(provider, key, path, *, payload=None, params=None):
+    # Synchronous entry point for Django views and workers; no database work is
+    # performed on the temporary event loop. Catalog requests retain a short budget.
+    deadline = settings.PANDA_AI_TIMEOUT_SECONDS if payload is not None else 90
+    try:
+        body = asyncio.run(_request(provider, key, path, payload, params, deadline))
         data = json.loads(body)
         if not isinstance(data, dict):
             raise ValueError()
         return data
-    except httpx.TimeoutException:
+    except (TimeoutError, httpx.TimeoutException):
         raise ProviderError(
-            "The AI provider timed out. The request may still have been processed. "
+            f"{PROVIDERS[provider]}: The request timed out "
+            f"(request limit: {deadline:g}s). It may still be processed or billed. "
             "Check provider status before retrying.",
             code="timeout",
         ) from None

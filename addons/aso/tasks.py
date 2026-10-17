@@ -2,6 +2,7 @@ import logging
 import threading
 
 from celery import shared_task
+from django.conf import settings
 from django.db import close_old_connections, connections
 
 from panda_store.ai.providers import ProviderError
@@ -15,7 +16,10 @@ from .rules import audit, localized_metadata
 logger = logging.getLogger(__name__)
 
 
-@shared_task(soft_time_limit=300, time_limit=330)
+@shared_task(
+    soft_time_limit=2 * settings.PANDA_AI_TIMEOUT_SECONDS + 60,
+    time_limit=2 * settings.PANDA_AI_TIMEOUT_SECONDS + 90,
+)
 def audit_listing(workflow_id):
     run = AuditRun.objects.get(workflow_id=workflow_id)
     token = services.claim(workflow_id)

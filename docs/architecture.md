@@ -292,6 +292,31 @@ peut pas être sa seule autorité. Les citations hors champ ou hors store sont
 source. Le serveur conserve l'annotation exacte sur les citations acceptées.
 Les versions précédentes restent validables avec leurs propres notes sauvegardées.
 
+Le transport IA possède une échéance totale de 300 secondes par génération,
+configurable par installation via `PANDA_AI_TIMEOUT_SECONDS` (30 à 900 secondes).
+Un client HTTPX asynchrone dans une boucle temporaire permet à `asyncio.timeout`
+d'interrompre aussi une attente du premier octet ou un corps reçu très lentement.
+L'interface Python reste synchrone pour les vues et workers ; aucun accès ORM
+n'est effectué dans cette boucle. Les limites HTTPX de connexion, écriture et
+pool restent courtes. Le catalogue conserve son délai de lecture de 70 secondes
+et une échéance totale de 90 secondes. Les limites Celery de l'audit sont calculées
+pour deux échéances de génération, plus 60/90 secondes de marge. Backend et worker
+doivent être redémarrés après un changement de configuration.
+
+Cette correction fait suite à un audit Gemini 4 Argon interrompu localement après
+70 secondes avant sa première réponse. Elle conserve les plafonds de sortie,
+la vérification des affirmations et l'absence de relance payante automatique.
+Google décrit la latence supplémentaire du raisonnement dans son
+[guide de dépannage](https://ai.google.dev/gemini-api/docs/troubleshooting).
+HTTPX distingue le délai d'inactivité de lecture d'une échéance globale dans sa
+[documentation des timeouts](https://www.python-httpx.org/advanced/timeouts/).
+La reprise réelle du même audit `fr-CA` avec Gemini 4 Argon a terminé en 32 secondes
+après la correction, en réutilisant les étapes de lecture et de règles. Cet essai
+confirme le parcours de reprise ; sa réponse plus rapide ne prouve pas à elle seule
+le comportement au-delà de 70 secondes. Les tests du transport vérifient le budget
+configuré, l'interruption avant le premier octet ou pendant le corps, la fermeture
+de la connexion et l'absence de requêtes automatiques supplémentaires.
+
 Depuis `apple-editorial-2026-10-17.3`, `grounding.py` examine séparément les
 observations, titres, justifications et remplacements après validation structurelle.
 Le même fournisseur et modèle est appelé avec une consigne de vérification dédiée,

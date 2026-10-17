@@ -163,6 +163,15 @@ evidence reviews fail the audit without publishing unchecked copy. Retry reuses
 completed writing and validation steps. Each call's token usage is shown separately.
 Older reports remain unchanged and identify the missing evidence review.
 
+Each generation has a **300-second total request deadline**, including the wait
+for the first response and reading its body. Reasoning models can take longer
+than ordinary text responses. Administrators can set `PANDA_AI_TIMEOUT_SECONDS`
+in `.env` (30–900 seconds); restart both the backend and worker after changing it.
+Celery's ASO task limits allow both model calls plus checkpoint overhead. Model
+catalog requests keep their shorter timeout. A timeout names the provider and
+request limit; **Retry unfinished steps** preserves completed checkpoints and
+may make another billed request for the unfinished step.
+
 Editorial proposals are hypotheses for human review. Validation rejects unknown
 sources, citations outside the field/store scope, vendor-only citations,
 non-verbatim evidence, repeated proposals, field overflows, new numbers

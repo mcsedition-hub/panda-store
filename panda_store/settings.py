@@ -111,6 +111,15 @@ PANDA_DEMO_MODE = env_bool("PANDA_DEMO_MODE")
 PANDA_WORKFLOW_DISPATCH = os.getenv("PANDA_WORKFLOW_DISPATCH", "database")
 if PANDA_WORKFLOW_DISPATCH not in {"database", "celery"}:
     raise ImproperlyConfigured("PANDA_WORKFLOW_DISPATCH must be database or celery.")
+# Full network deadline per AI generation, including connection and body reads.
+try:
+    PANDA_AI_TIMEOUT_SECONDS = int(os.getenv("PANDA_AI_TIMEOUT_SECONDS", "300"))
+except ValueError:
+    raise ImproperlyConfigured(
+        "PANDA_AI_TIMEOUT_SECONDS must be an integer from 30 to 900."
+    ) from None
+if not 30 <= PANDA_AI_TIMEOUT_SECONDS <= 900:
+    raise ImproperlyConfigured("PANDA_AI_TIMEOUT_SECONDS must be an integer from 30 to 900.")
 PANDA_SETUP_ENABLED = env_bool("PANDA_SETUP_ENABLED")
 PANDA_DEMO_USERNAME = os.getenv("PANDA_DEMO_USERNAME", "demo")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")

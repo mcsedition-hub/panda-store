@@ -64,9 +64,9 @@ def test_provider_failures_are_actionable_private_and_never_retried(
         calls.append(request)
         return httpx.Response(status, json={"error": {**error, "private": secret}}, headers=headers)
 
-    real_client = httpx.Client
+    real_client = httpx.AsyncClient
     with patch(
-        "panda_store.ai.providers.httpx.Client",
+        "panda_store.ai.providers.httpx.AsyncClient",
         side_effect=lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw),
     ):
         with pytest.raises(providers.ProviderError) as caught:
@@ -83,7 +83,7 @@ def test_provider_failures_are_actionable_private_and_never_retried(
     "kind,code", [(httpx.ReadTimeout, "timeout"), (httpx.ConnectError, "network")]
 )
 def test_network_errors_do_not_expose_transport_details(kind, code):
-    with patch("panda_store.ai.providers.httpx.Client", side_effect=kind("sensitive details")):
+    with patch("panda_store.ai.providers.httpx.AsyncClient", side_effect=kind("sensitive details")):
         with pytest.raises(providers.ProviderError) as caught:
             providers.request("google", "test", "/models")
     assert caught.value.code == code
