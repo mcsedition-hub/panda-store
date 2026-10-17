@@ -218,6 +218,13 @@ examples were rejected, while the qualified structural analogy was accepted.
 This is one run on one model, with project-authored labels; other providers and
 independent specialist calibration remain to be evaluated for these new cases.
 
+A real listing trial of writer `.4` correctly attributed a structural analogy
+to Duolingo, but produced an overcompressed subtitle. Its claims passed the evidence
+review, which does not certify writing quality. Writer `.5` now explicitly requires
+a natural, self-contained phrase and prioritizes one clear use over feature lists.
+Readability and usefulness still require editorial review; the thirteen fixed
+verdicts measure evidence handling, not the quality of newly generated copy.
+
 The full pipeline with writer `apple-editorial-2026-10-17.3` and reviewer `.1`
 completed ten distinct cases across two runs: nine met expectations; one exposed
 a reviewer false rejection. Its context omitted the local keyword cleanup that

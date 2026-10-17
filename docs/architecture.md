@@ -467,7 +467,7 @@ dans `editorial.json` sont utilisées dans les nouveaux audits IA et
 visibles sous « Public listing examples » dans Sources. Les observations visuelles
 restent hors du contexte IA. Les audits antérieurs gardent leurs propres notes.
 
-Les instructions de rédaction `.4` et de contrôle des affirmations `.3` distinguent
+Les instructions de rédaction `.5` et de contrôle des affirmations `.3` distinguent
 ces exemples datés des règles et des fonctionnalités de l'app auditée. Ils peuvent
 inspirer une structure pertinente, sans transfert de marque, de fonction ou de
 promesse, ni recherche de mots-clés. La validation exige toujours une source

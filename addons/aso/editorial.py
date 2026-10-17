@@ -11,11 +11,12 @@ from . import corpus
 from .corpus import knowledge
 from .rules import FIELDS, localized_metadata
 
-VERSION = "apple-editorial-2026-10-17.4"
+VERSION = "apple-editorial-2026-10-17.5"
 KNOWLEDGE_VERSION = corpus.VERSION
 LEGACY_VERSIONS = {"apple-editorial-2026-10-16.1", "apple-editorial-2026-10-16.2"}
 ASSESSMENT_VERSIONS = {
     VERSION,
+    "apple-editorial-2026-10-17.4",
     "apple-editorial-2026-10-17.3",
     "apple-editorial-2026-10-17.2",
     "apple-editorial-2026-10-17.1",
@@ -27,7 +28,10 @@ FIELD_CRITERIA = {
         "Clarity of purpose, readability and brand identity; "
         "do not claim uniqueness without research."
     ),
-    "subtitle": "Concrete value or use case, specificity and how it complements the name.",
+    "subtitle": (
+        "A clear, natural phrase expressing concrete value or a use case and complementing "
+        "the name. Prefer one understandable benefit to a compressed list of features."
+    ),
     "description": "Opening sentence, feature explanation, scanability and consistency of claims.",
     "promotional_text": (
         "Useful current message; do not invent an offer, release or date, "
@@ -88,6 +92,12 @@ not a fragment, with no Markdown. Keep name <=30, subtitle <=30, description <=4
 promotional_text <=170 characters; keywords <=100 UTF-8 bytes. Preserve URLs and material
 privacy, payment and support qualifications when rewriting descriptions. Respect the app's
 name. Keyword ideas are hypotheses, never measured demand. Write rationales in English.
+Names and subtitles are reader-facing copy, not keyword lists. Use a natural, self-contained
+phrase in the listing language. Do not drop necessary nouns, connect unrelated objects with
+one verb, or pack every feature into the character budget. Prefer one clearly expressed use
+case to several cryptic fragments. A public example is a structural analogy, not a reason to
+enumerate more features. If a proposed subtitle needs the description to make sense, improve
+its wording or keep the original rather than presenting it as a clarity improvement.
 An empty imported field can receive a proposal grounded in other fields; explain the gap in
 its assessment and use improve in that case. Never propose changes to fields not imported.
 If a deterministic finding already covers a weakness, mention it without duplicating its
