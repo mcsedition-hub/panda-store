@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import ASO from '../../addons/aso/frontend';
 import { api } from './api';
@@ -194,4 +194,76 @@ it('requires an explicit model and sends it with the AI audit; labels AI proposa
   expect(screen.getByRole('heading', { name: 'Recommendations' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Add to draft' })).toBeTruthy();
   expect(screen.getByLabelText('Proposed text')).toBeTruthy();
+});
+
+it('shows all content assessments separately from passed length checks without duplicating proposals', async () => {
+  const proposal = {
+    ...check,
+    field: 'subtitle',
+    basis: 'editorial_hypothesis',
+    replacement: 'Sort photos your way',
+  };
+  const fields = ['name', 'subtitle', 'description', 'promotional_text', 'keywords'];
+  mockData(async () => [
+    {
+      ...run,
+      ai: { provider: 'google', model: 'gemini-3.8-flash' },
+      report: {
+        checks: [
+          proposal,
+          {
+            ...check,
+            id: 'name.length',
+            field: 'name',
+            title: 'App name',
+            status: 'passed',
+            basis: 'requirement',
+            replacement: null,
+          },
+        ],
+        editorial: {
+          resolved_model: 'gemini-3.8-flash',
+          usage: {},
+          accepted_proposals: 1,
+          rejected_proposals: 0,
+          reviewed_fields: 4,
+          assessments: fields.map((field) => ({
+            field,
+            verdict:
+              field === 'subtitle'
+                ? 'improve'
+                : field === 'keywords'
+                  ? 'insufficient_evidence'
+                  : field === 'promotional_text'
+                    ? 'not_imported'
+                    : 'keep',
+            observation: `Specific observation for ${field}.`,
+            observed: 'Imported text',
+            evidence: [],
+            sources: check.sources,
+          })),
+        },
+      },
+    },
+  ]);
+  render(<ASO {...props} />);
+  await screen.findByRole('heading', { name: 'Content review' });
+  for (const field of fields)
+    expect(screen.getByText(`Specific observation for ${field}.`)).toBeTruthy();
+  expect(screen.getByText('4 of 5 fields reviewed · AI assessment')).toBeTruthy();
+  expect(screen.getAllByText('No change suggested')).toHaveLength(2);
+  expect(screen.getByText('Needs evidence')).toBeTruthy();
+  expect(screen.getByText('Not imported')).toBeTruthy();
+  expect(screen.getAllByRole('button', { name: 'Add to draft' })).toHaveLength(1);
+  expect(screen.getByRole('heading', { name: 'Apple checks' })).toBeTruthy();
+  const passed = screen.getByText('1 Apple checks passed').closest('details')!;
+  fireEvent.click(screen.getByText('1 Apple checks passed'));
+  expect(within(passed).getByText('Within limit')).toBeTruthy();
+});
+
+it('does not invent field reviews for historical audits', async () => {
+  mockData(async () => [{ ...run, ai: { provider: 'google', model: 'gemini-2.5-flash' } }]);
+  render(<ASO {...props} />);
+  await screen.findByText(/This earlier audit did not record a review for each field/);
+  expect(screen.queryByText('No change suggested')).toBeNull();
 });

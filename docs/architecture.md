@@ -116,7 +116,8 @@ appartient au module et doit être révisée à l’évolution des modèles.
 
 L’adaptateur envoie explicitement `thinkingLevel: medium` aux deux modèles suggérés,
 conformément au défaut documenté ; ce paramètre est obligatoire pour Gemini 4.
-La limite de 6 000 tokens inclut le raisonnement et peut interrompre une réponse :
+La limite de sortie (12 000 tokens pour la revue ASO complète) inclut le raisonnement
+chez Gemini et peut interrompre une réponse :
 l’analyse échoue alors explicitement sans enregistrer une proposition incomplète ni
 relancer un appel payant automatiquement. Les autres modèles gardent leurs réglages
 fournisseur par défaut ; notamment, supporter le raisonnement ne signifie pas l’activer
@@ -133,6 +134,42 @@ destination explicite et un mécanisme de reprise idempotent.
 
 Les quotas, budgets IA, stockage durable des médias,
 facturation et opérations cloud ne font pas partie de cette alpha.
+
+### Retours d’action et erreurs fournisseur
+
+Le client API commun affiche une notification après les mutations confirmées et
+leurs échecs. Chaque module peut fournir un libellé explicite via `feedback` ;
+les lectures de fond restent silencieuses. L’autosauvegarde des brouillons conserve
+son état « Saved » local et notifie ses échecs, sans notification à chaque frappe.
+Les copies et exports ont leur propre retour ; « Download started » ne signifie
+pas que le navigateur a terminé d’écrire le fichier.
+
+Les réponses de démarrage contenant `workflow_id` sont suivies par le socle tant
+que la page reste ouverte, même après navigation dans un autre module. La fin,
+l’annulation ou l’échec déclenche un retour unique ; lire un ancien rapport ne
+redéclenche pas sa notification. Une interruption réseau du suivi ne marque pas
+la tâche comme échouée. Les erreurs restent visibles jusqu’à fermeture, les succès
+disparaissent après sept secondes ; cinq notifications au maximum sont affichées.
+Cette file est en mémoire, vidée à la déconnexion et au rechargement de page :
+ce n’est pas un système de notifications push ou un historique durable. Le statut
+et les erreurs des workflows restent consultables dans leur activité enregistrée.
+
+L’adaptateur IA lit une réponse d’erreur bornée à 64 Ko et traduit ses codes en
+messages contrôlés : clé refusée, permissions, crédits, plafond de dépenses,
+quota, débit, modèle absent, entrée trop grande, indisponibilité ou délai dépassé.
+Il conserve l’ambiguïté lorsqu’un `429` ne permet pas de distinguer quota et débit.
+Les codes de facturation OpenAI ont priorité sur le type général `insufficient_quota`.
+Les anciennes erreurs Claude de crédit/plafond en `400` sont reconnues par des
+expressions connues, sans exposer le message brut. `Retry-After` numérique ou daté
+est interprété de façon bornée pour conseiller un délai. Aucune requête IA payante
+n’est relancée automatiquement ; un timeout peut avoir déjà été facturé.
+Les refus de contenu et sorties tronquées ne deviennent pas des recommandations.
+Ce traitement réagit aux erreurs réelles ; il ne lit pas le solde des comptes.
+
+Références relues le 16 octobre 2026 :
+[OpenAI error codes](https://developers.openai.com/api/docs/guides/error-codes),
+[Gemini troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting),
+[Claude API errors](https://platform.claude.com/docs/en/api/errors).
 
 ## Workflows et événements d'exécution
 
@@ -221,7 +258,8 @@ Ce n'est pas encore un corpus indexé ou un agent IA.
 
 Le workflow optionnel `aso.editorial` ajoute une requête IA et une validation après
 les règles locales. `AuditRun.inputs` fige fournisseur, modèle demandé, identifiant
-et révision de connexion, version d’instructions et annotations Apple sourcées.
+et révision de connexion, version d’instructions, critères par champ, limite de sortie
+et annotations Apple sourcées.
 Le rapport conserve le modèle résolu et les tokens retournés. Les checkpoints de
 réponse et de validation permettent une reprise sans rappeler un modèle ayant déjà
 répondu. Une réponse perdue avant sauvegarde peut être facturée à nouveau lors d’une
@@ -238,6 +276,23 @@ sont marquées hypothèses à relire. Elles peuvent alimenter un brouillon, jama
 écrire chez Apple. Les règles, l’activité et le rapport historique restent distincts.
 Le corpus actuel est constitué d’annotations originales sur deux guides Apple ;
 les blogs sélectionnés, la recherche, le graphe et les images restent hors de ce parcours.
+
+Depuis les instructions `apple-editorial-2026-10-16.3`, chaque nouveau rapport IA
+demande une observation sur les cinq champs : nom, sous-titre, description, texte
+promotionnel et mots-clés. Chaque avis conclut à l’absence de changement utile,
+à une amélioration possible ou à un manque de preuves. Les champs non importés sont
+signalés par le serveur, jamais considérés comme analysés. Une citation du champ est
+requise s’il contient du texte ; une référence ou citation invalide rend cet avis
+indisponible et bloque sa proposition. Le rapport affiche le nombre d’avis validés.
+Un avis sans changement n’est ni une note ASO ni une vérification des fonctionnalités.
+
+Le modèle peut proposer jusqu’à cinq changements, un par champ, uniquement s’il a
+justifié une amélioration dans l’avis correspondant. Un champ importé vide peut être
+complété à partir de preuves présentes dans les autres champs. L’interface affiche
+les avis et propositions sous « Content review », puis les règles Apple, dont les
+limites sont libellées « Within limit ». Les anciens rapports restent inchangés et
+indiquent qu’une nouvelle analyse est nécessaire pour obtenir la couverture par champ.
+Le validateur garde la lecture des anciens checkpoints sans leur inventer d’avis.
 
 Références d’implémentation : [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
 [Gemini generateContent](https://ai.google.dev/api/generate-content),

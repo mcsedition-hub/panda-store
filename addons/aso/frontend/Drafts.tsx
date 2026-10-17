@@ -80,6 +80,7 @@ export default function Drafts(
     try {
       const next = await api<Draft>(base, {
         method: 'POST',
+        feedback: { success: duplicate ? 'Draft duplicated.' : 'Draft created.' },
         body: JSON.stringify({ ...data, request_id: pending.current.id }),
       });
       if (!alive.current) return;

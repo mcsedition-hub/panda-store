@@ -21,7 +21,10 @@ export default function AppDetail({
     setError('');
     setStatus('');
     try {
-      await api(moduleUrl(workspace.id, 'apple_store', `apps/${app.id}/sync/`), { method: 'POST' });
+      await api(moduleUrl(workspace.id, 'apple_store', `apps/${app.id}/sync/`), {
+        method: 'POST',
+        feedback: { success: 'App metadata refreshed.' },
+      });
       await refreshApps();
       setStatus('Up to date.');
     } catch (err) {

@@ -38,6 +38,7 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
     try {
       const session = await api<Session>('/api/setup/', {
         method: 'POST',
+        feedback: { success: 'Workspace created.' },
         body: JSON.stringify(details),
       });
       setCsrfToken(session.csrf_token);

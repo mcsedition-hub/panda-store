@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, moduleUrl } from '../../../web/src/api';
+import { api, download, moduleUrl } from '../../../web/src/api';
 import type { Brief, Creative, ModuleProps, Run } from '../../../web/src/contracts';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
@@ -33,6 +33,7 @@ function CreativeEditor({
         moduleUrl(workspaceId, 'studio', `creatives/${creative.id}/`),
         {
           method: 'PATCH',
+          feedback: { success: approve ? 'Script approved.' : 'Script saved.' },
           body: JSON.stringify(
             approve
               ? { approved: true }
@@ -203,6 +204,7 @@ export default function Studio({
   async function saveBrief() {
     return api<Brief>(base + 'brief/', {
       method: 'PUT',
+      feedback: { success: 'Brief saved.' },
       body: JSON.stringify(brief),
     });
   }
@@ -210,6 +212,7 @@ export default function Studio({
     if (!run) return;
     const next = await api<Run>(moduleUrl(workspace.id, 'studio', `runs/${run.id}/retry/`), {
       method: 'POST',
+      feedback: { success: 'Generation retry started.' },
       body: JSON.stringify({ request_id: crypto.randomUUID() }),
     });
     if (currentBase.current !== base) return;
@@ -226,6 +229,7 @@ export default function Studio({
       if (generate) {
         const next = await api<Run>(base + 'runs/', {
           method: 'POST',
+          feedback: { success: 'Script generation started.' },
           body: JSON.stringify({ request_id: crypto.randomUUID() }),
         });
         if (currentBase.current !== base) return;
@@ -407,6 +411,13 @@ export default function Studio({
                   <a
                     className="button secondary"
                     href={moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`)}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void download(
+                        moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`),
+                        `panda-scripts-${run.id}.md`,
+                      ).catch((err) => setError(err.message));
+                    }}
                   >
                     Export scripts
                   </a>

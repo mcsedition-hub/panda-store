@@ -7,6 +7,7 @@ import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import Drafts from './Drafts';
 import type { DraftSeed } from './draftTypes';
 import { modelSuggestions } from './modelSuggestions';
+import { notify } from '../../../web/src/notifications/store';
 
 type CheckStatus = 'issue' | 'recommendation' | 'review' | 'unavailable' | 'passed';
 interface Check {
@@ -22,6 +23,28 @@ interface Check {
   evidence?: { field: string; quote: string }[];
   sources: { id: string; title: string; publisher: string; url: string; reviewed_on: string }[];
 }
+interface Assessment {
+  field: string;
+  verdict: 'keep' | 'improve' | 'insufficient_evidence' | 'not_imported' | 'unvalidated';
+  observation: string;
+  observed: string | null;
+  evidence: NonNullable<Check['evidence']>;
+  sources: Check['sources'];
+}
+const fieldNames: Record<string, string> = {
+  name: 'App name',
+  subtitle: 'Subtitle',
+  description: 'Description',
+  promotional_text: 'Promotional text',
+  keywords: 'Keywords',
+};
+const verdictLabels = {
+  keep: 'No change suggested',
+  improve: 'Needs improvement',
+  insufficient_evidence: 'Needs evidence',
+  not_imported: 'Not imported',
+  unvalidated: 'Review unavailable',
+};
 interface AuditRun {
   id: string;
   workflow_id: string;
@@ -41,6 +64,8 @@ interface AuditRun {
       usage: { input_tokens?: number; output_tokens?: number; reasoning_tokens?: number };
       accepted_proposals: number;
       rejected_proposals: number;
+      assessments?: Assessment[];
+      reviewed_fields?: number;
     };
     ruleset: string;
     reviewed_on: string;
@@ -65,21 +90,61 @@ const date = (value: string) =>
     second: '2-digit',
   });
 
-function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
+function Finding({
+  check,
+  onAdd,
+  assessment,
+}: {
+  check: Check;
+  onAdd?: () => void;
+  assessment?: Assessment;
+}) {
   const [copyState, setCopyState] = useState('');
-  const isAI = check.basis === 'editorial_hypothesis';
+  const isAI = check.basis === 'editorial_hypothesis' || !!assessment;
+  const evidence = Array.from(
+    new Map(
+      [...(assessment?.evidence ?? []), ...(check.evidence ?? [])].map((item) => [
+        JSON.stringify([item.field, item.quote]),
+        item,
+      ]),
+    ).values(),
+  );
+  const sources = Array.from(
+    new Map(
+      [...(assessment?.sources ?? []), ...check.sources].map((item) => [item.id, item]),
+    ).values(),
+  );
   return (
     <details
       className={`aso-finding aso-${check.status}`}
-      open={['issue', 'recommendation'].includes(check.status)}
+      open={!!assessment || ['issue', 'recommendation'].includes(check.status)}
     >
       <summary>
-        <span className="aso-finding-title">{check.title}</span>
-        <span className="pill">{isAI ? 'AI proposal · Review' : labels[check.status]}</span>
+        <span className="aso-finding-title">
+          {assessment ? fieldNames[assessment.field] : check.title}
+        </span>
+        <span className="pill">
+          {assessment
+            ? verdictLabels[assessment.verdict]
+            : isAI
+              ? 'AI proposal · Review'
+              : check.basis === 'requirement' && check.status === 'passed'
+                ? 'Within limit'
+                : labels[check.status]}
+        </span>
       </summary>
       <div className="aso-finding-body">
-        <p className="aso-observation">{check.observation}</p>
-        <p>{check.action}</p>
+        <p className="aso-observation">{assessment?.observation ?? check.observation}</p>
+        {assessment && check.replacement && check.observation !== assessment.observation && (
+          <p>{check.observation}</p>
+        )}
+        {!assessment && <p>{check.action}</p>}
+        {assessment?.verdict === 'improve' && !check.replacement && (
+          <p className="note">
+            No additional replacement retained. Review this observation alongside the Apple checks
+            below.
+          </p>
+        )}
         {typeof check.observed === 'string' && check.observed && (
           <details className="aso-evidence">
             <summary>Imported value</summary>
@@ -104,8 +169,10 @@ function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
                   try {
                     await navigator.clipboard.writeText(check.replacement!);
                     setCopyState('Copied. Review before applying in App Store Connect.');
+                    notify('success', 'Proposal copied.');
                   } catch {
                     setCopyState('Select the proposed text to copy it.');
+                    notify('error', 'Clipboard unavailable. Select the proposed text to copy it.');
                   }
                 }}
               >
@@ -119,34 +186,38 @@ function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
             </div>
           </div>
         )}
-        {check.evidence && (
+        {!!evidence.length && (
           <details className="aso-evidence">
             <summary>Evidence from your listing</summary>
-            {check.evidence.map((item, i) => (
+            {evidence.map((item, i) => (
               <blockquote key={i}>
-                <small>{item.field}</small>
+                <small>{fieldNames[item.field] || item.field}</small>
                 <p>{item.quote}</p>
               </blockquote>
             ))}
           </details>
         )}
-        <footer className="aso-sources">
-          <span>
-            {isAI
-              ? 'Editorial hypothesis · Apple guidance'
-              : check.basis === 'requirement'
-                ? 'Official requirement'
-                : check.basis === 'measurement'
-                  ? 'Measurement guidance'
-                  : 'Official recommendation'}
-          </span>
-          {check.sources.map((source) => (
-            <a key={source.id} href={source.url} target="_blank" rel="noreferrer">
-              {source.publisher} · {source.title} ↗
-            </a>
-          ))}
-          <small>Sources reviewed {check.sources[0]?.reviewed_on}</small>
-        </footer>
+        {!!sources.length && (
+          <footer className="aso-sources">
+            <span>
+              {isAI
+                ? assessment
+                  ? 'AI content review · Apple guidance'
+                  : 'Editorial hypothesis · Apple guidance'
+                : check.basis === 'requirement'
+                  ? 'Official requirement'
+                  : check.basis === 'measurement'
+                    ? 'Measurement guidance'
+                    : 'Official recommendation'}
+            </span>
+            {sources.map((source) => (
+              <a key={source.id} href={source.url} target="_blank" rel="noreferrer">
+                {source.publisher} · {source.title} ↗
+              </a>
+            ))}
+            <small>Sources reviewed {sources[0]?.reviewed_on}</small>
+          </footer>
+        )}
       </div>
     </details>
   );
@@ -248,6 +319,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         retry ? moduleUrl(workspace.id, 'aso', `runs/${run.id}/retry/`) : base,
         {
           method: 'POST',
+          feedback: { success: retry ? 'Audit retry started.' : 'Audit started.' },
           body: JSON.stringify({
             request_id: request.current.id,
             ...(!retry && { snapshot_id: metadata.id, locale, ...(ai || {}) }),
@@ -264,6 +336,15 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       if (alive.current) setBusy(false);
     }
   }
+  function addToDraft(check: Check) {
+    if (!run) return;
+    setDraftSeed({
+      audit_id: run.id,
+      check_id: check.id,
+      name: check.basis === 'editorial_hypothesis' ? check.title : 'Keyword cleanup',
+    });
+    setTab('drafts');
+  }
   if (app.platform !== 'ios')
     return (
       <p className="notice">
@@ -271,7 +352,12 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       </p>
     );
   const checks = run?.report?.checks || [];
-  const actionable = checks.filter((check) => ['issue', 'recommendation'].includes(check.status));
+  const assessments = run?.report?.editorial?.assessments;
+  const actionable = checks.filter(
+    (check) =>
+      ['issue', 'recommendation'].includes(check.status) &&
+      !(assessments && check.basis === 'editorial_hypothesis'),
+  );
   const coverage = checks.filter((check) => ['review', 'unavailable'].includes(check.status));
   const passed = checks.filter((check) => check.status === 'passed');
   return (
@@ -436,26 +522,58 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                         ` · ${run.report.editorial.rejected_proposals} proposals excluded: duplicate, unsupported evidence or field limits.`}
                     </p>
                   )}
+                  <h3>Content review</h3>
+                  {assessments ? (
+                    <>
+                      <p className="note">
+                        {run.report.editorial?.reviewed_fields} of {assessments.length} fields
+                        reviewed · AI assessment
+                      </p>
+                      {assessments.map((assessment) => {
+                        const proposal = checks.find(
+                          (check) =>
+                            check.field === assessment.field &&
+                            check.basis === 'editorial_hypothesis',
+                        );
+                        const finding: Check = proposal ?? {
+                          id: `assessment.${assessment.field}`,
+                          field: assessment.field,
+                          title: fieldNames[assessment.field],
+                          status: assessment.verdict === 'keep' ? 'passed' : 'review',
+                          basis: 'editorial_assessment',
+                          observation: assessment.observation,
+                          action: '',
+                          observed: assessment.observed,
+                          sources: [],
+                        };
+                        return (
+                          <Finding
+                            key={`${run.id}:assessment:${assessment.field}`}
+                            check={finding}
+                            assessment={assessment}
+                            onAdd={
+                              canWrite && proposal?.replacement
+                                ? () => addToDraft(proposal)
+                                : undefined
+                            }
+                          />
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <p className="note">
+                      {run.ai
+                        ? 'This earlier audit did not record a review for each field. Run a new AI audit to see them.'
+                        : 'Content was not reviewed by AI. Choose a provider and model to review each field.'}
+                    </p>
+                  )}
+                  <h3>{assessments || !run.ai ? 'Apple checks' : 'Saved recommendations'}</h3>
                   {actionable.length ? (
                     actionable.map((check) => (
                       <Finding
                         key={`${run.id}:${check.id}`}
                         check={check}
-                        onAdd={
-                          canWrite && check.replacement
-                            ? () => {
-                                setDraftSeed({
-                                  audit_id: run.id,
-                                  check_id: check.id,
-                                  name:
-                                    check.basis === 'editorial_hypothesis'
-                                      ? check.title
-                                      : 'Keyword cleanup',
-                                });
-                                setTab('drafts');
-                              }
-                            : undefined
-                        }
+                        onAdd={canWrite && check.replacement ? () => addToDraft(check) : undefined}
                       />
                     ))
                   ) : (
@@ -466,8 +584,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                     <Finding key={`${run.id}:${check.id}`} check={check} />
                   ))}
                   {!!passed.length && (
-                    <details className="aso-passed">
-                      <summary>{passed.length} checks passed</summary>
+                    <details className="aso-passed-group">
+                      <summary>{passed.length} Apple checks passed</summary>
                       {passed.map((check) => (
                         <Finding key={`${run.id}:${check.id}`} check={check} />
                       ))}

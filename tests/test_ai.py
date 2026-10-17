@@ -73,6 +73,41 @@ def start(api, workspace, listing, **extra):
 def output():
     return {
         "result": {
+            "assessments": {
+                field: {
+                    "verdict": "improve" if field == "subtitle" else "keep",
+                    "observation": observation,
+                    "evidence": [{"field": field, "quote": quote}],
+                    "source_ids": ["apple-search" if field == "keywords" else "apple-product-page"],
+                }
+                for field, quote, observation in [
+                    (
+                        "name",
+                        "Panda Run",
+                        "The short brand name signals running without a vague superlative.",
+                    ),
+                    (
+                        "subtitle",
+                        "Your running companion",
+                        "This phrase does not identify planning or distance tracking.",
+                    ),
+                    (
+                        "description",
+                        "Plan runs and track your distance.",
+                        "The opening sentence identifies two concrete functions in plain language.",
+                    ),
+                    (
+                        "keywords",
+                        "fitness,training",
+                        "These terms relate to running; demand and competition are unknown.",
+                    ),
+                    (
+                        "promotional_text",
+                        "Plan your next run.",
+                        "The message points to the planning feature without inventing an offer.",
+                    ),
+                ]
+            },
             "proposals": [
                 {
                     "field": "subtitle",
@@ -88,7 +123,7 @@ def output():
                     ],
                     "source_ids": ["apple-product-page"],
                 }
-            ]
+            ],
         },
         "provider": "openai",
         "model": "gpt-4.1-mini",
@@ -292,16 +327,25 @@ def test_google_reasoning_config_and_truncated_response(model, thinking_config):
 def test_structured_adapter_contract(provider, model, response):
     with patch("panda_store.ai.providers.request", return_value=response) as call:
         result = providers.generate(
-            provider, KEY, model, "instruction", {"listing": "data"}, editorial.SCHEMA
+            provider,
+            KEY,
+            model,
+            "instruction",
+            {"listing": "data"},
+            editorial.SCHEMA,
+            max_output_tokens=12000,
         )
     assert result["result"] == {"proposals": []} and result["usage"]["input_tokens"] == 20
     payload = call.call_args.kwargs["payload"]
     if provider == "openai":
         assert payload["store"] is False and payload["text"]["format"]["strict"]
+        assert payload["max_output_tokens"] == 12000
     elif provider == "anthropic":
         assert payload["tool_choice"]["name"] == "listing_review"
+        assert payload["max_tokens"] == 12000
     else:
         assert payload["generationConfig"]["responseMimeType"] == "application/json"
+        assert payload["generationConfig"]["maxOutputTokens"] == 12000
 
 
 def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
@@ -320,6 +364,12 @@ def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
     assert run.workflow.status == "succeeded"
     assert run.report["editorial"]["accepted_proposals"] == 1
     assert run.report["editorial"]["usage"]["output_tokens"] == 150
+    assert run.report["editorial"]["reviewed_fields"] == 5
+    assert {item["field"] for item in run.report["editorial"]["assessments"]} == set(
+        editorial.FIELDS
+    )
+    assert generate.call_args.kwargs["max_output_tokens"] == editorial.MAX_OUTPUT_TOKENS
+    assert generate.call_args.args[4]["field_criteria"] == run.inputs["field_criteria"]
     assert run.workflow.steps.count() == 5
     assert run.report["checks"][-1]["basis"] == "editorial_hypothesis"
     draft = api.post(
@@ -369,7 +419,7 @@ def test_cancel_discards_ai_output_and_retry_reuses_completed_response(
     response, _ = start(api, workspace, listing)
     run = AuditRun.objects.get(pk=response.data["id"])
 
-    def canceled(*args):
+    def canceled(*args, **kwargs):
         services.cancel(run.workflow_id)
         return output()
 
@@ -444,3 +494,107 @@ def test_editorial_does_not_duplicate_an_existing_proposal(listing):
     result = editorial.validate(output(), inputs, report)
     assert result["editorial"]["accepted_proposals"] == 0
     assert result["editorial"]["rejected_proposals"] == 1
+
+
+def review_inputs(listing):
+    return {
+        "metadata": copy.deepcopy(listing[1].data),
+        "locale": "en-US",
+        "snapshot_id": str(listing[1].pk),
+        "platform": "ios",
+        "ruleset": RULESET,
+        "ai": {"prompt_version": editorial.VERSION},
+        "knowledge": editorial.knowledge(),
+    }
+
+
+def test_field_coverage_without_forcing_rewrites_and_legacy_reports(listing):
+    inputs = review_inputs(listing)
+    response = output()
+    response["result"]["proposals"] = []
+    response["result"]["assessments"]["subtitle"]["verdict"] = "keep"
+    original = audit(inputs)
+    report = editorial.validate(response, inputs, original)
+    assert report["checks"] == original["checks"]
+    assert report["editorial"]["accepted_proposals"] == 0
+    assert report["editorial"]["reviewed_fields"] == 5
+    assert all(item["verdict"] == "keep" for item in report["editorial"]["assessments"])
+    assert "editorial" not in original  # Validation never rewrites a saved checkpoint.
+
+    inputs["ai"]["prompt_version"] = "apple-editorial-2026-10-16.2"
+    del response["result"]["assessments"]
+    legacy = editorial.validate(response, inputs, original)
+    assert "assessments" not in legacy["editorial"]
+
+
+@pytest.mark.parametrize("missing", ["assessments", "name"])
+def test_missing_field_coverage_cannot_be_saved_as_a_complete_review(listing, missing):
+    inputs = review_inputs(listing)
+    response = output()
+    if missing == "assessments":
+        del response["result"]["assessments"]
+    else:
+        del response["result"]["assessments"][missing]
+    with pytest.raises(providers.ProviderError, match="every field"):
+        editorial.validate(response, inputs, audit(inputs))
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"source_ids": ["unknown"]},
+        {"evidence": [{"field": "subtitle", "quote": "Invented content"}]},
+        {"evidence": [{"field": "description", "quote": "Plan runs and track your distance."}]},
+        {"observation": " "},
+        {"verdict": "perfect"},
+    ],
+)
+def test_unvalidated_assessment_is_visible_and_blocks_its_proposal(listing, changes):
+    inputs = review_inputs(listing)
+    response = output()
+    response["result"]["assessments"]["subtitle"].update(changes)
+    result = editorial.validate(response, inputs, audit(inputs))
+    reviews = {item["field"]: item for item in result["editorial"]["assessments"]}
+    assert reviews["subtitle"]["verdict"] == "unvalidated"
+    assert reviews["subtitle"]["evidence"] == [] and reviews["subtitle"]["sources"] == []
+    assert result["editorial"]["reviewed_fields"] == 4
+    assert result["editorial"]["accepted_proposals"] == 0
+    assert result["editorial"]["rejected_proposals"] == 1
+
+
+@pytest.mark.parametrize("verdict", ["keep", "insufficient_evidence"])
+def test_proposal_cannot_contradict_its_field_assessment(listing, verdict):
+    inputs = review_inputs(listing)
+    response = output()
+    response["result"]["assessments"]["subtitle"]["verdict"] = verdict
+    report = editorial.validate(response, inputs, audit(inputs))
+    assert report["editorial"]["accepted_proposals"] == 0
+    assert report["editorial"]["rejected_proposals"] == 1
+
+
+def test_unimported_and_empty_fields_are_distinct_and_never_marked_keep(listing):
+    inputs = review_inputs(listing)
+    inputs["metadata"]["available_fields"] = ["name", "subtitle", "description", "keywords"]
+    inputs["metadata"]["subtitle"] = ""
+    response = output()
+    response["result"]["assessments"]["subtitle"].update(
+        observation=(
+            "The imported subtitle is empty. Planning and distance tracking "
+            "are documented in the description."
+        ),
+        evidence=[],
+    )
+    response["result"]["proposals"][0]["observation_quote"] = ""
+    report = editorial.validate(response, inputs, audit(inputs))
+    reviews = {item["field"]: item for item in report["editorial"]["assessments"]}
+    assert reviews["promotional_text"]["verdict"] == "not_imported"
+    assert reviews["promotional_text"]["observed"] is None
+    assert reviews["promotional_text"]["evidence"] == []
+    assert reviews["subtitle"]["observed"] == ""
+    assert report["editorial"]["accepted_proposals"] == 1
+    assert report["editorial"]["reviewed_fields"] == 4
+
+    response["result"]["assessments"]["subtitle"]["verdict"] = "keep"
+    report = editorial.validate(response, inputs, audit(inputs))
+    assert report["editorial"]["reviewed_fields"] == 3
+    assert report["editorial"]["accepted_proposals"] == 0

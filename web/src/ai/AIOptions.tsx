@@ -109,6 +109,12 @@ export default function AIOptions({
     try {
       const next = await api<Catalog>(endpoint + target + '/', {
         method,
+        feedback: {
+          success:
+            method === 'DELETE'
+              ? 'AI provider disconnected.'
+              : 'AI connection checked. Models updated.',
+        },
         body: JSON.stringify({
           revision: connection?.revision ?? null,
           ...(method === 'PUT' ? { api_key: key } : {}),

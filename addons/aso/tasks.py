@@ -90,11 +90,16 @@ def audit_listing(workflow_id):
             if validated is None:
                 validated = editorial.validate(output, run.inputs, report)
                 info = validated["editorial"]
+                coverage = (
+                    f"{info['reviewed_fields']} of 5 field reviews validated. "
+                    if "reviewed_fields" in info
+                    else ""
+                )
                 services.complete_step(
                     workflow_id,
                     token,
                     "validate",
-                    f"{info['accepted_proposals']} proposals retained for human review; "
+                    coverage + f"{info['accepted_proposals']} proposals retained for human review; "
                     f"{info['rejected_proposals']} rejected by validation.",
                     validated,
                 )

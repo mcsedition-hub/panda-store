@@ -15,6 +15,7 @@ function Login({ onLogin }: { onLogin: (session: Session) => void }) {
     try {
       const session = await api<Session>('/api/session/login/', {
         method: 'POST',
+        feedback: { success: 'Signed in.' },
         body: JSON.stringify({ username: data.get('username'), password: data.get('password') }),
       });
       setCsrfToken(session.csrf_token);
@@ -78,6 +79,7 @@ function ModuleManager({
     try {
       await api(`/api/workspaces/${workspace.id}/modules/${module.id}/`, {
         method: module.enabled ? 'DELETE' : 'POST',
+        feedback: { success: `${module.name} ${module.enabled ? 'disabled' : 'enabled'}.` },
       });
       await reload();
     } catch (err) {
@@ -272,7 +274,10 @@ export default function App() {
   }, [workspaceId, refreshModules]);
   async function signOut() {
     try {
-      const data = await api<{ csrf_token: string }>('/api/session/logout/', { method: 'POST' });
+      const data = await api<{ csrf_token: string }>('/api/session/logout/', {
+        method: 'POST',
+        feedback: { success: 'Signed out.' },
+      });
       setCsrfToken(data.csrf_token);
       setSession((old) => (old ? { ...old, user: null } : null));
       setWorkspaces([]);

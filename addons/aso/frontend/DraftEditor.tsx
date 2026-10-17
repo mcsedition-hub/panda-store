@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, ApiError, moduleUrl } from '../../../web/src/api';
+import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
 import { fields, when, type Content, type Draft, type Revision } from './draftTypes';
+import { notify } from '../../../web/src/notifications/store';
 
 type Props = ModuleProps & {
   app: MobileApp;
@@ -86,7 +87,11 @@ export default function DraftEditor({
     }
     const promise = (async () => {
       try {
-        const next = await api<Draft>(endpoint, { method: 'PATCH', body: JSON.stringify(payload) });
+        const next = await api<Draft>(endpoint, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+          feedback: { success: '' },
+        });
         pendingWrite.current = null;
         // Keep any typing made while this request was in flight.
         if (equal(localRef.current, { name: payload.name, content: payload.content })) {
@@ -161,6 +166,13 @@ export default function DraftEditor({
   async function mutate(body: Record<string, unknown>) {
     const next = await api<Draft>(endpoint, {
       method: 'PATCH',
+      feedback: {
+        success: body.restore_version
+          ? 'Revision restored.'
+          : body.status === 'ready'
+            ? 'Draft marked ready.'
+            : 'Draft updated.',
+      },
       body: JSON.stringify({
         request_id: crypto.randomUUID(),
         version: savedRef.current.version,
@@ -174,7 +186,7 @@ export default function DraftEditor({
   async function reload() {
     setActionBusy(true);
     try {
-      const next = await api<Draft>(endpoint);
+      const next = await api<Draft>(endpoint, { feedback: { success: 'Saved draft reloaded.' } });
       pendingWrite.current = null;
       conflictRef.current = false;
       setConflict(false);
@@ -196,8 +208,10 @@ export default function DraftEditor({
     try {
       await navigator.clipboard.writeText(text);
       setNotice(unsaved ? 'Your local changes are copied.' : 'Changes copied.');
+      notify('success', 'Changes copied.');
     } catch {
       setError('Clipboard unavailable. Select the text or export the saved revision.');
+      notify('error', 'Clipboard unavailable. Select the text or export the saved revision.');
     }
   }
   const current = compare === 'baseline' ? saved.baseline : saved.latest.content;
@@ -259,7 +273,14 @@ export default function DraftEditor({
           aria-disabled={dirty || busy}
           href={`${endpoint}export/?version=${saved.version}`}
           onClick={(e) => {
-            if (dirty || busy) e.preventDefault();
+            e.preventDefault();
+            if (!dirty && !busy)
+              void action(() =>
+                download(
+                  `${endpoint}export/?version=${saved.version}`,
+                  `panda-draft-${saved.id}-v${saved.version}.txt`,
+                ),
+              );
           }}
         >
           Export changes
@@ -269,7 +290,11 @@ export default function DraftEditor({
           disabled={busy}
           onClick={() =>
             void action(async () => {
-              setHistory(await api<Revision[]>(endpoint + 'history/'));
+              setHistory(
+                await api<Revision[]>(endpoint + 'history/', {
+                  feedback: { success: 'Revision history loaded.' },
+                }),
+              );
             })
           }
         >
@@ -330,6 +355,7 @@ export default function DraftEditor({
               ) {
                 await api(moduleUrl(workspace.id, 'apple_store', `apps/${app.id}/sync/`), {
                   method: 'POST',
+                  feedback: { success: 'App metadata refreshed.' },
                 });
                 await refreshApps();
               }
@@ -343,6 +369,7 @@ export default function DraftEditor({
               accept(latest);
               setCompare('latest');
               setNotice('Compared with the latest saved import. Your draft is unchanged.');
+              notify('success', 'Compared with the latest saved import.');
             })
           }
         >

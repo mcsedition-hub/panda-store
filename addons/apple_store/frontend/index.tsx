@@ -54,6 +54,9 @@ function KeyForm({
         ),
         {
           method: connection ? 'PUT' : 'POST',
+          feedback: {
+            success: connection ? 'Apple connection updated.' : 'Apple account connected.',
+          },
           body: JSON.stringify({
             name: data.get('name'),
             key_type: keyType,
@@ -221,6 +224,7 @@ function StoreCatalog({
         {
           method: 'POST',
           body: JSON.stringify({ external_id: id }),
+          feedback: { success: 'App imported.' },
         },
       );
       await refreshApps();
@@ -341,6 +345,7 @@ export default function Connections(props: ModuleProps) {
     try {
       await api(moduleUrl(workspace.id, 'apple_store', `connections/${selected.id}/`), {
         method: 'DELETE',
+        feedback: { success: 'Apple account disconnected.' },
       });
       setConnections((old) => old.filter((item) => item.id !== selected.id));
       setConfirm(false);

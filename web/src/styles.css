@@ -1853,10 +1853,10 @@ strong {
   flex-basis: 100%;
   margin-top: 4px;
 }
-.aso-passed {
+.aso-passed-group {
   margin: 24px 0;
 }
-.aso-passed > summary {
+.aso-passed-group > summary {
   cursor: pointer;
   font-size: 14px;
   padding: 0 0 14px;
@@ -2066,6 +2066,60 @@ strong {
 
 .ai-options {
   margin-bottom: 18px;
+}
+.notifications {
+  position: fixed;
+  z-index: 1000;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  gap: 10px;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  pointer-events: none;
+}
+.notification {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 6px 24px #1d24251a;
+  pointer-events: auto;
+}
+.notification p {
+  margin: 0;
+  flex: 1;
+  line-height: 1.45;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.notification button {
+  background: transparent;
+  border: 0;
+  padding: 0 4px;
+  font-size: 20px;
+  color: inherit;
+}
+.notification-success {
+  border-left-color: #54775f;
+}
+.notification-error {
+  border-left-color: #b44a35;
+}
+.notification-symbol {
+  font-weight: 600;
+}
+@media (max-width: 750px) {
+  .notifications {
+    right: 16px;
+    bottom: 16px;
+  }
 }
 .ai-choice-row {
   display: flex;

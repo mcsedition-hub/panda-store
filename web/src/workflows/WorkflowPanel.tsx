@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { WorkflowSnapshot, WorkflowStatus } from './types';
+import { trackWork } from '../notifications/store';
 
 const labels: Record<WorkflowStatus | 'skipped', string> = {
   queued: 'Queued',
@@ -70,6 +71,7 @@ export default function WorkflowPanel({
         ].sort((a, b) => a.sequence - b.sequence),
       }));
       if (lastStatus !== next.status) {
+        if (!lastStatus && !terminal(next.status)) trackWork(workspaceId, workflowId);
         lastStatus = next.status;
         callback.current(next.status);
       }
@@ -163,7 +165,10 @@ export default function WorkflowPanel({
     try {
       if (kind === 'retry') await onRetry();
       else {
-        const next = await api<WorkflowSnapshot>(base + 'cancel/', { method: 'POST' });
+        const next = await api<WorkflowSnapshot>(base + 'cancel/', {
+          method: 'POST',
+          feedback: { success: 'Stop requested.' },
+        });
         receive.current(next);
       }
     } catch (err) {

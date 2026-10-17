@@ -120,8 +120,10 @@ def runs(request, workspace_id, app_id):
                 "connection_id": str(connection.pk),
                 "revision": str(connection.revision),
                 "prompt_version": editorial.VERSION,
+                "max_output_tokens": editorial.MAX_OUTPUT_TOKENS,
             }
             inputs["knowledge"] = editorial.knowledge()
+            inputs["field_criteria"] = editorial.FIELD_CRITERIA
         run = AuditRun.objects.filter(workspace=workspace, request_id=values["request_id"]).first()
         created = run is None
         if run:

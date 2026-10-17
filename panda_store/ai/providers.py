@@ -6,16 +6,14 @@ import time
 
 import httpx
 
+from .errors import ProviderError, failure
+
 PROVIDERS = {"openai": "OpenAI", "google": "Google Gemini", "anthropic": "Anthropic Claude"}
 HOSTS = {
     "openai": "https://api.openai.com/v1",
     "google": "https://generativelanguage.googleapis.com/v1beta",
     "anthropic": "https://api.anthropic.com/v1",
 }
-
-
-class ProviderError(Exception):
-    pass
 
 
 def request(provider, key, path, *, payload=None, params=None):
@@ -38,29 +36,42 @@ def request(provider, key, path, *, payload=None, params=None):
                 json=payload,
                 params=params,
             ) as response:
-                if response.status_code in {401, 403}:
-                    raise ProviderError(
-                        "The provider rejected this key or access. Check AI settings."
-                    )
-                if response.status_code == 429:
-                    raise ProviderError(
-                        "The provider's quota or rate limit was reached. Check billing "
-                        "and retry later."
-                    )
-                if not 200 <= response.status_code < 300:
-                    raise ProviderError(
-                        f"Provider request failed (HTTP {response.status_code}). "
-                        "Check model access or retry later."
-                    )
                 body = bytearray()
+                failed = not 200 <= response.status_code < 300
                 for chunk in response.iter_bytes():
                     body.extend(chunk)
+                    if failed and len(body) > 65536:
+                        body.clear()
+                        break
                     if len(body) > 2_000_000 or time.monotonic() - started > 90:
                         raise ProviderError(
                             "The provider response exceeded the time or size limit."
                         )
-        return json.loads(body)
-    except (httpx.HTTPError, ValueError, KeyError):
+                if failed:
+                    try:
+                        data = json.loads(body)
+                    except ValueError:
+                        data = {}
+                    raise failure(
+                        provider, response.status_code, data, response.headers.get("retry-after")
+                    )
+        data = json.loads(body)
+        if not isinstance(data, dict):
+            raise ValueError()
+        return data
+    except httpx.TimeoutException:
+        raise ProviderError(
+            "The AI provider timed out. The request may still have been processed. "
+            "Check provider status before retrying.",
+            code="timeout",
+        ) from None
+    except httpx.HTTPError:
+        raise ProviderError(
+            "Cannot reach the AI provider. Check your server's network connection "
+            "and provider status before retrying.",
+            code="network",
+        ) from None
+    except (ValueError, KeyError):
         raise ProviderError(
             "The provider returned an unreadable response or could not be reached. Retry later."
         ) from None
@@ -158,7 +169,7 @@ def list_models(provider, key):
     return sorted(found.values(), key=lambda item: item["id"], reverse=True)
 
 
-def generate(provider, key, model, instruction, context, schema):
+def generate(provider, key, model, instruction, context, schema, *, max_output_tokens=6000):
     if not supported(provider, model):
         raise ProviderError("This model is not supported for listing analysis.")
     text = json.dumps(context, ensure_ascii=False)
@@ -172,7 +183,7 @@ def generate(provider, key, model, instruction, context, schema):
                 "store": False,
                 "instructions": instruction,
                 "input": text,
-                "max_output_tokens": 6000,
+                "max_output_tokens": max_output_tokens,
                 "text": {
                     "format": {
                         "type": "json_schema",
@@ -184,6 +195,12 @@ def generate(provider, key, model, instruction, context, schema):
             },
         )
         if data.get("status") != "completed":
+            if (data.get("incomplete_details") or {}).get("reason") == "max_output_tokens":
+                raise ProviderError(
+                    "The model reached its output limit before finishing. No incomplete "
+                    "recommendations were saved. Choose another model and start a new audit.",
+                    code="output_limit",
+                )
             raise ProviderError(
                 "The model did not finish its analysis. Choose another model or retry."
             )
@@ -194,6 +211,17 @@ def generate(provider, key, model, instruction, context, schema):
             for part in item.get("content", [])
             if part.get("type") == "output_text"
         )
+        if any(
+            part.get("type") == "refusal"
+            for item in data.get("output", [])
+            if item.get("type") == "message"
+            for part in item.get("content", [])
+        ):
+            raise ProviderError(
+                "The model declined to analyze this content. Review the supplied listing "
+                "before starting a new audit.",
+                code="content_blocked",
+            )
         usage = data.get("usage", {})
         usage = {
             "input_tokens": usage.get("input_tokens"),
@@ -202,7 +230,7 @@ def generate(provider, key, model, instruction, context, schema):
         resolved = data.get("model", model)
     elif provider == "google":
         generation_config = {
-            "maxOutputTokens": 6000,
+            "maxOutputTokens": max_output_tokens,
             "responseMimeType": "application/json",
             "responseJsonSchema": schema,
         }
@@ -222,9 +250,22 @@ def generate(provider, key, model, instruction, context, schema):
             },
         )
         candidates = data.get("candidates", [])
+        if data.get("promptFeedback", {}).get("blockReason") or (
+            candidates
+            and candidates[0].get("finishReason")
+            in {"SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII"}
+        ):
+            raise ProviderError(
+                "Gemini blocked this analysis under its content rules. Review the listing "
+                "before starting a new audit.",
+                code="content_blocked",
+            )
         if not candidates or candidates[0].get("finishReason") != "STOP":
             raise ProviderError(
-                "The model did not finish its analysis. Choose another model or retry."
+                "The model did not finish its analysis. It may have reached its output limit. "
+                "No incomplete recommendations were saved. Choose another model and "
+                "start a new audit.",
+                code="incomplete_output",
             )
         raw = "".join(
             part.get("text", "")
@@ -245,7 +286,7 @@ def generate(provider, key, model, instruction, context, schema):
             "/messages",
             payload={
                 "model": model,
-                "max_tokens": 6000,
+                "max_tokens": max_output_tokens,
                 "system": instruction,
                 "messages": [{"role": "user", "content": text}],
                 "tools": [
@@ -263,6 +304,18 @@ def generate(provider, key, model, instruction, context, schema):
             for item in data.get("content", [])
             if item.get("type") == "tool_use" and item.get("name") == "listing_review"
         ]
+        if data.get("stop_reason") == "refusal":
+            raise ProviderError(
+                "Claude declined to analyze this content. Review the listing before "
+                "starting a new audit.",
+                code="content_blocked",
+            )
+        if data.get("stop_reason") == "max_tokens":
+            raise ProviderError(
+                "Claude reached its output limit. No incomplete recommendations were "
+                "saved. Choose another model and start a new audit.",
+                code="output_limit",
+            )
         if data.get("stop_reason") != "tool_use" or len(outputs) != 1:
             raise ProviderError(
                 "The model did not finish its analysis. Choose another model or retry."
