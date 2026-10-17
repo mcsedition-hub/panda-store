@@ -13,6 +13,7 @@ urlpatterns = [
     path("api/session/logout/", auth.sign_out),
     path("api/workspaces/", views.workspaces),
     path("api/workspaces/<uuid:workspace_id>/modules/", views.modules),
+    path("api/workspaces/<uuid:workspace_id>/workflows/", include("panda_store.workflows.urls")),
     path("api/workspaces/<uuid:workspace_id>/modules/<slug:module_id>/", views.module_activation),
 ]
 for module_id in get_registry().order:

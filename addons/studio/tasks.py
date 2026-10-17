@@ -1,46 +1,107 @@
 import logging
+import threading
 
 from celery import shared_task
-from django.db import transaction
+from django.db import close_old_connections, transaction
 from django.utils import timezone
 
-from panda_store.core.models import Workspace
+from panda_store.workflows import services
+from panda_store.workflows.models import WorkflowRun
 
 from .models import Creative, GenerationRun
 from .providers import generate_demo_scripts
+from .workflow import create_workflow
 
 logger = logging.getLogger(__name__)
 
 
+@transaction.atomic
+def update_generation(run):
+    workflow = WorkflowRun.objects.select_for_update().get(pk=run.workflow_id)
+    GenerationRun.objects.filter(pk=run.pk).update(
+        status=workflow.status,
+        error=workflow.error,
+        completed_at=workflow.completed_at,
+    )
+
+
 @shared_task
 def generate_scripts(run_id):
-    # A duplicated broker delivery must not create a second set of creatives.
-    workspace_id = GenerationRun.objects.values_list("workspace_id", flat=True).get(pk=run_id)
     with transaction.atomic():
-        # Share the activation lock so disabling and starting a job have a defined order.
-        workspace = Workspace.objects.select_for_update().get(pk=workspace_id)
         run = GenerationRun.objects.select_for_update().get(pk=run_id)
-        if run.status != GenerationRun.Status.QUEUED:
-            return
-        if not workspace.modules.filter(module_id="studio").exists():
-            run.status = GenerationRun.Status.FAILED
-            run.error = "Studio was disabled before this generation started."
-            run.completed_at = timezone.now()
-            run.save(update_fields=["status", "error", "completed_at"])
-            return
-        run.status = GenerationRun.Status.RUNNING
-        run.save(update_fields=["status"])
+        if not run.workflow_id:
+            if run.status != GenerationRun.Status.QUEUED:
+                return
+            create_workflow(run)
+    token = services.claim(run.workflow_id)
+    if token is None:
+        update_generation(run)
+        return
+    GenerationRun.objects.filter(pk=run.pk).update(status=GenerationRun.Status.RUNNING)
+    stopped = threading.Event()
+
+    def keep_alive():
+        try:
+            while not stopped.wait(10):
+                close_old_connections()
+                if not services.heartbeat(run.workflow_id, token):
+                    return
+        except Exception:
+            logger.exception("Workflow heartbeat failed for %s", run.workflow_id)
+        finally:
+            close_old_connections()
+
+    heartbeat = threading.Thread(target=keep_alive, daemon=True)
+    heartbeat.start()
     try:
-        scripts = generate_demo_scripts(run.inputs)
-        with transaction.atomic():
+        context = services.start_step(
+            run.workflow_id, token, "context", "Reading the saved metadata and brief."
+        )
+        if context is None:
+            if not run.inputs.get("metadata", {}).get("name") or not run.inputs.get("brief"):
+                raise ValueError("Incomplete generation inputs")
+            services.complete_step(
+                run.workflow_id,
+                token,
+                "context",
+                "Saved app metadata and brief checked. This attempt keeps the same inputs.",
+                {"snapshot_id": run.inputs["snapshot_id"]},
+            )
+        scripts = services.start_step(
+            run.workflow_id, token, "scripts", "Creating scripts from local writing templates."
+        )
+        if scripts is None:
+            scripts = generate_demo_scripts(run.inputs)
+            if len(scripts) != 3:
+                raise ValueError("Expected three scripts")
+            services.complete_step(
+                run.workflow_id,
+                token,
+                "scripts",
+                "Three template scripts created. No AI calls.",
+                scripts,
+            )
+        services.start_step(run.workflow_id, token, "save", "Saving scripts for your review.")
+        # Persist outputs and complete the workflow in one fenced transaction.
+        with services.execution_lock(run.workflow_id, token):
             Creative.objects.bulk_create([Creative(run=run, **script) for script in scripts])
-            run.status = GenerationRun.Status.SUCCEEDED
-            run.completed_at = timezone.now()
-            run.save(update_fields=["status", "completed_at"])
+            services.complete_step(
+                run.workflow_id, token, "save", "Three scripts saved. Approval is still required."
+            )
+            services.succeed(run.workflow_id, token, "Scripts saved. Ready for your review.")
+            GenerationRun.objects.filter(pk=run.pk).update(
+                status=GenerationRun.Status.SUCCEEDED, completed_at=timezone.now(), error=""
+            )
+    except services.ExecutionStopped:
+        services.fail(
+            run.workflow_id, "The worker lease expired. Retry the unfinished steps.", token
+        )
     except Exception:
         logger.exception("Script generation failed for run %s", run.pk)
-        GenerationRun.objects.filter(pk=run.pk).update(
-            status=GenerationRun.Status.FAILED,
-            error="Script generation failed. You can start a new attempt.",
-            completed_at=timezone.now(),
+        services.fail(
+            run.workflow_id, "Script generation failed. You can retry the unfinished steps.", token
         )
+    finally:
+        stopped.set()
+        heartbeat.join(timeout=2)
+        update_generation(run)

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, moduleUrl } from '../../../web/src/api';
 import type { Brief, Creative, ModuleProps, Run } from '../../../web/src/contracts';
+import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
 function CreativeEditor({
   creative,
@@ -145,13 +146,16 @@ export default function Studio({
   const appId = selectedApp?.id;
   const base = moduleUrl(workspace.id, 'studio', `apps/${appId}/`);
   const run = runs.find((item) => item.id === runId) ?? runs[0];
-  const pending = run?.status === 'queued' || run?.status === 'running';
+  const pending = runs.some((item) => ['queued', 'running', 'canceling'].includes(item.status));
+  const currentBase = useRef(base);
+  currentBase.current = base;
 
   useEffect(() => {
     setError('');
     setNotice('');
     setRuns([]);
     setRunId('');
+    setBusy(false);
     setLoadFailed(false);
     setBrief({ audience: '', goal: '', tone: '' });
     if (!appId) return;
@@ -202,25 +206,37 @@ export default function Studio({
       body: JSON.stringify(brief),
     });
   }
+  async function retry() {
+    if (!run) return;
+    const next = await api<Run>(moduleUrl(workspace.id, 'studio', `runs/${run.id}/retry/`), {
+      method: 'POST',
+      body: JSON.stringify({ request_id: crypto.randomUUID() }),
+    });
+    if (currentBase.current !== base) return;
+    setRuns((old) => [next, ...old.filter((item) => item.id !== next.id)]);
+    setRunId(next.id);
+  }
   async function submit(generate: boolean) {
     setBusy(true);
     setError('');
     setNotice('');
     try {
       await saveBrief();
+      if (currentBase.current !== base) return;
       if (generate) {
         const next = await api<Run>(base + 'runs/', {
           method: 'POST',
           body: JSON.stringify({ request_id: crypto.randomUUID() }),
         });
+        if (currentBase.current !== base) return;
         setRuns((old) => [next, ...old]);
         setRunId(next.id);
         setNotice('Brief saved.');
       } else setNotice('Brief saved.');
     } catch (err) {
-      setError((err as Error).message);
+      if (currentBase.current === base) setError((err as Error).message);
     } finally {
-      setBusy(false);
+      if (currentBase.current === base) setBusy(false);
     }
   }
   if (!selectedApp)
@@ -369,10 +385,19 @@ export default function Studio({
                       value={run?.id}
                       onChange={(e) => setRunId(e.target.value)}
                     >
-                      {runs.map((item, index) => (
+                      {runs.map((item) => (
                         <option key={item.id} value={item.id}>
-                          Session {runs.length - index} ·{' '}
-                          {new Date(item.created_at).toLocaleDateString('en-US')}
+                          {new Date(item.created_at).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}{' '}
+                          ·{' '}
+                          {item.status === 'succeeded'
+                            ? 'Completed'
+                            : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                         </option>
                       ))}
                     </select>
@@ -393,12 +418,35 @@ export default function Studio({
                 <p>No scripts yet.</p>
               </div>
             )}
-            {pending && (
+            {run?.workflow_id && !previewMode && (
+              <WorkflowPanel
+                key={run.workflow_id}
+                workspaceId={workspace.id}
+                workflowId={run.workflow_id}
+                canWrite={canWrite}
+                onRetry={retry}
+                onStatus={(status) => {
+                  setRuns((old) =>
+                    old.map((item) => (item.id === run.id ? { ...item, status } : item)),
+                  );
+                  if (['succeeded', 'failed', 'canceled'].includes(status)) {
+                    api<Run[]>(base + 'runs/')
+                      .then((next) => {
+                        if (currentBase.current === base) setRuns(next);
+                      })
+                      .catch((err) => {
+                        if (currentBase.current === base) setError(err.message);
+                      });
+                  }
+                }}
+              />
+            )}
+            {pending && !run?.workflow_id && (
               <p className="notice" role="status">
                 Creating scripts…
               </p>
             )}
-            {run?.status === 'failed' && (
+            {run?.status === 'failed' && !run.workflow_id && (
               <p className="error" role="alert">
                 {run.error}
               </p>

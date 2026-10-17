@@ -43,6 +43,7 @@ click==8.5.0
     #   click-plugins
     #   click-repl
     #   pip-tools
+    #   uvicorn
 click-didyoumean==0.3.1
     # via
     #   -c requirements.txt
@@ -82,6 +83,7 @@ h11==0.16.0
     # via
     #   -c requirements.txt
     #   httpcore
+    #   uvicorn
 httpcore==1.0.9
     # via
     #   -c requirements.txt
@@ -183,6 +185,10 @@ tzlocal==5.4.4
     # via
     #   -c requirements.txt
     #   celery
+uvicorn==0.54.0
+    # via
+    #   -c requirements.txt
+    #   panda-store (pyproject.toml)
 vine==5.1.0
     # via
     #   -c requirements.txt

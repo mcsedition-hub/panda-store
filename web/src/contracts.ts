@@ -88,7 +88,8 @@ export interface Creative {
 }
 export interface Run {
   id: string;
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceling' | 'canceled';
+  workflow_id?: string | null;
   provider: string;
   error: string;
   created_at: string;

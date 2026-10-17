@@ -7,6 +7,7 @@ x-backend: &backend
     DATABASE_URL: postgresql://panda:${POSTGRES_PASSWORD:?Run python3 scripts/bootstrap.py}@db:5432/panda
     CELERY_BROKER_URL: redis://redis:6379/0
     CELERY_TASK_ALWAYS_EAGER: "false"
+    PANDA_WORKFLOW_DISPATCH: "celery"
     DJANGO_DEBUG: "false"
     # This Compose file is for localhost HTTP demos only.
     DJANGO_SECURE_COOKIES: "false"

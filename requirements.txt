@@ -26,6 +26,7 @@ click==8.5.0
     #   click-didyoumean
     #   click-plugins
     #   click-repl
+    #   uvicorn
 click-didyoumean==0.3.1
     # via celery
 click-plugins==1.1.1.2
@@ -48,7 +49,9 @@ djangorestframework==3.18.3
 gunicorn==23.0.0
     # via panda-store (pyproject.toml)
 h11==0.16.0
-    # via httpcore
+    # via
+    #   httpcore
+    #   uvicorn
 httpcore==1.0.9
     # via httpx
 httpx==0.28.1
@@ -95,6 +98,8 @@ tzdata==2026.5
     # via kombu
 tzlocal==5.4.4
     # via celery
+uvicorn==0.54.0
+    # via panda-store (pyproject.toml)
 vine==5.1.0
     # via
     #   amqp

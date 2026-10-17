@@ -27,6 +27,7 @@ publishing are not implemented yet.
   icons, primary-language screenshots and manual metadata refresh.
 - Editable briefs and three script variants built from local writing templates.
 - Generation history, script editing, separate approval and Markdown exports.
+- Live workflow steps and activity, stop requests, and retries that keep completed steps.
 - An example extension using the same conventions as the built-in modules.
 
 The ASO Audit, Research, Publishing, Analytics and Agents illustrations are part
@@ -45,10 +46,14 @@ python3.12 -m venv .venv
 npm --prefix web ci
 ```
 
-Start the backend and frontend in separate terminals:
+Start the backend, workflow worker and frontend in three separate terminals:
 
 ```sh
-.venv/bin/python manage.py runserver 127.0.0.1:8000
+.venv/bin/python -m uvicorn panda_store.asgi:application --host 127.0.0.1 --port 8000 --reload
+```
+
+```sh
+.venv/bin/python manage.py run_workflows
 ```
 
 ```sh
@@ -70,8 +75,23 @@ preserves existing `.env` files; this file contains secrets and must never be pu
 
 Choose **Connections → Try with demo apps**, import **Runclub**, then use the **Studio** to create
 three directions. The initial workspace is empty so you can try the actual import
-flow. Local development uses SQLite and synchronous tasks: no external account
-or paid AI key is required.
+flow. Local development uses SQLite and a background worker: no Redis service,
+external account or paid AI key is required. Keep the worker terminal running;
+restart it after changing backend code. After updating an existing installation,
+install the requirements and run migrations before restarting these processes.
+
+Studio shows a saved activity log and clickable steps for each new generation.
+Closing the page does not stop a workflow. **Stop** requests cooperative cancellation;
+**Retry unfinished steps** creates a linked attempt with the original metadata and
+brief, reusing completed results. Scripts still require separate approval.
+Earlier generations remain available without retroactively invented activity.
+
+`PANDA_WORKFLOW_DISPATCH=database` is the local default. Compose sets it to `celery`
+and uses its Redis/Celery services instead. A queued workflow with no worker fails
+after five minutes when inspected; an interrupted worker's lease expires after
+45 seconds. Live clients and the local worker detect expired leases. The current
+UI follows sequential Studio steps; AI agents, parallel scheduling and a visual
+workflow editor are still planned.
 
 ## Connect an Apple account
 

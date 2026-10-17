@@ -10,4 +10,4 @@ COPY --chown=panda:panda addons ./addons
 COPY --chown=panda:panda LICENSE ./
 USER panda
 EXPOSE 8000
-CMD ["gunicorn", "panda_store.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--access-logfile", "-"]
+CMD ["uvicorn", "panda_store.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

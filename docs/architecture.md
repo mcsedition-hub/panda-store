@@ -68,12 +68,13 @@ Une génération enregistre le brief et les métadonnées utilisés avant de lan
 la tâche. Le couple espace/request_id protège contre les requêtes répétées ;
 une réutilisation avec des entrées différentes donne HTTP 409. La tâche verrouille
 son état et ne recrée pas les variantes après une seconde livraison normale.
-Les états sont queued, running, succeeded et failed. Les erreurs sont enregistrées.
+Les états incluent queued, running, canceling, succeeded, canceled et failed.
+Les erreurs sont enregistrées ; le workflow lié fournit l’état de référence.
 
-En local, Celery exécute immédiatement la tâche ; Compose utilise Redis et un
-worker. La récupération après interruption brutale d'un worker n'est pas encore
-implémentée : une tâche peut rester running. Ce point doit être traité avant
-d'ajouter des appels IA longs ou des tâches de publication.
+En local, `run_workflows` traite les tâches depuis la base ; Compose utilise
+Redis et Celery. Les exécutions possèdent un bail et un heartbeat. Un worker
+interrompu perd le droit d’enregistrer un résultat après expiration de son bail.
+Le suivi et le worker local détectent les baux expirés ; la reprise est explicite.
 
 Les trois scripts proviennent de modèles de rédaction déterministes.
 Ils sont éditables et exportables. Une modification invalide leur approbation,
@@ -103,6 +104,69 @@ destination explicite et un mécanisme de reprise idempotent.
 
 Les quotas, budgets IA, stockage durable des médias,
 facturation et opérations cloud ne font pas partie de cette alpha.
+
+## Workflows et événements d'exécution
+
+Le socle `panda_store.workflows` est partagé, avec une première intégration dans
+Studio. `WorkflowRun`, `StepRun` et `RunEvent` conservent la définition versionnée,
+les dépendances, les états, les dates et les événements ordonnés. Studio fige
+l'instantané, le brief et le fournisseur dans `GenerationRun`. Les anciennes
+générations restent lisibles sans inventer d'événements historiques.
+
+Le parcours actuel est séquentiel : lire les métadonnées et le brief, produire
+les trois modèles de scripts, puis les enregistrer pour revue. Un contrat de
+module déclare ses étapes et un adaptateur `workflow.RUNNERS` associe une clé et
+une version à son exécuteur. Les dépendances sont vérifiées à la création ; le
+worker local charge seulement les adaptateurs des packages déjà installés dans
+le registre. Le code des modules conserve le modèle de confiance existant.
+
+Les transitions et événements sont enregistrés dans une même transaction sous
+verrou de l'exécution. Un jeton de bail protège les écritures contre un worker
+ancien ou annulé. Le heartbeat prolonge un bail de 45 secondes toutes les dix
+secondes. Une tâche en attente depuis plus de cinq minutes est marquée en échec
+lors de sa consultation, avec une indication pour démarrer le worker. Les clients
+actifs et le worker local détectent les baux expirés ; il n'existe pas encore de
+superviseur périodique autonome pour les exécutions Celery non consultées.
+
+Les routes communes `/api/workspaces/{id}/workflows/{run}/` et `events/` fournissent
+respectivement un état paginé et un flux SSE authentifié. Elles vérifient espace,
+appartenance et activation du module. Le flux réévalue les accès à chaque lot,
+accepte `Last-Event-ID` et conserve des événements ordonnés en base. Il dure au plus
+25 secondes ; EventSource se reconnecte, avec polling de secours côté React.
+Uvicorn/ASGI et Nginx sans buffering sont configurés pour Compose ; le serveur
+WSGI de développement reste compatible avec un flux synchrone borné. Une coupure
+du flux est signalée séparément de l'échec de la tâche.
+
+`Stop` annule immédiatement une tâche en file ou demande un arrêt coopératif
+(`canceling`) si elle travaille. La fin de l'appel courant est attendue ; son
+résultat est écarté si le bail ou le statut ne l'autorise plus. La sauvegarde des
+scripts et la réussite du workflow sont atomiques. Un arrêt ne défait pas une
+publication externe et le Studio actuel n'en effectue aucune.
+
+`Retry unfinished steps` crée une tentative liée, conserve la précédente et
+réutilise les checkpoints terminés lorsque version, étapes et dépendances
+correspondent. Studio reprend les entrées originales, même si la fiche ou le
+brief ont changé depuis. Une seule reprise par tentative rend les doubles clics
+idempotents. Les checkpoints internes ne sont pas exposés dans l'API d'activité ;
+les messages sont des résumés contrôlés, jamais des réponses brutes du fournisseur.
+Les scripts produits restent soumis à leur approbation séparée existante.
+
+Le panneau React commun présente les étapes cliquables, leur durée réelle, un
+journal horodaté et les commandes permises par le rôle. Il reprend les événements
+sans doublons et retire les données si l'accès est révoqué. Il n'allonge pas
+artificiellement une génération courte pour simuler une activité d'agent.
+
+Les tests couvrent arrêt en file et pendant un outil, résultats tardifs, reprise
+sans nouvelle génération des résultats sauvegardés, curseurs et reconnexion,
+accès révoqués, panne de dispatch, worker expiré et flux ASGI. Les doubles
+livraisons concurrentes sont aussi vérifiées sur PostgreSQL en CI.
+
+Restent à construire : agents IA et navigateur, ordonnanceur de branches
+parallèles, validation humaine suspendant un workflow, contrats de progression
+quantifiée et de médias privés, éditeur visuel et supervision autonome de toutes
+les tâches. Chaque connecteur avec effets externes devra ajouter idempotence et
+réconciliation. Les URLs, captures et coûts seront exposés seulement lorsque
+les outils concernés les auront réellement produits.
 
 ## Conception de l'agent ASO spécialisé
 

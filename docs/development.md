@@ -31,7 +31,8 @@ le backend et le frontend avant de proposer la mise à jour.
 | PANDA_SETUP_ENABLED | Active l'assistant initial d'une installation vide ou de l'unique espace de démo historique |
 | PANDA_DEMO_USERNAME / PASSWORD | Compte de l'ancien outil seed_demo ; les nouveaux comptes sont créés par l'assistant |
 | PANDA_MODULE_PACKAGES | Liste complète des apps de modules installées |
-| CELERY_TASK_ALWAYS_EAGER | Exécution synchrone pour le développement |
+| PANDA_WORKFLOW_DISPATCH | `database` par défaut pour le worker local ; `celery` dans Compose |
+| CELERY_TASK_ALWAYS_EAGER | Exécution synchrone des tâches Celery, utilisée dans les tests |
 | CELERY_BROKER_URL | Redis pour les tâches asynchrones |
 | DJANGO_SECURE_COOKIES | Cookies HTTPS par défaut hors DEBUG |
 | POSTGRES_PASSWORD | Mot de passe du PostgreSQL local Compose |
@@ -56,6 +57,19 @@ une session enregistrée côté serveur. L'e-mail est enregistré mais pas véri
 par un envoi ; la récupération de mot de passe par e-mail n'est pas encore implémentée.
 
 ## Vérifications
+
+Le backend local démarre avec `python -m uvicorn panda_store.asgi:application
+--host 127.0.0.1 --port 8000 --reload`. Lancer séparément `python manage.py
+run_workflows` et Vite. Le worker local interroge la file durable en base une fois
+par seconde et utilise les mêmes étapes que Celery ; il ne recharge pas le code
+automatiquement. Aucun compte, identifiant de store ou modèle IA du développeur
+n'est nécessaire pour ce worker. `run_workflows --once` traite au plus une tâche.
+
+Compose utilise Uvicorn/ASGI, Redis et Celery. Nginx laisse passer les événements
+SSE sans buffering. Chaque connexion dure au plus 25 secondes et le navigateur
+reprend avec son dernier curseur ; un polling de secours maintient le suivi si
+le flux est interrompu. Les étapes des modèles de rédaction locaux peuvent se
+terminer en moins d'une seconde : aucun délai artificiel n'allonge la génération.
 
 Les tests couvrent le parcours principal, le jeton CSRF, les rôles, l'isolation
 des objets entre espaces, les dépendances des modules, les imports répétés,

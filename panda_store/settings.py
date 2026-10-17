@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "panda_store.core",
+    "panda_store.workflows",
     *PANDA_MODULE_PACKAGES,
 ]
 MIDDLEWARE = [
@@ -106,6 +107,9 @@ X_FRAME_OPTIONS = "DENY"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1_048_576
 
 PANDA_DEMO_MODE = env_bool("PANDA_DEMO_MODE")
+PANDA_WORKFLOW_DISPATCH = os.getenv("PANDA_WORKFLOW_DISPATCH", "database")
+if PANDA_WORKFLOW_DISPATCH not in {"database", "celery"}:
+    raise ImproperlyConfigured("PANDA_WORKFLOW_DISPATCH must be database or celery.")
 PANDA_SETUP_ENABLED = env_bool("PANDA_SETUP_ENABLED")
 PANDA_DEMO_USERNAME = os.getenv("PANDA_DEMO_USERNAME", "demo")
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")

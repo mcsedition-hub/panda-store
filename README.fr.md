@@ -27,6 +27,7 @@ et la publication ne sont pas encore implémentés.
   la langue principale et actualisation manuelle des métadonnées.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
 - Historique des générations, édition, validation séparée et export Markdown.
+- Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
 - Module d'exemple utilisant les mêmes conventions que les modules intégrés.
 
 Les visuels Audit ASO, Veille, Publication, Mesure et Agents font partie de
@@ -45,10 +46,14 @@ python3.12 -m venv .venv
 npm --prefix web ci
 ```
 
-Dans deux terminaux :
+Dans trois terminaux :
 
 ```sh
-.venv/bin/python manage.py runserver 127.0.0.1:8000
+.venv/bin/python -m uvicorn panda_store.asgi:application --host 127.0.0.1 --port 8000 --reload
+```
+
+```sh
+.venv/bin/python manage.py run_workflows
 ```
 
 ```sh
@@ -71,8 +76,17 @@ ce fichier contient des secrets et ne doit jamais être publié.
 
 Choisir **Connections → Try with demo apps**, importer **Runclub**, puis ouvrir le **Studio** pour
 préparer trois pistes. L'espace initial est vide pour tester le vrai parcours
-d'import. En mode local, SQLite et l'exécution synchrone des tâches suffisent :
+d'import. En mode local, SQLite et le worker `run_workflows` exécutent les tâches
+en arrière-plan, sans service Redis supplémentaire :
 aucun compte externe ni clé IA n'est nécessaire.
+
+Garder le worker ouvert et le redémarrer après les changements de code Python.
+Pour une mise à jour, installer les dépendances puis appliquer les migrations.
+Studio affiche les étapes cliquables et leur journal en direct. Fermer la page
+ne perd pas l'exécution ; l'historique permet de la retrouver. `Stop` demande
+l'arrêt, et `Retry unfinished steps` crée une tentative liée avec les mêmes
+métadonnées et le même brief, en réutilisant les étapes terminées. Les agents IA,
+les branches parallèles et l'éditeur de workflows restent à construire.
 
 Pour un compte réel, choisir **Connections → Connect Apple** puis saisir le nom,
 le type et l'identifiant de la clé, son fichier `.p8` et l'Issuer ID pour une clé

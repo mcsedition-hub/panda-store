@@ -1,4 +1,12 @@
 let csrfToken = '';
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
 export function setCsrfToken(token: string) {
   csrfToken = token;
 }
@@ -25,8 +33,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new Error(
+    throw new ApiError(
       data ? errorText(data.error ?? data) : `Service unavailable (${response.status}).`,
+      response.status,
     );
   }
   return response.status === 204 ? (undefined as T) : response.json();

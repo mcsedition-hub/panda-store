@@ -109,3 +109,27 @@ it('prevents writes in a read-only workspace', async () => {
   expect(button.disabled).toBe(true);
   expect((screen.getByLabelText('Hook — Angle 1') as HTMLTextAreaElement).disabled).toBe(true);
 });
+
+it('ignores a generation response after switching workspace', async () => {
+  let resolveRun: (value: Run) => void = () => {};
+  mockApi.mockImplementation(async (path, options) => {
+    if (path.endsWith('brief/')) return brief;
+    if (options?.method === 'POST')
+      return new Promise<Run>((resolve) => {
+        resolveRun = resolve;
+      });
+    return [];
+  });
+  const view = render(<Studio {...props} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Create scripts' }));
+  await waitFor(() =>
+    expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(true),
+  );
+  view.rerender(
+    <Studio {...props} workspace={{ ...props.workspace, id: 'different-workspace' }} />,
+  );
+  await screen.findByRole('button', { name: 'Create scripts' });
+  resolveRun(run);
+  await waitFor(() => expect(screen.getByText('No scripts yet.')).toBeTruthy());
+  expect(screen.queryByLabelText('Hook — Angle 1')).toBeNull();
+});

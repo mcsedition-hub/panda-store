@@ -19,10 +19,32 @@ class CreativeSerializer(serializers.ModelSerializer):
 
 class RunSerializer(serializers.ModelSerializer):
     creatives = CreativeSerializer(many=True, read_only=True)
+    status = serializers.SerializerMethodField()
+    error = serializers.SerializerMethodField()
+    completed_at = serializers.SerializerMethodField()
+    workflow_id = serializers.UUIDField(read_only=True, allow_null=True)
+
+    def get_status(self, obj):
+        return obj.workflow.status if obj.workflow_id else obj.status
+
+    def get_error(self, obj):
+        return obj.workflow.error if obj.workflow_id else obj.error
+
+    def get_completed_at(self, obj):
+        return obj.workflow.completed_at if obj.workflow_id else obj.completed_at
 
     class Meta:
         model = GenerationRun
-        fields = ["id", "status", "provider", "error", "created_at", "completed_at", "creatives"]
+        fields = [
+            "id",
+            "status",
+            "provider",
+            "error",
+            "created_at",
+            "completed_at",
+            "creatives",
+            "workflow_id",
+        ]
 
 
 class GenerateRequest(serializers.Serializer):

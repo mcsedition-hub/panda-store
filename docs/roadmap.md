@@ -8,6 +8,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
 | Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Visible au catalogue comme prévu ; sources sélectionnées et agent spécifié, audit à construire |
+| Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé et Studio à modèles locaux implémentés ; agents et branches parallèles à construire |
 | Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
 | Google Play | Métadonnées et rapports via mécanismes officiels disponibles | À construire |
@@ -41,6 +42,98 @@ L'utilisateur relit les propositions avant toute application. Le connecteur Appl
 actuel reste en lecture seule : les corrections sont copiables et à appliquer dans
 App Store Connect, puis un nouvel import permet de vérifier les changements. Aucune
 modification de fiche ni publication automatique n'est encore implémentée.
+
+### Parcours ASO et brouillons
+
+Direction d'interface retenue, à implémenter : l'utilisateur ouvre son app,
+choisit le store et la langue, puis lance `Run audit`. Le contexte de l'app,
+la langue et la date de dernière synchronisation restent visibles. Les résultats
+présentent chaque problème avec le contenu actuel, une proposition concrète,
+sa justification et ses sources. `Add to draft` ajoute uniquement la proposition
+choisie à un brouillon ; l'utilisateur peut la modifier ou l'ignorer.
+
+L'espace ASO propose `Overview`, `Drafts` et `Activity`. Le premier audit est
+l'action principale de l'écran vide. Un brouillon suffit pour commencer ;
+`Duplicate` permet de préparer une variante nommée, avec sauvegarde automatique
+et historique consultable. L'éditeur compare `Current listing` et `Draft`,
+signale les différences par des libellés en plus des couleurs, affiche les limites
+des champs et propose un aperçu. Sur petit écran, ces vues se suivent verticalement.
+La fiche importée reste intacte ; une actualisation qui change la référence du
+brouillon signale les écarts à relire, sans écraser le travail en cours.
+
+Pour la première version, les actions de sortie sont `Copy changes`, `Export`
+et `Check store update`. Elles accompagnent l'application manuelle dans la console
+du store. `Draft`, `Ready` et `Changes detected` décrivent des faits distincts :
+un brouillon validé n'est pas publié, un export n'est pas une publication, et une
+correspondance à l'import ne confirme la mise en ligne que si le statut du store
+le permet. La date de détection ne remplace pas la date réelle de publication.
+Restaurer une ancienne révision du brouillon n'annule rien sur le store.
+
+Les expériences et résultats viendront avec les intégrations nécessaires :
+préparer deux variantes ne lance pas un test A/B. La méthode de mesure et les
+champs testables dépendent du store. Une rubrique `Results` sera introduite quand
+des données pourront être reliées aux changements, avec leur période et leurs
+limites. `Activity` conserve l'historique des exécutions. Pendant un audit,
+le suivi s'affiche directement dans le module, sans obliger l'utilisateur à
+quitter son app : étapes, statut, action courante et résultats intermédiaires.
+
+### Workflows et suivi des agents en direct
+
+Le modèle d'interaction demandé reprend les graphes d'exécution de GitHub Actions
+et les workflows de n8n. Chaque module fournit un parcours prêt à lancer.
+Une suite courte utilise une liste d'étapes ; les dépendances, branches et tâches
+parallèles utilisent un graphe. Cliquer une étape ouvre son activité, ses entrées,
+ses résultats et ses sources. Le graphe d'exécution est distinct du graphe de
+connaissances ASO, qui relie les recommandations à leurs preuves.
+
+Exemple ASO : synchroniser la fiche, vérifier les règles et étudier les références
+en parallèle quand leurs dépendances le permettent, préparer les propositions,
+vérifier leurs preuves, puis remettre les corrections à l'utilisateur pour
+composer son brouillon. L'état `Needs review` indique une intervention nécessaire,
+avec son motif et les actions possibles. La préparation du brouillon ne publie rien.
+
+Le journal en direct indique des actions observables : page ouverte avec son URL,
+capture disponible, contrôle terminé, source inaccessible, proposition créée.
+Une étape affiche `Queued`, `Running`, `Needs review`, `Completed`, `Failed`,
+`Canceled` ou `Skipped`, sa durée et sa dernière activité. La progression
+quantifiée repose sur un total connu ; une tâche longue sans total affiche son
+action courante. Les coûts estimés restent distingués de la consommation rapportée.
+Un contrôle déterministe est présenté comme tel, et non comme un agent IA.
+
+L'utilisateur peut demander l'arrêt, consulter les résultats déjà disponibles,
+et relancer une étape en échec lorsque la reprise est sûre. Une actualisation ou
+la fermeture de l'onglet ne perd pas l'exécution. Les messages d'erreur indiquent
+la cause utile et l'action possible. Les modules ASO, Studio et Veille partagent
+ce suivi ; leurs étapes métier restent spécifiques. L'édition visuelle avancée
+des workflows pourra venir ensuite, sur la même définition versionnée.
+
+Références : [graphe GitHub Actions](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-the-visualization-graph)
+(capture officielle examinée) et
+[historique des exécutions n8n](https://docs.n8n.io/build/understand-workflows/understand-executions/view-executions-for-a-single-workflow).
+Le socle commun est maintenant implémenté dans Studio : trois étapes réelles,
+journal SSE avec reconnexion et polling de secours, arrêt coopératif et reprise
+des étapes inachevées avec les entrées originales. Les résultats terminés sont
+réutilisés et la trace précédente est conservée. Le worker local utilise la base ;
+Compose utilise Celery. La connexion des agents ASO et Veille, les sources et
+captures dans le journal, les branches parallèles et l'éditeur restent à construire.
+
+Les brouillons appartiennent à la base de données de l'installation et ne
+nécessitent aucun compte GitHub. Dans ce parcours produit, la référence à GitHub
+Actions désigne le suivi visuel des étapes. Les branches et pull requests du dépôt
+concernent séparément le développement du code. Le workflow GitHub Actions
+[`Checks`](../.github/workflows/ci.yml) existe déjà pour les tests, le formatage
+et la compilation sur les push et pull requests ; les tâches métier s'exécutent
+dans Panda Store.
+
+Références consultées visuellement le 16 octobre 2026 :
+[AppTweak Metadata Simulator](https://help.apptweak.com/en/articles/400809-test-your-keyword-selection-to-optimize-your-metadata)
+pour les brouillons et les différences,
+[Apple Product Page Optimization](https://developer.apple.com/app-store/product-page-optimization/)
+pour l'aperçu de l'original et des variantes, et
+[Google Publishing overview](https://support.google.com/googleplay/android-developer/answer/9859654?hl=en)
+pour la séparation entre préparation, revue et publication. La capture Google
+du [billet officiel de 2023](https://android-developers.googleblog.com/2023/01/control-when-changes-to-your-app-are-sent-for-review-with-new-play-console-features.html)
+sert de référence de structure, pas de garantie sur l'apparence actuelle.
 
 Après ce bilan ASO, ajouter un fournisseur IA remplaçable au Studio, des sorties
 structurées, un budget par génération et des évaluations sur un jeu de briefs.

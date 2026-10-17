@@ -10,12 +10,32 @@ from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
 from panda_store.core.access import workspace_access
+from panda_store.core.models import Workspace
+from panda_store.workflows.models import WorkflowRun
+from panda_store.workflows.services import fail, recover
 
 from .models import Brief, Creative, GenerationRun
 from .serializers import BriefSerializer, CreativeSerializer, GenerateRequest, RunSerializer
 from .tasks import generate_scripts
+from .workflow import VERSION, create_workflow
 
 logger = logging.getLogger(__name__)
+
+
+def dispatch_generation(run):
+    if settings.PANDA_WORKFLOW_DISPATCH == "database":
+        return  # The local worker claims the durable queued record.
+    try:
+        generate_scripts.delay(str(run.pk))
+    except Exception:
+        logger.exception("Could not enqueue run %s", run.pk)
+        fail(run.workflow_id, "The task service is unavailable. Start the worker and retry.")
+        workflow = WorkflowRun.objects.get(pk=run.workflow_id)
+        GenerationRun.objects.filter(pk=run.pk).update(
+            status=workflow.status,
+            error=workflow.error,
+            completed_at=workflow.completed_at,
+        )
 
 
 def get_app(request, workspace_id, app_id, *, write=False):
@@ -48,7 +68,12 @@ def brief(request, workspace_id, app_id):
 def runs(request, workspace_id, app_id):
     app = get_app(request, workspace_id, app_id, write=request.method == "POST")
     if request.method == "GET":
-        return Response(RunSerializer(app.runs.prefetch_related("creatives")[:20], many=True).data)
+        recent = list(app.runs.select_related("workflow").prefetch_related("creatives")[:20])
+        for run in recent:
+            if run.workflow_id and not run.workflow.terminal:
+                recover(run.workflow_id)
+                run.workflow.refresh_from_db()
+        return Response(RunSerializer(recent, many=True).data)
     if not settings.PANDA_DEMO_MODE:
         raise PermissionDenied("The demo provider is disabled.")
     serializer = GenerateRequest(data=request.data)
@@ -60,6 +85,8 @@ def runs(request, workspace_id, app_id):
     brief_data = BriefSerializer(saved_brief).data if saved_brief else default_brief(app)
     inputs = {"metadata": snapshot.data, "snapshot_id": str(snapshot.pk), "brief": brief_data}
     with transaction.atomic():
+        Workspace.objects.select_for_update().get(pk=app.workspace_id)
+        workspace_access(request.user, workspace_id, write=True, module="studio")
         run, created = GenerationRun.objects.get_or_create(
             workspace=app.workspace,
             request_id=serializer.validated_data["request_id"],
@@ -68,20 +95,49 @@ def runs(request, workspace_id, app_id):
         if run.app_id != app.id or run.inputs != inputs:
             return Response({"error": "This request ID has already been used."}, status=409)
         if created:
-
-            def dispatch():
-                try:
-                    generate_scripts.delay(str(run.pk))
-                except Exception:
-                    logger.exception("Could not enqueue run %s", run.pk)
-                    GenerationRun.objects.filter(pk=run.pk).update(
-                        status=GenerationRun.Status.FAILED,
-                        error="The task service is unavailable. Please try again later.",
-                    )
-
-            transaction.on_commit(dispatch)
+            create_workflow(run)
+            transaction.on_commit(lambda: dispatch_generation(run))
     run.refresh_from_db()
     return Response(RunSerializer(run).data, status=202 if created else 200)
+
+
+@api_view(["POST"])
+def retry_run(request, workspace_id, run_id):
+    workspace = workspace_access(request.user, workspace_id, write=True, module="studio")
+    if not settings.PANDA_DEMO_MODE:
+        raise PermissionDenied("The demo provider is disabled.")
+    serializer = GenerateRequest(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    original = get_object_or_404(GenerationRun, pk=run_id, workspace=workspace)
+    if not original.workflow_id:
+        raise ValidationError("Create a new session to track this older generation.")
+    recover(original.workflow_id)
+    with transaction.atomic():
+        Workspace.objects.select_for_update().get(pk=workspace.pk)
+        workspace_access(request.user, workspace_id, write=True, module="studio")
+        workflow = WorkflowRun.objects.select_for_update().get(pk=original.workflow_id)
+        existing = GenerationRun.objects.filter(workflow__retry_of=workflow).first()
+        if existing:
+            return Response(RunSerializer(existing).data)
+        if workflow.status not in {WorkflowRun.Status.FAILED, WorkflowRun.Status.CANCELED}:
+            raise ValidationError("Only failed or canceled workflows can be retried.")
+        if workflow.version != VERSION or workflow.workflow_key != "studio.scripts":
+            raise ValidationError("This workflow changed. Create a new session.")
+        request_id = serializer.validated_data["request_id"]
+        if GenerationRun.objects.filter(workspace=workspace, request_id=request_id).exists():
+            return Response({"error": "This request ID has already been used."}, status=409)
+        run = GenerationRun.objects.create(
+            workspace=workspace,
+            app=original.app,
+            inputs=original.inputs,
+            provider=original.provider,
+            created_by=request.user,
+            request_id=request_id,
+        )
+        create_workflow(run, retry_of=workflow)
+        transaction.on_commit(lambda: dispatch_generation(run))
+    run.refresh_from_db()
+    return Response(RunSerializer(run).data, status=202)
 
 
 @api_view(["PATCH"])

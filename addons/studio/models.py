@@ -21,9 +21,14 @@ class GenerationRun(models.Model):
         RUNNING = "running"
         SUCCEEDED = "succeeded"
         FAILED = "failed"
+        CANCELING = "canceling"
+        CANCELED = "canceled"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    workflow = models.OneToOneField(
+        "workflows.WorkflowRun", null=True, on_delete=models.SET_NULL, related_name="generation"
+    )
     app = models.ForeignKey(MobileApp, on_delete=models.CASCADE, related_name="runs")
     request_id = models.UUIDField()
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)

@@ -84,3 +84,22 @@ indépendamment côté serveur.
 Avant de distribuer ou proposer un module, lire [la politique de contributions](../CONTRIBUTING.md)
 et [les modalités de licence](licensing.md). Un module tiers n'obtient pas
 automatiquement une place dans l'offre cloud officielle.
+
+## Suivi des workflows
+
+Le socle `panda_store.workflows` est disponible pour les modules installés.
+Studio fournit le premier exemple dans `addons/studio/workflow.py` et `tasks.py` :
+création versionnée, étapes ordonnées et dépendances, actions effectivement
+exécutées et résultats sauvegardés. Le worker local attend un dictionnaire
+`RUNNERS = {workflow_key: (version, execute)}` dans le fichier `workflow.py` du
+package installé ; `execute` reçoit l'UUID de l'exécution. Compose peut envoyer
+ce même travail via Celery.
+
+Les fonctions de transition requièrent le bail obtenu par `claim`. Conserver les
+écritures métier et la réussite de l'étape dans une transaction protégée par
+`execution_lock`. Émettre des messages contrôlés, jamais les clés ou les réponses
+brutes d'outils. Les sorties des étapes sont des checkpoints privés ; l'API commune
+ne les expose pas. L'adaptateur reste responsable de figer les entrées et de
+vérifier qu'une reprise peut réutiliser ses résultats sans effet externe répété.
+Le panneau partagé est `web/src/workflows/WorkflowPanel.tsx`. Le premier rendu
+est séquentiel ; l'ordonnancement parallèle et l'éditeur visuel sont prévus.
