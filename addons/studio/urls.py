@@ -1,8 +1,9 @@
 from django.urls import path
 
-from . import research_views, views
+from . import creative_views, research_views, views
 
 urlpatterns = [
+    path("apps/<uuid:app_id>/ai-runs/", creative_views.generate),
     path("research-capabilities/", research_views.capabilities),
     path("apps/<uuid:app_id>/research/", research_views.runs),
     path("research/<uuid:run_id>/", research_views.detail),

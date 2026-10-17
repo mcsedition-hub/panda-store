@@ -2370,6 +2370,38 @@ strong {
 .research-workspace {
   margin-top: 28px;
 }
+.research-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.research-select input {
+  width: auto;
+  accent-color: var(--ink);
+}
+.brief-source {
+  margin: 16px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.brief-intro h3 {
+  margin-top: 28px;
+}
+.script-context {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.script-context p,
+.script-provenance p {
+  margin-top: 12px;
+}
+.script-provenance {
+  margin: 18px 0;
+}
+.pre-wrap {
+  white-space: pre-wrap;
+}
 .research-setup {
   padding-bottom: 26px;
   border-bottom: 1px solid var(--line);

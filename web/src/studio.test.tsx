@@ -12,7 +12,7 @@ vi.mock('../../addons/studio/frontend/Research', () => ({
   default: () => <p>Research workspace</p>,
 }));
 const mockApi = vi.mocked(api);
-const app = { id: 'app-one', name: 'Runclub', metadata: null } as MobileApp;
+const app = { id: 'app-one', name: 'Runclub', metadata: null, is_demo: true } as MobileApp;
 const props: ModuleProps = {
   workspace: { id: 'workspace-one', name: 'Atelier', role: 'owner' },
   apps: [app],

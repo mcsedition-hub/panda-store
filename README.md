@@ -13,9 +13,9 @@ Self-hostable and source available under the [Elastic License 2.0](LICENSE).
 English is the default product language. [Lire le README en français](README.fr.md).
 
 **Alpha 0.1.0 — local development.** Connect an Apple account and import iOS
-store listings, or explore with fictional apps. Write a brief → create three
-template scripts → edit → approve → export. ASO includes optional AI copy review.
-AI script generation, Google Play and publishing are not implemented yet.
+store listings, or explore with fictional apps. Research → select observations →
+write a brief → generate three AI script drafts → edit → approve → export.
+Local templates remain available in demo mode. Google Play and publishing are not implemented yet.
 
 ## What works
 
@@ -34,6 +34,8 @@ AI script generation, Google Play and publishing are not implemented yet.
 - Studio research with provider web search, browser captures, source-linked observations
   and three cross-domain references, before creative writing.
 - Editable briefs and three script variants built from local writing templates.
+- Three AI script directions from selected research and author-confirmed product facts,
+  with source references, an automated review and separate human approval.
 - Generation history, script editing, separate approval and Markdown exports.
 - Live workflow steps and activity, stop requests, and retries that keep completed steps.
 - An example extension using the same conventions as the built-in modules.
@@ -146,8 +148,32 @@ The research inputs and saved evidence are immutable. **Retry unfinished steps**
 work; **Retry unavailable sources** keeps the search and readable pages and creates a new attempt
 for the missing pages, without changing the original report. Analysis/review calls may run again.
 
-**Scripts** still uses the explicit local demo templates. AI creation from selected research,
-full video analysis, authenticated social connectors and publishing remain planned.
+Full video analysis, authenticated social connectors and publishing remain planned.
+
+## Create scripts from research
+
+In **Research**, select one to three retained observations and choose **Use observations in brief**.
+Studio saves the selection and opens **Scripts**. Define the audience, goal, tone, language and
+target duration, then enter the product facts the script may use. Confirm those facts and select
+a model from your workspace's OpenAI, Gemini or Claude connection. **Create scripts** runs two
+model calls: writing three directions and reviewing their claims, sources and distinctness.
+
+Each generation freezes the selected import, brief, source observations and connection revision.
+Research informs structure; it does not authorize copying competitor text or transferring features,
+prices or performance claims. Exact product fact quotes and source IDs are checked in code. The
+second model review can still miss errors, so scripts require human review before use. A rejected
+review withholds all three scripts and displays its reasons. Adjust the brief and start a new
+generation; retry is for interrupted work, not for repeatedly approving rejected content.
+
+When only the review times out, **Retry unfinished steps** reuses completed writing. No automatic
+paid retry or provider switch occurs. Usage is recorded for completed calls; reused steps retain
+their original counts and timed-out calls may still be billed. Editing a script clears its approval.
+**Research adaptation** preserves the original AI rationale; subsequent human edits are not
+automatically rechecked. The Markdown export includes the sources and the confirmed facts.
+
+These are editable scripts and shooting directions, not generated video files. Target duration is
+an estimate. No social account is connected or post published. AI generation works with demo mode
+disabled; **Demo templates · No AI** remains a separate optional local mode.
 
 ## Audit an App Store listing
 

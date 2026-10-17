@@ -66,10 +66,12 @@ function SourceCard({
   page,
   finding,
   withheld,
+  selection,
 }: {
   page: Page;
   finding?: Finding;
   withheld?: string;
+  selection?: { checked: boolean; disabled: boolean; toggle: () => void };
 }) {
   const [frame, setFrame] = useState('top');
   return (
@@ -125,6 +127,17 @@ function SourceCard({
         <div>
           {finding ? (
             <>
+              {selection && (
+                <label className="research-select">
+                  <input
+                    type="checkbox"
+                    checked={selection.checked}
+                    disabled={selection.disabled}
+                    onChange={selection.toggle}
+                  />
+                  Select for brief
+                </label>
+              )}
               <span className="note">
                 {finding.content_type.replaceAll('_', ' ')} · AI observation · Review before use
               </span>
@@ -199,10 +212,14 @@ export default function Research({
   workspace,
   app,
   previewMode,
+  onUseInBrief,
+  briefBusy,
 }: {
   workspace: Workspace;
   app: MobileApp;
   previewMode?: boolean;
+  onUseInBrief?: (researchId: string, pageIds: string[]) => Promise<void>;
+  briefBusy?: boolean;
 }) {
   const [topic, setTopic] = useState('');
   const [market, setMarket] = useState(app.metadata?.data.locale || 'en-US');
@@ -217,6 +234,11 @@ export default function Research({
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
+  const [selection, setSelection] = useState<{ runId: string; pages: string[] }>({
+    runId: '',
+    pages: [],
+  });
+  const [usingBrief, setUsingBrief] = useState(false);
   const alive = useRef(true);
   const request = useRef<{ signature: string; id: string } | null>(null);
   const base = moduleUrl(workspace.id, 'studio');
@@ -225,6 +247,20 @@ export default function Research({
   const run = detail?.id === selected?.id ? detail : selected;
   const pending = runs.some((r) => activeStatus(r.status));
   const canWrite = workspace.role !== 'viewer' && !previewMode;
+  const selectedPages = selection.runId === run?.id ? selection.pages : [];
+
+  async function useInBrief() {
+    if (!run || !onUseInBrief) return;
+    setUsingBrief(true);
+    setError('');
+    try {
+      await onUseInBrief(run.id, selectedPages);
+    } catch (err) {
+      if (alive.current) setError((err as Error).message);
+    } finally {
+      if (alive.current) setUsingBrief(false);
+    }
+  }
 
   useEffect(() => {
     alive.current = true;
@@ -534,6 +570,23 @@ export default function Research({
           )}
           {!!run?.pages?.length && (
             <>
+              {canWrite &&
+                onUseInBrief &&
+                run.status === 'succeeded' &&
+                !!run.report?.findings.length && (
+                  <div className="research-start">
+                    <button
+                      className="button primary"
+                      disabled={!selectedPages.length || usingBrief || briefBusy}
+                      onClick={() => void useInBrief()}
+                    >
+                      {usingBrief
+                        ? 'Saving selection…'
+                        : `Use ${selectedPages.length || ''} ${selectedPages.length === 1 ? 'observation' : 'observations'} in brief`}
+                    </button>
+                    <span className="note">Select up to three observations below.</span>
+                  </div>
+                )}
               <p className="note">
                 Source claims are not independently verified. Confirm your app's features before
                 using an idea.
@@ -555,6 +608,27 @@ export default function Research({
                       page={page}
                       finding={run.report?.findings.find((f) => f.page_id === page.id)}
                       withheld={run.report?.withheld.find((f) => f.page_id === page.id)?.reason}
+                      selection={
+                        canWrite && onUseInBrief && run.status === 'succeeded'
+                          ? {
+                              checked: selectedPages.includes(page.id),
+                              disabled:
+                                usingBrief ||
+                                !!briefBusy ||
+                                (!selectedPages.includes(page.id) && selectedPages.length >= 3),
+                              toggle: () =>
+                                setSelection((old) => {
+                                  const pages = old.runId === run.id ? old.pages : [];
+                                  return {
+                                    runId: run.id,
+                                    pages: pages.includes(page.id)
+                                      ? pages.filter((id) => id !== page.id)
+                                      : [...pages, page.id],
+                                  };
+                                }),
+                            }
+                          : undefined
+                      }
                     />
                   ))}
               </div>

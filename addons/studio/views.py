@@ -26,7 +26,12 @@ def dispatch_generation(run):
     if settings.PANDA_WORKFLOW_DISPATCH == "database":
         return  # The local worker claims the durable queued record.
     try:
-        generate_scripts.delay(str(run.pk))
+        if run.provider == "demo_templates":
+            generate_scripts.delay(str(run.pk))
+        else:
+            from .creative_tasks import generate_ai_scripts
+
+            generate_ai_scripts.delay(str(run.pk))
     except Exception:
         logger.exception("Could not enqueue run %s", run.pk)
         fail(run.workflow_id, "The task service is unavailable. Start the worker and retry.")
@@ -49,6 +54,12 @@ def default_brief(app):
         "audience": snapshot.data.get("audience", "") if snapshot else "",
         "goal": "Encourage people to try the app.",
         "tone": "Clear and friendly",
+        "research": None,
+        "research_page_ids": [],
+        "research_sources": [],
+        "product_facts": "",
+        "language": "English",
+        "duration_seconds": 30,
     }
 
 
@@ -58,7 +69,7 @@ def brief(request, workspace_id, app_id):
     existing = Brief.objects.filter(app=app).first()
     if request.method == "GET":
         return Response(BriefSerializer(existing).data if existing else default_brief(app))
-    serializer = BriefSerializer(instance=existing, data=request.data)
+    serializer = BriefSerializer(instance=existing, data=request.data, context={"app": app})
     serializer.is_valid(raise_exception=True)
     serializer.save(app=app)
     return Response(serializer.data)
@@ -104,6 +115,11 @@ def runs(request, workspace_id, app_id):
 @api_view(["POST"])
 def retry_run(request, workspace_id, run_id):
     workspace = workspace_access(request.user, workspace_id, write=True, module="studio")
+    original = get_object_or_404(GenerationRun, pk=run_id, workspace=workspace)
+    if original.provider != "demo_templates":
+        from .creative_views import retry_ai
+
+        return retry_ai(request, workspace, original)
     if not settings.PANDA_DEMO_MODE:
         raise PermissionDenied("The demo provider is disabled.")
     serializer = GenerateRequest(data=request.data)
@@ -165,7 +181,31 @@ def export_run(request, workspace_id, run_id):
         workspace=workspace,
         status=GenerationRun.Status.SUCCEEDED,
     )
-    lines = [f"# {run.app.name} — scripts", "", "Demo mode: writing templates, no AI calls.", ""]
+    mode = (
+        "Demo mode: writing templates, no AI calls."
+        if run.provider == "demo_templates"
+        else (
+            f"AI drafts: {run.provider} / {run.inputs['ai']['model']}. "
+            "Review before recording or publishing."
+        )
+    )
+    lines = [f"# {run.app.name} — scripts", "", mode, ""]
+    if run.provider != "demo_templates":
+        lines += [
+            "## Brief",
+            "",
+            f"Language: {run.inputs['brief']['language']}",
+            f"Target duration: {run.inputs['brief']['duration_seconds']} seconds (estimate)",
+            "",
+            "Product facts confirmed by the author:",
+            run.inputs["brief"]["product_facts"],
+            "",
+            "## Research references",
+            "",
+        ]
+        for source in run.inputs["sources"]:
+            lines += [f"- {source['title']}: {source['url']} (captured {source['captured_at']})"]
+        lines += ["", "References inform structure; they do not prove performance.", ""]
     for creative in run.creatives.all():
         lines += [
             f"## {creative.variant}. {creative.angle}",
@@ -179,6 +219,16 @@ def export_run(request, workspace_id, run_id):
             f"Review: {'approved' if creative.approved else 'needs review'}",
             "",
         ]
+        if creative.provenance:
+            lines += [
+                "Original research adaptation (not rechecked after edits):",
+                creative.provenance["adaptation"],
+                "",
+            ]
+            for source in run.inputs["sources"]:
+                if source["page_id"] in creative.provenance["source_page_ids"]:
+                    lines += [f"- {source['title']}: {source['url']}"]
+            lines += [""]
     response = HttpResponse("\n".join(lines), content_type="text/markdown; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="panda-scripts-{run.pk}.md"'
     return response

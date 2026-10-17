@@ -82,6 +82,26 @@ beforeEach(() => {
   mocked.mockReset();
 });
 afterEach(cleanup);
+
+it('passes only explicitly selected retained observations into the brief', async () => {
+  mocked.mockImplementation(async (path) =>
+    path.endsWith('research-capabilities/')
+      ? { browser_installed: true }
+      : path.endsWith('/research/')
+        ? [run]
+        : run,
+  );
+  const useInBrief = vi.fn().mockResolvedValue(undefined);
+  render(<Research workspace={workspace} app={app} onUseInBrief={useInBrief} />);
+  await screen.findByLabelText('Select for brief');
+  expect(
+    (screen.getByRole('button', { name: 'Use observations in brief' }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByLabelText('Select for brief'));
+  fireEvent.click(screen.getByRole('button', { name: 'Use 1 observation in brief' }));
+  await waitFor(() => expect(useInBrief).toHaveBeenCalledWith('run-one', ['page-one']));
+});
 function read(path: string) {
   if (path.endsWith('research-capabilities/')) return { browser_installed: true };
   if (path.endsWith('/research/')) return [];

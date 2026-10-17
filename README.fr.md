@@ -15,7 +15,7 @@ Code source accessible et auto-hébergeable, sous [Elastic License 2.0](LICENSE)
 **Alpha 0.1.0 — développement local.** Connecter un compte Apple pour importer
 des fiches iOS, ou utiliser les apps fictives : import → brief → trois scripts
 issus de modèles → retouche → validation → export. L’ASO inclut une revue IA
-facultative. Google Play, les scripts IA et la publication restent à construire.
+facultative. Studio relie désormais la veille à trois scripts IA. Google Play et la publication restent à construire.
 
 ## Ce qui fonctionne
 
@@ -34,6 +34,8 @@ facultative. Google Play, les scripts IA et la publication restent à construire
 - Veille dans Studio : recherche web, ouverture et défilement des pages, captures,
   observations reliées aux sources et trois références de domaines différents.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
+- Trois scripts IA à partir des observations choisies et des faits produit confirmés,
+  avec sources, revue automatique et validation humaine séparée.
 - Historique des générations, édition, validation séparée et export Markdown.
 - Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
 - Module d'exemple utilisant les mêmes conventions que les modules intégrés.
@@ -46,8 +48,16 @@ Voir la [feuille de route](docs/roadmap.md).
 Installer Chromium avec `.venv/bin/python -m playwright install chromium`, puis
 redémarrer le worker. Les pages publiques consultables sont archivées ; les blocages,
 sources manquantes et hypothèses restent visibles. Les appels IA et recherches peuvent
-être facturés par le fournisseur. La vidéo, l'audio et la création de scripts IA ne
-sont pas encore intégrés. Voir le [fonctionnement et les limites](README.md#creative-research).
+être facturés par le fournisseur. La vidéo et l'audio ne sont pas encore analysés.
+Voir le [fonctionnement et les limites](README.md#creative-research).
+
+Sélectionner une à trois observations, puis **Use observations in brief** ouvre **Scripts**.
+Renseigner audience, objectif, ton, langue, durée cible et faits produit, puis choisir un modèle.
+La génération écrit trois directions, vérifie leurs affirmations et conserve leurs références.
+Un rejet bloque l'enregistrement des scripts et affiche les raisons ; un timeout permet de
+reprendre les étapes inachevées. Les scripts restent à relire, éditer et approuver séparément.
+Il s'agit de textes et de plans de tournage, pas de fichiers vidéo ni de publications.
+Voir le [parcours de création](README.md#create-scripts-from-research).
 
 Activer **ASO** dans **Modules**, choisir l'app et la langue, puis **Run audit**.
 Le bilan utilise l'import enregistré et conserve ses sources, leur date de revue

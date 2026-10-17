@@ -13,6 +13,7 @@
     "research.browse",
     "briefs.edit",
     "scripts.demo_generate",
+    "scripts.ai_generate",
     "scripts.edit",
     "scripts.export"
   ]

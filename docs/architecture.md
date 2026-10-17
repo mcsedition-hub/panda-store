@@ -658,8 +658,8 @@ conflit et réutilise une requête dont le résultat était incertain.
 de connexion. Le workflow `studio.research` suit six étapes : contrôle du navigateur,
 découverte web, consultation des sources, analyse, vérification séparée, rapport.
 Il utilise le même journal durable, l'annulation coopérative et les reprises que l'ASO.
-La création de scripts IA reste une tranche distincte ; les scripts actuels sont des
-modèles locaux. La veille ne modifie ni les fiches stores ni les comptes sociaux.
+La création IA exploite ensuite une sélection explicite de ces observations ; les modèles
+locaux restent un mode de démonstration séparé. La veille ne modifie ni les fiches stores ni les comptes sociaux.
 
 Les adaptateurs de découverte utilisent les outils officiels
 [OpenAI Web search](https://developers.openai.com/api/docs/guides/tools-web-search),
@@ -710,3 +710,43 @@ retente seulement les sources manquantes dans une nouvelle exécution. L'analyse
 la vérification peuvent être facturées à nouveau. Le rapport d'origine est conservé.
 La consommation enregistrée dans une étape réutilisée vient de la tentative d'origine ;
 le journal indique sa réutilisation, ce n'est pas un nouvel appel facturé.
+
+### Création IA depuis la veille
+
+Le brief conserve une session `ResearchRun` et un à trois identifiants de pages dont
+les observations ont été retenues. Le serveur vérifie l'app, l'espace, le statut terminé
+et l'existence des preuves ; aucun extrait envoyé par le client n'est accepté comme
+source. `Use observations in brief` sauvegarde cette sélection avec les éditions locales
+du brief puis ouvre Scripts. Les observations de veille restent des hypothèses.
+
+`POST apps/{app}/ai-runs/` reçoit un identifiant de requête, l'import choisi, le brief
+explicite, la sélection et le modèle. La confirmation des faits produit est requise et
+datée avec l'auteur. Il s'agit d'une déclaration de l'auteur, pas d'un test fonctionnel
+effectué par Panda Store. La requête normalisée et les entrées sont figées dans
+`GenerationRun`, avec la révision de connexion. Une réponse perdue peut être récupérée
+sans consulter un nouvel import ou une nouvelle clé ; une réutilisation de l'identifiant
+avec un contenu différent est refusée. Une génération active par espace est autorisée.
+
+Le workflow `studio.ai_scripts` vérifie le contexte, écrit trois scripts, effectue une
+seconde revue et sauvegarde les sorties. Les adaptateurs structurés existants sont
+réutilisés pour les trois fournisseurs. Le format suit la
+[documentation officielle OpenAI sur les sorties structurées](https://developers.openai.com/api/docs/guides/structured-outputs),
+consultée le 17 octobre 2026 ; un schéma valide ne garantit pas un contenu correct.
+Les variantes, limites de champs, références connues, citations de faits produit et
+doublons exacts sont contrôlés par le code. Le vérificateur relit aussi les affirmations
+omises de la liste de preuves, les scènes, la langue, la durée cible et la différence des angles.
+La revue sémantique peut manquer des erreurs ; elle ne vaut ni validation humaine,
+ni conformité à une politique publicitaire, ni preuve de performance.
+
+Une revue qui rejette un script conserve ses motifs mais n'enregistre aucun `Creative`.
+Le brief doit être ajusté avant une nouvelle génération ; ce rejet ne peut pas être
+rejoué par Retry. Un incident fournisseur peut reprendre les étapes terminées sans
+réécrire les scripts, avec le même modèle et contexte. Les appels n'ont pas de reprise
+payante automatique. Les écritures finales et l'activité sont protégées par le jeton
+d'exécution ; une réponse arrivée après annulation ne peut pas enregistrer de scripts.
+
+Chaque Creative garde la justification et les preuves originales dans `provenance`.
+Les éditions humaines ne réécrivent pas cet historique et remettent l'approbation à faux.
+L'export indique le modèle, les faits confirmés, les sources et l'état de revue. Les
+scripts décrivent un tournage à réaliser : aucun média n'est produit ou publié par ce workflow.
+Le mode `demo_templates` et son ancien workflow restent disponibles séparément.

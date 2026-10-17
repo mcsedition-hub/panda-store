@@ -14,6 +14,49 @@ def execute(run_id):
 RUNNERS = {"studio.scripts": (VERSION, execute)}
 
 
+def ai_execute(run_id):
+    from .creative_tasks import generate_ai_scripts
+    from .models import GenerationRun
+
+    generate_ai_scripts(str(GenerationRun.objects.get(workflow_id=run_id).pk))
+
+
+AI_VERSION = 1
+RUNNERS["studio.ai_scripts"] = (AI_VERSION, ai_execute)
+AI_STEPS = [
+    {"key": "context", "title": "Check brief and sources", "kind": "validation", "depends_on": []},
+    {"key": "scripts", "title": "Write three directions", "kind": "ai", "depends_on": ["context"]},
+    {
+        "key": "verify",
+        "title": "Review claims and originality",
+        "kind": "ai",
+        "depends_on": ["scripts"],
+    },
+    {
+        "key": "save",
+        "title": "Save scripts for review",
+        "kind": "storage",
+        "depends_on": ["verify"],
+    },
+]
+
+
+def create_ai_workflow(run, retry_of=None):
+    workflow = create_run(
+        workspace=run.workspace,
+        user=run.created_by,
+        module_id="studio",
+        key="studio.ai_scripts",
+        version=AI_VERSION,
+        title="Create scripts from research",
+        steps=AI_STEPS,
+        retry_of=retry_of,
+    )
+    run.workflow = workflow
+    run.save(update_fields=["workflow"])
+    return workflow
+
+
 def research_execute(run_id):
     from .research_tasks import research
 

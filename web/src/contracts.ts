@@ -78,6 +78,11 @@ export interface ModuleProps {
   registerLeaveGuard?: (guard: () => Promise<boolean>) => () => void;
 }
 export interface Creative {
+  provenance?: {
+    source_page_ids: string[];
+    adaptation: string;
+    product_claims: { claim: string; fact_quote: string }[];
+  };
   id: string;
   variant: number;
   angle: string;
@@ -88,6 +93,23 @@ export interface Creative {
   updated_at: string;
 }
 export interface Run {
+  context?: {
+    snapshot_id: string;
+    brief: Brief;
+    research_id: string;
+    sources: ResearchSource[];
+    ai: { provider: string; model: string };
+    facts_confirmed_at: string;
+  } | null;
+  review?: {
+    rejected?: boolean;
+    checks?: { variant: number; supported: boolean; reason: string }[];
+    calls?: {
+      step: string;
+      model: string;
+      usage: { input_tokens?: number; output_tokens?: number };
+    }[];
+  };
   id: string;
   status: 'queued' | 'running' | 'succeeded' | 'failed' | 'canceling' | 'canceled';
   workflow_id?: string | null;
@@ -101,4 +123,17 @@ export interface Brief {
   audience: string;
   goal: string;
   tone: string;
+  research?: string | null;
+  research_page_ids?: string[];
+  research_sources?: ResearchSource[];
+  product_facts?: string;
+  language?: string;
+  duration_seconds?: number;
+}
+export interface ResearchSource {
+  page_id: string;
+  url: string;
+  title: string;
+  captured_at: string;
+  finding: { observation: string; structure: string; idea_to_test: string };
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, download, moduleUrl } from '../../../web/src/api';
-import type { Brief, Creative, ModuleProps, Run } from '../../../web/src/contracts';
+import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
+import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
+import type { Brief, Creative, ModuleProps, Run, ResearchSource } from '../../../web/src/contracts';
 import Research from './Research';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
@@ -9,11 +10,13 @@ function CreativeEditor({
   canWrite,
   workspaceId,
   onSave,
+  sources = [],
 }: {
   creative: Creative;
   canWrite: boolean;
   workspaceId: string;
   onSave: (creative: Creative) => void;
+  sources?: ResearchSource[];
 }) {
   const [draft, setDraft] = useState(creative);
   const [busy, setBusy] = useState(false);
@@ -59,6 +62,27 @@ function CreativeEditor({
         </span>
       </div>
       <h3>{creative.angle}</h3>
+      {creative.provenance?.adaptation && (
+        <details className="script-provenance">
+          <summary>Research adaptation</summary>
+          <p>{creative.provenance.adaptation}</p>
+          {sources
+            .filter((source) => creative.provenance?.source_page_ids.includes(source.page_id))
+            .map((source) => (
+              <p key={source.page_id}>
+                <a href={source.url} target="_blank" rel="noreferrer">
+                  {source.title} ↗
+                </a>
+              </p>
+            ))}
+          <p className="note">Original AI notes. Your edits are not automatically rechecked.</p>
+          {creative.provenance.product_claims.map((claim, i) => (
+            <p key={i}>
+              “{claim.claim}” — confirmed fact: “{claim.fact_quote}”
+            </p>
+          ))}
+        </details>
+      )}
       <label>
         Hook
         <textarea
@@ -133,6 +157,14 @@ export default function Studio({
   previewMode,
 }: ModuleProps) {
   const [section, setSection] = useState<'research' | 'scripts'>('research');
+  const [engine, setEngine] = useState(
+    selectedApp?.is_demo || previewMode ? 'demo_templates' : 'ai',
+  );
+  const [choice, setChoice] = useState<AIChoice>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+  const [factsConfirmed, setFactsConfirmed] = useState(false);
+  const [uncertain, setUncertain] = useState(false);
+  const generationRequest = useRef<{ body: string; endpoint: string } | null>(null);
   const [brief, setBrief] = useState<Brief>({
     audience: '',
     goal: '',
@@ -154,11 +186,16 @@ export default function Studio({
   currentBase.current = base;
 
   useEffect(() => {
+    currentBase.current = base;
     setError('');
     setNotice('');
     setRuns([]);
     setRunId('');
     setBusy(false);
+    setUncertain(false);
+    generationRequest.current = null;
+    setFactsConfirmed(false);
+    setEngine(selectedApp?.is_demo || previewMode ? 'demo_templates' : 'ai');
     setLoadFailed(false);
     setBrief({ audience: '', goal: '', tone: '' });
     if (!appId) return;
@@ -180,6 +217,7 @@ export default function Studio({
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
+      currentBase.current = '';
     };
   }, [appId, base]);
   useEffect(() => {
@@ -203,12 +241,29 @@ export default function Studio({
       clearTimeout(timer);
     };
   }, [pending, base]);
-  async function saveBrief() {
+  async function saveBrief(value = brief) {
     return api<Brief>(base + 'brief/', {
       method: 'PUT',
       feedback: { success: 'Brief saved.' },
-      body: JSON.stringify(brief),
+      body: JSON.stringify(value),
     });
+  }
+  function editBrief(value: Brief) {
+    setBrief(value);
+    setFactsConfirmed(false);
+  }
+  async function useResearch(researchId: string, pageIds: string[]) {
+    setBusy(true);
+    try {
+      const saved = await saveBrief({ ...brief, research: researchId, research_page_ids: pageIds });
+      if (currentBase.current !== base) return;
+      setBrief(saved);
+      setFactsConfirmed(false);
+      setEngine('ai');
+      setSection('scripts');
+    } finally {
+      if (currentBase.current === base) setBusy(false);
+    }
   }
   async function retry() {
     if (!run) return;
@@ -226,21 +281,55 @@ export default function Studio({
     setError('');
     setNotice('');
     try {
-      await saveBrief();
+      const saved = generationRequest.current ? brief : await saveBrief();
       if (currentBase.current !== base) return;
+      setBrief(saved);
       if (generate) {
-        const next = await api<Run>(base + 'runs/', {
+        if (!generationRequest.current) {
+          const endpoint = base + (engine === 'ai' ? 'ai-runs/' : 'runs/');
+          const body =
+            engine === 'ai'
+              ? {
+                  request_id: crypto.randomUUID(),
+                  snapshot_id: selectedApp?.metadata?.id,
+                  research_id: saved.research,
+                  page_ids: saved.research_page_ids,
+                  brief: {
+                    audience: saved.audience,
+                    goal: saved.goal,
+                    tone: saved.tone,
+                    product_facts: saved.product_facts,
+                    language: saved.language || 'English',
+                    duration_seconds: saved.duration_seconds || 30,
+                  },
+                  facts_confirmed: factsConfirmed,
+                  provider: choice?.provider,
+                  model: choice?.model,
+                }
+              : { request_id: crypto.randomUUID() };
+          generationRequest.current = { endpoint, body: JSON.stringify(body) };
+        }
+        const next = await api<Run>(generationRequest.current.endpoint, {
           method: 'POST',
           feedback: { success: 'Script generation started.' },
-          body: JSON.stringify({ request_id: crypto.randomUUID() }),
+          body: generationRequest.current.body,
         });
         if (currentBase.current !== base) return;
-        setRuns((old) => [next, ...old]);
+        setRuns((old) => [next, ...old.filter((item) => item.id !== next.id)]);
+        generationRequest.current = null;
+        setUncertain(false);
         setRunId(next.id);
         setNotice('Brief saved.');
       } else setNotice('Brief saved.');
     } catch (err) {
-      if (currentBase.current === base) setError((err as Error).message);
+      if (currentBase.current === base) {
+        const unknown =
+          !!generationRequest.current &&
+          (!(err instanceof ApiError) || err.status === 0 || err.status >= 500);
+        setUncertain(unknown);
+        if (!unknown) generationRequest.current = null;
+        setError((err as Error).message);
+      }
     } finally {
       if (currentBase.current === base) setBusy(false);
     }
@@ -270,7 +359,7 @@ export default function Studio({
           App
           <select
             value={selectedApp.id}
-            disabled={busy || pending}
+            disabled={busy || pending || uncertain}
             onChange={(e) => {
               const app = apps.find((a) => a.id === e.target.value);
               if (app) selectApp(app);
@@ -304,13 +393,20 @@ export default function Studio({
           workspace={workspace}
           app={selectedApp}
           previewMode={previewMode}
+          onUseInBrief={useResearch}
+          briefBusy={busy || loading || loadFailed || uncertain}
         />
       </div>
       <div hidden={section !== 'scripts'}>
-        <div className="studio-disclosure">
-          <span className="signal-dot" />
-          <p>These demo scripts use templates. AI creation from your research is the next step.</p>
-        </div>
+        {engine === 'demo_templates' && (
+          <p className="studio-disclosure">Demo templates · No AI calls.</p>
+        )}
+        {uncertain && (
+          <p className="notice">
+            The start could not be confirmed. Retry the same request or reload to check saved
+            sessions.
+          </p>
+        )}
         {error && (
           <p className="error" role="alert">
             {error}
@@ -331,14 +427,28 @@ export default function Studio({
                     <span key={feature}>{feature}</span>
                   ))}
                 </div>
+                <h3>Research selected</h3>
+                {brief.research_sources?.length ? (
+                  brief.research_sources.map((source) => (
+                    <article className="brief-source" key={source.page_id}>
+                      <a href={source.url} target="_blank" rel="noreferrer">
+                        {source.title} ↗
+                      </a>
+                      <p>{source.finding.structure}</p>
+                    </article>
+                  ))
+                ) : (
+                  <p className="note">Select observations in Research to prepare AI scripts.</p>
+                )}
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setSection('research')}
+                >
+                  Choose research
+                </button>
               </div>
-              <form
-                className="brief-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  submit(true);
-                }}
-              >
+              <div className="brief-form">
                 <label>
                   Audience
                   <textarea
@@ -346,8 +456,8 @@ export default function Studio({
                     rows={2}
                     maxLength={500}
                     value={brief.audience}
-                    onChange={(e) => setBrief({ ...brief, audience: e.target.value })}
-                    disabled={!canWrite || busy}
+                    onChange={(e) => editBrief({ ...brief, audience: e.target.value })}
+                    disabled={!canWrite || busy || uncertain}
                   />
                 </label>
                 <div className="brief-fields">
@@ -358,8 +468,8 @@ export default function Studio({
                       required
                       maxLength={500}
                       value={brief.goal}
-                      onChange={(e) => setBrief({ ...brief, goal: e.target.value })}
-                      disabled={!canWrite || busy}
+                      onChange={(e) => editBrief({ ...brief, goal: e.target.value })}
+                      disabled={!canWrite || busy || uncertain}
                     />
                   </label>
                   <label>
@@ -369,23 +479,138 @@ export default function Studio({
                       required
                       maxLength={80}
                       value={brief.tone}
-                      onChange={(e) => setBrief({ ...brief, tone: e.target.value })}
-                      disabled={!canWrite || busy}
+                      onChange={(e) => editBrief({ ...brief, tone: e.target.value })}
+                      disabled={!canWrite || busy || uncertain}
                     />
                   </label>
                 </div>
+                {demoMode && (
+                  <label>
+                    Generation mode
+                    <select
+                      value={engine}
+                      disabled={!canWrite || busy || pending || uncertain}
+                      onChange={(e) => setEngine(e.target.value)}
+                    >
+                      <option value="ai">AI from research</option>
+                      <option value="demo_templates">Demo templates · No AI</option>
+                    </select>
+                  </label>
+                )}
+                {engine === 'ai' && (
+                  <>
+                    <label>
+                      Product facts
+                      <textarea
+                        rows={5}
+                        maxLength={4000}
+                        value={brief.product_facts || ''}
+                        placeholder="Features and claims you can confirm about your app"
+                        disabled={!canWrite || busy || uncertain}
+                        onChange={(e) => editBrief({ ...brief, product_facts: e.target.value })}
+                      />
+                    </label>
+                    {!brief.product_facts && selectedApp.metadata?.data.description && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={!canWrite || busy || uncertain}
+                        onClick={() =>
+                          editBrief({
+                            ...brief,
+                            product_facts: selectedApp.metadata!.data.description.slice(0, 4000),
+                          })
+                        }
+                      >
+                        Use imported description
+                      </button>
+                    )}
+                    <div className="brief-fields">
+                      <label>
+                        Script language
+                        <input
+                          maxLength={40}
+                          value={brief.language || 'English'}
+                          disabled={!canWrite || busy || uncertain}
+                          onChange={(e) => editBrief({ ...brief, language: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        Target duration
+                        <select
+                          value={brief.duration_seconds || 30}
+                          disabled={!canWrite || busy || uncertain}
+                          onChange={(e) =>
+                            editBrief({ ...brief, duration_seconds: Number(e.target.value) })
+                          }
+                        >
+                          {[15, 30, 45, 60].map((n) => (
+                            <option key={n} value={n}>
+                              {n} seconds
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <AIOptions
+                      key={`${workspace.id}:${appId}`}
+                      workspaceId={workspace.id}
+                      owner={workspace.role === 'owner'}
+                      disabled={!canWrite || busy || pending || uncertain}
+                      emptyLabel="Choose a provider"
+                      onChange={(next, loading) => {
+                        setChoice(next);
+                        setAiLoading(loading);
+                      }}
+                    />
+                    <label className="research-select">
+                      <input
+                        type="checkbox"
+                        checked={factsConfirmed}
+                        disabled={!canWrite || busy || uncertain}
+                        onChange={(e) => setFactsConfirmed(e.target.checked)}
+                      />
+                      I checked these product facts for this app.
+                    </label>
+                    <p className="note">
+                      Two model calls: writing and review. Scripts need your approval before use.
+                    </p>
+                  </>
+                )}
                 <div className="brief-actions">
                   <button
-                    type="submit"
+                    type="button"
                     className="button primary"
-                    disabled={!canWrite || busy || pending || !demoMode}
+                    onClick={() => void submit(true)}
+                    disabled={
+                      !canWrite ||
+                      busy ||
+                      pending ||
+                      (engine === 'demo_templates'
+                        ? !demoMode
+                        : !selectedApp.metadata ||
+                          !brief.research ||
+                          !brief.research_page_ids?.length ||
+                          (brief.product_facts || '').trim().length < 10 ||
+                          !brief.audience.trim() ||
+                          !brief.goal.trim() ||
+                          !brief.tone.trim() ||
+                          !(brief.language || '').trim() ||
+                          !factsConfirmed ||
+                          !choice?.model ||
+                          aiLoading)
+                    }
                   >
-                    {busy || pending ? 'Creating scripts…' : 'Create scripts'}
+                    {busy || pending
+                      ? 'Creating scripts…'
+                      : uncertain
+                        ? 'Retry same request'
+                        : 'Create scripts'}
                   </button>
                   <button
                     type="button"
                     className="text-button"
-                    disabled={!canWrite || busy}
+                    disabled={!canWrite || busy || uncertain}
                     onClick={() => submit(false)}
                   >
                     Save brief
@@ -396,7 +621,7 @@ export default function Studio({
                     {notice}
                   </p>
                 )}
-              </form>
+              </div>
             </section>
             <section className="results">
               <div className="results-heading">
@@ -452,12 +677,59 @@ export default function Studio({
                   <p>No scripts yet.</p>
                 </div>
               )}
+              {run?.context && (
+                <details className="script-context">
+                  <summary>
+                    {run.context.ai.model} · {run.context.brief.language} ·{' '}
+                    {run.context.brief.duration_seconds}s target
+                  </summary>
+                  <p>
+                    Frozen brief: {run.context.brief.audience} · {run.context.brief.goal} ·{' '}
+                    {run.context.brief.tone}
+                  </p>
+                  <h4>Product facts confirmed for this generation</h4>
+                  <p className="pre-wrap">{run.context.brief.product_facts}</p>
+                  {run.context.sources.map((source) => (
+                    <p key={source.page_id}>
+                      <a href={source.url} target="_blank" rel="noreferrer">
+                        {source.title} ↗
+                      </a>
+                      {' · '}
+                      {new Date(source.captured_at).toLocaleDateString('en-US')}
+                    </p>
+                  ))}
+                  {run.review?.calls?.map((call) => (
+                    <p className="note" key={call.step}>
+                      {call.step} · {call.model} · {call.usage.input_tokens ?? '—'} input tokens ·{' '}
+                      {call.usage.output_tokens ?? '—'} output tokens
+                    </p>
+                  ))}
+                  <p className="note">
+                    Reused steps retain their original usage. Timed-out calls may still be billed.
+                  </p>
+                </details>
+              )}
+              {run?.review?.checks && (
+                <details className="script-context" open={run.review.rejected || undefined}>
+                  <summary>
+                    {run.review.rejected ? 'Scripts withheld · Review issues' : 'Automated review'}
+                  </summary>
+                  {run.review.checks.map((check) => (
+                    <p key={check.variant}>
+                      Variant {check.variant}: {check.reason}
+                    </p>
+                  ))}
+                  <p className="note">
+                    This review does not replace checking the script against your app.
+                  </p>
+                </details>
+              )}
               {run?.workflow_id && !previewMode && (
                 <WorkflowPanel
                   key={run.workflow_id}
                   workspaceId={workspace.id}
                   workflowId={run.workflow_id}
-                  canWrite={canWrite}
+                  canWrite={canWrite && !run.review?.rejected}
                   onRetry={retry}
                   onStatus={(status) => {
                     setRuns((old) =>
@@ -493,6 +765,7 @@ export default function Studio({
                       creative={creative}
                       canWrite={canWrite}
                       workspaceId={workspace.id}
+                      sources={run.context?.sources}
                       onSave={(next) =>
                         setRuns((old) =>
                           old.map((item) =>

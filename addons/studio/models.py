@@ -12,6 +12,11 @@ class Brief(models.Model):
     audience = models.CharField(max_length=500, blank=True)
     goal = models.CharField(max_length=500, default="Encourage people to try the app.")
     tone = models.CharField(max_length=80, default="Clear and friendly")
+    research = models.ForeignKey("ResearchRun", null=True, blank=True, on_delete=models.SET_NULL)
+    research_page_ids = models.JSONField(default=list)
+    product_facts = models.TextField(blank=True)
+    language = models.CharField(max_length=40, default="English")
+    duration_seconds = models.PositiveSmallIntegerField(default=30)
     updated_at = models.DateTimeField(auto_now=True)
 
 
@@ -33,6 +38,8 @@ class GenerationRun(models.Model):
     request_id = models.UUIDField()
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.QUEUED)
     provider = models.CharField(max_length=40, default="demo_templates")
+    request = models.JSONField(default=dict)
+    review = models.JSONField(default=dict)
     inputs = models.JSONField()
     error = models.CharField(max_length=300, blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
@@ -57,6 +64,7 @@ class Creative(models.Model):
     hook = models.CharField(max_length=500)
     script = models.TextField(max_length=6000)
     cta = models.CharField(max_length=300)
+    provenance = models.JSONField(default=dict)
     approved = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
