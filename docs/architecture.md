@@ -16,6 +16,19 @@ inclut ses dépendances ; la désactivation d'un module requis est refusée.
 L'activation n'exécute pas d'installation Python ou de migration dynamique.
 Il n'y a pas de format XML de vues : les vues métier sont des composants React.
 
+Le manifeste distingue `availability: available` (valeur par défaut) de `planned`.
+Un module prévu apparaît au catalogue mais ne peut être activé, même par appel API
+ou comme dépendance. ASO est actuellement dans cet état ; aucun audit ou agent ASO
+ne s'exécute encore. Les états Enabled/Disabled décrivent l'activation par espace.
+
+La désactivation retire les accès métier sans supprimer les données importées.
+Ainsi, désactiver Connections conserve les fiches dans My apps mais bloque leurs
+imports et actualisations. L'interface relit les activations au retour sur un
+onglet. Le worker Studio vérifie aussi l'activation sous le verrou de l'espace
+avant de démarrer une génération en attente : si Studio est désactivé, elle échoue
+sans appeler le fournisseur. Une tâche déjà commencée peut finir ; la désactivation
+ne constitue pas une annulation d'un appel externe en cours.
+
 ## Données et droits
 
 `User → Membership → Workspace → MobileApp → MetadataSnapshot`
@@ -90,3 +103,95 @@ destination explicite et un mécanisme de reprise idempotent.
 
 Les quotas, budgets IA, stockage durable des médias,
 facturation et opérations cloud ne font pas partie de cette alpha.
+
+## Conception de l'agent ASO spécialisé
+
+Cette section décrit le contrat à implémenter. Le module est prévu au catalogue,
+et [le catalogue de sources](../addons/aso/knowledge/sources.json) est une première
+sélection relue, avec usages et limites. Ce n'est pas encore un corpus indexé,
+un agent entraîné ou un moteur de recommandations opérationnel.
+
+### Connaissances et preuves
+
+La spécialisation doit couvrir découverte, intentions de recherche, mots-clés,
+conversion, visuels, localisation, avis, expérimentation et mesure. Elle repose sur
+des outils métier, des sources consultables et des évaluations. Une connaissance
+du modèle seul ne suffit pas à justifier une règle, statistique ou promesse produit.
+
+Les sources sont sélectionnées au niveau de l'article et de l'affirmation :
+
+- Apple et Google : exigences et recommandations classées séparément, avec leur portée.
+- Phiture / ASO Stack : cadre de travail et méthodes de praticiens.
+- AppTweak : recherche de mots-clés et distinction entre observations, données de
+  comptes connectés et estimations propriétaires.
+- SplitMetrics : conception d'expériences et cas clients contextualisés. Un test
+  sur une page simulée avec trafic publicitaire n'est pas une mesure native
+  d'installations organiques.
+- Fiches de grandes apps et concurrents comparables : observations datées, sans
+  prétendre connaître leurs taux de conversion ou mots-clés privés.
+- Données et expériences de l'app : résultats isolés par workspace et liés à un instantané.
+
+La réputation d'une société n'approuve pas toutes ses affirmations. Conserver
+éditeur, auteur disponible, URL, dates, store, pays, langue, contexte, type de preuve
+et limites. Les résultats commerciaux restent attribués à leur auteur. Les chiffres
+sans méthode et contradictions restent à vérifier. Une référence ancienne peut
+illustrer une méthode sans décrire les stores actuels. Un article inaccessible
+n'est jamais résumé comme s'il avait été lu.
+
+Le catalogue distribué contient liens et annotations originales. L'indexation
+future respecte les autorisations d'accès et de réutilisation ; aucune copie
+intégrale de blogs tiers n'est redistribuée. Les règles évoluent avec historique.
+
+### Graphe de connaissances et recherche documentaire
+
+Le graphe proposé relie chaque proposition à ses preuves :
+
+```mermaid
+flowchart LR
+    S[Version de source] -->|appuie ou contredit| R[Affirmation ou règle]
+    R -->|concerne| C[Store, champ, langue et période]
+    O[Observation de la fiche] -->|motive| P[Proposition]
+    R -->|justifie| P
+    P -->|évaluée par| E[Expérience]
+    E -->|produit| M[Résultat et incertitude]
+```
+
+Des tables Django compatibles SQLite et PostgreSQL suffisent pour commencer ;
+aucun service de graphe supplémentaire n'est obligatoire pour l'auto-hébergement.
+Chaque relation conserve origine, portée et statut de vérification. Une proximité
+sémantique n'est pas une relation causale. Les liens proposés par l'IA doivent être
+vérifiés avant leur utilisation comme preuve.
+
+La recherche filtre d'abord par store, langue, marché, période et fonctionnalité,
+puis retrouve les documents et suit les liens vers les sources, contradictions et
+expériences applicables. Recherche textuelle puis sémantique facultative : les
+embeddings ne remplacent pas les filtres et preuves. Les concepts sont réutilisables ;
+les résultats privés restent limités au workspace. Les apports communautaires passent
+par revue des sources et tests et ne deviennent pas des instructions exécutables.
+
+### Exécution et validation
+
+Vérifier d'abord la couverture : version, langues, captures par langue et appareil,
+marché cible, fonctions confirmées et statistiques disponibles. L'import actuel
+ne couvre que les captures de la langue principale ; une autre langue non importée
+ne prouve donc pas un défaut de la fiche.
+
+Le parcours prévu : collecte, contrôles déterministes, recherche documentaire et
+concurrentielle, propositions contextualisées, validation, protocole de mesure.
+Les contrôles déterministes fonctionnent sans clé IA ; l'analyse éditoriale utilise
+le fournisseur et modèle choisis. Les pages et documents sont des données non
+fiables, jamais des instructions pour l'agent.
+
+Une proposition conserve l'instantané, le champ, le constat, les références exactes,
+le remplacement, les conditions d'application, le statut (correction vérifiable,
+hypothèse à tester ou données insuffisantes) et la méthode de validation. Le validateur
+rejette références inexistantes, contraintes dépassées, fonctions inventées et
+statistiques sans source. Il distingue pertinence d'un terme, demande mesurée et
+estimation tierce. Les connecteurs de données payants restent facultatifs.
+
+Avant activation, évaluer sur des cas relus par un humain : fiches correctes sans
+correction forcée, données incomplètes, stores différents, langues non couvertes,
+sources obsolètes ou contradictoires, absence de statistiques, promesses non
+confirmées et contenus tentant de détourner l'agent. Vérifier citations, portée
+des règles, utilité des propositions et abstention pour chaque fournisseur.
+Les évaluations du modèle ne remplacent pas la mesure des gains sur le store.

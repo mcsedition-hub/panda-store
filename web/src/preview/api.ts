@@ -2,6 +2,7 @@ import catalogModule from '../../../addons/app_catalog/module.json';
 import connectionsModule from '../../../addons/apple_store/module.json';
 import studioModule from '../../../addons/studio/module.json';
 import exampleModule from '../../../addons/example/module.json';
+import asoModule from '../../../addons/aso/module.json';
 import demoCatalog from '../../../addons/apple_store/fixtures/apps.json';
 import sampleRuns from './scripts.json';
 
@@ -41,11 +42,13 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
   } else if (path === '/api/workspaces/') {
     result = [workspace];
   } else if (path === `${prefix}modules/`) {
-    result = [catalogModule, connectionsModule, studioModule, exampleModule].map((module) => ({
-      ...module,
-      required: 'required' in module && module.required,
-      enabled: true,
-    }));
+    result = [catalogModule, connectionsModule, asoModule, studioModule, exampleModule].map(
+      (module) => ({
+        ...module,
+        required: 'required' in module && module.required,
+        enabled: !('availability' in module && module.availability === 'planned'),
+      }),
+    );
   } else if (path === `${prefix}app_catalog/apps/`) {
     result = apps;
   } else if (path === `${prefix}apple_store/catalog/`) {

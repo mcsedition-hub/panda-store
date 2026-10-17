@@ -26,7 +26,7 @@ PANDA_MODULE_PACKAGES = tuple(
         None,
         os.getenv(
             "PANDA_MODULE_PACKAGES",
-            "addons.app_catalog,addons.apple_store,addons.studio,addons.example",
+            "addons.app_catalog,addons.apple_store,addons.aso,addons.studio,addons.example",
         ).split(","),
     )
 )

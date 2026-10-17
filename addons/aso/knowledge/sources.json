@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "status": "curation_seed",
+  "reviewed_on": "2026-10-16",
+  "sources": [
+    {
+      "id": "apple-product-page",
+      "publisher": "Apple",
+      "title": "Creating your product page",
+      "url": "https://developer.apple.com/app-store/product-page/",
+      "kind": "official_guidance",
+      "stores": ["app_store"],
+      "topics": ["metadata", "screenshots", "localization", "conversion"],
+      "use": "Field purposes and editorial guidance; separate recommendations from requirements."
+    },
+    {
+      "id": "apple-search",
+      "publisher": "Apple",
+      "title": "App Store search",
+      "url": "https://developer.apple.com/app-store/search/",
+      "kind": "official_guidance",
+      "stores": ["app_store"],
+      "topics": ["discovery", "keywords", "categories", "measurement"],
+      "use": "Keyword selection and redundancy guidance; no ranking weights or guaranteed gains."
+    },
+    {
+      "id": "apple-product-page-tests",
+      "publisher": "Apple",
+      "title": "Product page optimization",
+      "url": "https://developer.apple.com/app-store/product-page-optimization/",
+      "kind": "official_guidance",
+      "stores": ["app_store"],
+      "topics": ["experiments", "visual_assets", "measurement"],
+      "use": "Native experiment capabilities and interpretation. Do not imply title or keyword A/B tests are supported."
+    },
+    {
+      "id": "google-store-listing",
+      "publisher": "Google",
+      "title": "Create and set up your app",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9859152?hl=en",
+      "kind": "official_guidance",
+      "stores": ["google_play"],
+      "topics": ["metadata", "localization", "field_limits"],
+      "use": "Google Play listing fields and constraints, independent of Apple's rules."
+    },
+    {
+      "id": "google-listing-tests",
+      "publisher": "Google",
+      "title": "Run A/B tests on your store listing",
+      "url": "https://support.google.com/googleplay/android-developer/answer/12053285?hl=en",
+      "kind": "official_guidance",
+      "stores": ["google_play"],
+      "topics": ["experiments", "measurement", "localization"],
+      "use": "Native experiment setup, metric definitions and inconclusive outcomes; recheck capabilities before execution."
+    },
+    {
+      "id": "phiture-aso-stack-2026",
+      "publisher": "Phiture",
+      "author": "Claudia Trujillo",
+      "title": "Introducing the ASO Stack Redux 2026",
+      "url": "https://phiture.com/asostack/aso-stack-redux-2026-article/",
+      "published_on": "2026-02-05",
+      "kind": "practitioner_framework",
+      "stores": ["app_store", "google_play"],
+      "topics": ["strategy", "discovery", "conversion", "measurement"],
+      "use": "Organize ASO work across discovery, conversion and supporting evidence.",
+      "limitations": "The publisher sells growth services. Numerical performance thresholds and algorithm claims in this article are not accepted as rules without primary corroboration."
+    },
+    {
+      "id": "apptweak-keyword-research",
+      "publisher": "AppTweak",
+      "author": "Abbin Mathew",
+      "title": "Find keywords for your app using our Keyword Suggestion tools",
+      "url": "https://help.apptweak.com/en/articles/4055902-find-keywords-for-your-app-using-our-keyword-suggestion-tools",
+      "published_on": "2026-07-22",
+      "kind": "vendor_methodology",
+      "stores": ["app_store", "google_play"],
+      "topics": ["keywords", "competitors", "search_intent", "data_provenance"],
+      "use": "Separate keyword ideas from observed rankings, connected account data and vendor estimates.",
+      "limitations": "Describes AppTweak's own product. Its proprietary data requires a separate integration; a blog does not supply keyword volumes or competitor installs."
+    },
+    {
+      "id": "splitmetrics-testing-framework",
+      "publisher": "SplitMetrics",
+      "title": "How to Design & Run Valid A/B tests: the SplitMetrics Framework",
+      "url": "https://splitmetrics.com/blog/master-the-official-splitmetrics-a-b-testing-validation-framework-to-win-on-the-app-store/",
+      "published_on": "2026-09-14",
+      "kind": "vendor_methodology",
+      "stores": ["app_store", "google_play"],
+      "topics": ["experiments", "hypotheses", "audience", "measurement"],
+      "use": "Connect research, hypotheses, controlled variants and documented outcomes.",
+      "limitations": "Includes simulated store pages and advertising traffic. These results are not interchangeable with native store experiments or organic installs."
+    },
+    {
+      "id": "splitmetrics-rovio-case",
+      "publisher": "SplitMetrics",
+      "title": "Rovio: Angry Birds 2 screenshot testing",
+      "url": "https://splitmetrics.com/customers/rovio-app-screenshots-a-b-testing/",
+      "published_on": null,
+      "kind": "vendor_case_study",
+      "stores": ["app_store"],
+      "topics": ["screenshots", "experiments", "audience"],
+      "use": "Historical example of testing creative alternatives for a specific game and audience.",
+      "limitations": "Publication date is not established. Vendor-reported results, incomplete raw methodology and historical store context: no universal orientation rule or transferable uplift."
+    }
+  ]
+}

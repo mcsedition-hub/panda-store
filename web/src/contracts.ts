@@ -18,6 +18,7 @@ export interface ModuleInfo {
   version: string;
   enabled: boolean;
   required: boolean;
+  availability?: 'available' | 'planned';
   family: 'frost' | 'coral' | 'lichen';
   icon: string;
   depends: Record<string, string>;

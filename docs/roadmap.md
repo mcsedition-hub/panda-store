@@ -7,7 +7,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
-| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | À construire |
+| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Visible au catalogue comme prévu ; sources sélectionnées et agent spécifié, audit à construire |
 | Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
 | Google Play | Métadonnées et rapports via mécanismes officiels disponibles | À construire |
@@ -16,6 +16,12 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | Cloud | Exploitation, isolation renforcée, facturation, quotas, sauvegardes, support | À construire |
 
 ## Prochaine tranche
+
+Le module ASO est déclaré `planned` : il est visible mais non activable. Sa
+[conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
+spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
+observations, propositions et résultats. La première sélection inclut Apple,
+Google, Phiture, AppTweak et SplitMetrics ; indexation et graphe restent à implémenter.
 
 Auditer la fiche ASO avant de générer des scripts. Pour chaque store et
 langue, distinguer les contraintes officielles vérifiables des recommandations

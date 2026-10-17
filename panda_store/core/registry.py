@@ -29,6 +29,7 @@ class Module:
     description: str
     package: str
     required: bool = False
+    availability: str = "available"
 
     @classmethod
     def parse(cls, raw, package):
@@ -40,6 +41,10 @@ class Module:
                     raise ValueError(f"{field} must be a non-empty string")
             if not isinstance(raw.get("required", False), bool):
                 raise ValueError("required must be a boolean")
+            if raw.get("availability", "available") not in {"available", "planned"}:
+                raise ValueError("Invalid module availability")
+            if raw.get("required") and raw.get("availability") == "planned":
+                raise ValueError("A required module must be available")
             if not re.fullmatch(r"[a-z][a-z0-9_]{1,63}", raw["id"]):
                 raise ValueError("Invalid module id")
             Version(raw["version"])
@@ -71,6 +76,7 @@ class Module:
                 description=raw["description"],
                 package=package,
                 required=raw.get("required", False),
+                availability=raw.get("availability", "available"),
             )
         except (KeyError, TypeError, ValueError, InvalidSpecifier, InvalidVersion) as exc:
             raise ImproperlyConfigured(f"Invalid manifest in {package}: {exc}") from exc

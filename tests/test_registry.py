@@ -40,6 +40,7 @@ def test_invalid_graph_fails_at_startup(problem):
         ("icon", "../logo"),
         ("depends", []),
         ("name", ""),
+        ("availability", "unknown"),
     ],
 )
 def test_manifest_rejects_invalid_types_and_paths(field, value):
@@ -54,3 +55,12 @@ def test_manifest_rejects_invalid_types_and_paths(field, value):
     }
     with pytest.raises(ImproperlyConfigured):
         Module.parse(manifest, "addons.sample")
+
+
+def test_planned_module_cannot_be_required():
+    from dataclasses import asdict
+
+    manifest = {**asdict(get_registry().modules["aso"]), "required": True}
+    manifest["capabilities"] = []
+    with pytest.raises(ImproperlyConfigured, match="required module must be available"):
+        Module.parse(manifest, "addons.aso")

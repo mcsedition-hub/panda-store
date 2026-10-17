@@ -16,8 +16,14 @@ def workspace_access(user, workspace_id, *, write=False, owner=False, module=Non
         raise PermissionDenied("Only the workspace owner can perform this action.")
     if write and membership.role == Membership.Role.VIEWER:
         raise PermissionDenied("This account has read-only access.")
-    if module and not membership.workspace.modules.filter(module_id=module).exists():
-        raise PermissionDenied("This module is not enabled in this workspace.")
+    if module:
+        installed = get_registry().modules.get(module)
+        if (
+            installed is None
+            or installed.availability != "available"
+            or not membership.workspace.modules.filter(module_id=module).exists()
+        ):
+            raise PermissionDenied("This module is not enabled in this workspace.")
     return membership.workspace
 
 
@@ -26,9 +32,12 @@ def activate_modules(workspace, module_ids):
     # Serialize activation changes on PostgreSQL to protect dependency invariants.
     Workspace.objects.select_for_update().get(pk=workspace.pk)
     try:
-        ordered = get_registry().resolve(module_ids)
+        registry = get_registry()
+        ordered = registry.resolve(module_ids)
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
+    if any(registry.modules[module_id].availability != "available" for module_id in ordered):
+        raise ValidationError("This module is planned and cannot be enabled yet.")
     for module_id in ordered:
         ModuleActivation.objects.get_or_create(workspace=workspace, module_id=module_id)
     return ordered

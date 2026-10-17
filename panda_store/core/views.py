@@ -43,7 +43,13 @@ def modules(request, workspace_id):
     enabled = set(workspace.modules.values_list("module_id", flat=True))
     registry = get_registry()
     return Response(
-        [{**asdict(registry.modules[key]), "enabled": key in enabled} for key in registry.order]
+        [
+            {
+                **asdict(registry.modules[key]),
+                "enabled": key in enabled and registry.modules[key].availability == "available",
+            }
+            for key in registry.order
+        ]
     )
 
 

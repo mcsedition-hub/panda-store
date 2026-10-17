@@ -704,9 +704,16 @@ strong {
   width: 82px;
   height: 82px;
 }
-.version {
+.module-status {
   color: var(--muted);
   font-size: 11px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.module-status.enabled {
+  color: var(--ink);
+  background: var(--lichen);
 }
 .module-card h2 {
   font-size: 22px;

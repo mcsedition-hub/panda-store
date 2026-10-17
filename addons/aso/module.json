@@ -1,0 +1,12 @@
+{
+  "id": "aso",
+  "name": "ASO",
+  "version": "0.1.0",
+  "core": ">=0.1,<0.2",
+  "depends": {"app_catalog": ">=0.1,<0.2"},
+  "availability": "planned",
+  "family": "lichen",
+  "icon": "audit-aso",
+  "description": "Store listing audits, keyword research and experiments.",
+  "capabilities": []
+}

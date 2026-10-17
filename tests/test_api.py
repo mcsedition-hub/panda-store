@@ -6,7 +6,7 @@ from django.test import Client
 from addons.app_catalog.models import MetadataSnapshot, MobileApp
 from addons.studio.models import Creative, GenerationRun
 from addons.studio.tasks import generate_scripts
-from panda_store.core.access import activate_modules
+from panda_store.core.access import activate_modules, deactivate_module
 from panda_store.core.models import Membership, User, Workspace
 
 
@@ -57,11 +57,58 @@ def test_module_activation_enforces_roles_and_dependencies(api, workspace):
     assert api.get(url(workspace, "example/hello/")).status_code == 200
     assert api.delete(url(workspace, "modules/app_catalog/")).status_code == 400
     assert api.delete(endpoint).status_code == 204
+    assert api.get(url(workspace, "example/hello/")).status_code == 403
     assert api.post(url(workspace, "modules/missing/")).status_code == 400
     membership = Membership.objects.get(workspace=workspace)
     membership.role = "editor"
     membership.save()
     assert api.post(endpoint).status_code == 403
+
+
+def test_planned_module_is_listed_but_cannot_be_enabled(api, workspace):
+    planned = next(item for item in api.get(url(workspace, "modules/")).data if item["id"] == "aso")
+    assert planned["availability"] == "planned" and not planned["enabled"]
+    before = set(workspace.modules.values_list("module_id", flat=True))
+    assert api.post(url(workspace, "modules/aso/")).status_code == 400
+    assert set(workspace.modules.values_list("module_id", flat=True)) == before
+
+
+def test_disabling_modules_blocks_actions_and_preserves_imported_apps(api, workspace, imported):
+    deactivate_module(workspace, "apple_store")
+    for method, suffix, data in [
+        ("get", "catalog/", None),
+        ("get", "connections/", None),
+        ("post", "import/", {"external_id": "demo.pause"}),
+        ("post", f"apps/{imported['id']}/sync/", {}),
+    ]:
+        assert (
+            getattr(api, method)(url(workspace, "apple_store/" + suffix), data).status_code == 403
+        )
+    assert api.get(url(workspace, "app_catalog/apps/")).data[0]["id"] == imported["id"]
+    deactivate_module(workspace, "studio")
+    base = url(workspace, f"studio/apps/{imported['id']}/")
+    assert api.get(base + "brief/").status_code == 403
+    assert api.get(base + "runs/").status_code == 403
+    assert api.post(base + "runs/", {"request_id": str(uuid.uuid4())}).status_code == 403
+
+
+def test_queued_generation_checks_module_activation_when_worker_starts(api, workspace, imported):
+    response = api.post(
+        url(workspace, f"studio/apps/{imported['id']}/runs/"),
+        {"request_id": str(uuid.uuid4())},
+    )
+    run = GenerationRun.objects.get(pk=response.data["id"])
+    assert run.status == "queued"
+    deactivate_module(workspace, "studio")
+    with patch("addons.studio.tasks.generate_demo_scripts") as provider:
+        generate_scripts(str(run.pk))
+    provider.assert_not_called()
+    run.refresh_from_db()
+    assert run.status == "failed" and run.completed_at
+    assert "disabled" in run.error and not run.creatives.exists()
+    activate_modules(workspace, ["studio"])
+    generate_scripts(str(run.pk))
+    assert not run.creatives.exists()
 
 
 def test_cross_workspace_access_is_denied(api, workspace, imported):

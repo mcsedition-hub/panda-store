@@ -101,22 +101,35 @@ function ModuleManager({
           <article className={`module-card ${module.family}`} key={module.id}>
             <div className="module-card-top">
               <img src={`/modules/${module.icon}.webp`} alt="" />
-              <span className="version">v{module.version}</span>
+              <span className={`module-status ${module.enabled ? 'enabled' : ''}`}>
+                {module.availability === 'planned'
+                  ? 'Planned'
+                  : module.enabled
+                    ? 'Enabled'
+                    : 'Disabled'}
+              </span>
             </div>
             <h2>{module.name}</h2>
             <p>{module.description}</p>
             <button
               className="button secondary"
-              disabled={!!busy || module.required || workspace.role !== 'owner'}
+              disabled={
+                !!busy ||
+                module.required ||
+                module.availability === 'planned' ||
+                workspace.role !== 'owner'
+              }
               onClick={() => toggle(module)}
             >
               {busy === module.id
                 ? 'Updating…'
-                : module.required
-                  ? 'Core module'
-                  : module.enabled
-                    ? 'Disable'
-                    : 'Enable module'}
+                : module.availability === 'planned'
+                  ? 'Not available yet'
+                  : module.required
+                    ? 'Core module'
+                    : module.enabled
+                      ? 'Disable'
+                      : 'Enable module'}
             </button>
           </article>
         ))}
@@ -132,6 +145,7 @@ export default function App() {
   const workspaceRef = useRef(workspaceId);
   workspaceRef.current = workspaceId;
   const [modules, setModules] = useState<ModuleInfo[]>([]);
+  const modulesRequest = useRef(0);
   const [apps, setApps] = useState<MobileApp[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [current, setCurrent] = useState('app_catalog');
@@ -188,10 +202,29 @@ export default function App() {
   }, [workspaceId]);
   const refreshModules = useCallback(async () => {
     if (workspaceId) {
+      const request = ++modulesRequest.current;
       const next = await api<ModuleInfo[]>(`/api/workspaces/${workspaceId}/modules/`);
-      if (workspaceRef.current === workspaceId) setModules(next);
+      if (workspaceRef.current === workspaceId && modulesRequest.current === request) {
+        setModules(next);
+      }
     }
   }, [workspaceId]);
+  useEffect(() => {
+    if (!workspaceId) return;
+    const recheck = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshModules().catch((err) => {
+          if (workspaceRef.current === workspaceId) setError(err.message);
+        });
+      }
+    };
+    window.addEventListener('focus', recheck);
+    document.addEventListener('visibilitychange', recheck);
+    return () => {
+      window.removeEventListener('focus', recheck);
+      document.removeEventListener('visibilitychange', recheck);
+    };
+  }, [workspaceId, refreshModules]);
   useEffect(() => {
     if (!workspaceId) return;
     let active = true;
@@ -201,12 +234,11 @@ export default function App() {
     setDetailAppId('');
     setError('');
     Promise.all([
-      api<ModuleInfo[]>(`/api/workspaces/${workspaceId}/modules/`),
+      refreshModules(),
       api<MobileApp[]>(`/api/workspaces/${workspaceId}/app_catalog/apps/`),
     ])
-      .then(([nextModules, nextApps]) => {
+      .then(([, nextApps]) => {
         if (active) {
-          setModules(nextModules);
           setApps(nextApps);
         }
       })
@@ -214,7 +246,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [workspaceId]);
+  }, [workspaceId, refreshModules]);
   async function signOut() {
     try {
       const data = await api<{ csrf_token: string }>('/api/session/logout/', { method: 'POST' });
@@ -247,7 +279,7 @@ export default function App() {
     );
   if (session.setup_required) return <Setup onComplete={setSession} />;
   if (!session.user) return <Login onLogin={setSession} />;
-  const enabled = modules.filter((m) => m.enabled);
+  const enabled = modules.filter((m) => m.enabled && m.availability !== 'planned');
   const activeModule = enabled.find((m) => m.id === current);
   const ModuleView = activeModule ? moduleViews[current] : null;
   return (

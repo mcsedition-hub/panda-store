@@ -1,11 +1,16 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from './App';
 import { api, setCsrfToken } from './api';
 
 vi.mock('./api', () => ({ api: vi.fn(), setCsrfToken: vi.fn() }));
-vi.mock('./modules', () => ({ moduleViews: { app_catalog: () => <h1>Your apps</h1> } }));
+vi.mock('./modules', () => ({
+  moduleViews: {
+    app_catalog: () => <h1>Your apps</h1>,
+    studio: () => <h1>Script workspace</h1>,
+  },
+}));
 const mockApi = vi.mocked(api);
 const initial = { user: null, csrf_token: 'initial-token', demo_mode: true, setup_required: true };
 const configured = {
@@ -109,4 +114,49 @@ it('asks for sign-in, not setup, after a configured installation loses its sessi
   await screen.findByLabelText('Password');
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
   expect(screen.queryByLabelText('Organization name')).toBeNull();
+});
+
+it('shows module states and blocks navigation after disabling, including changes in another tab', async () => {
+  let enabled = true;
+  const original = mockApi.getMockImplementation()!;
+  mockApi.mockImplementation(async (path, options) => {
+    if (path === '/api/session/') return configured;
+    if (path.endsWith('/modules/studio/')) {
+      enabled = options?.method !== 'DELETE';
+      return {};
+    }
+    if (path.endsWith('/modules/')) {
+      return [
+        { id: 'app_catalog', name: 'My apps', enabled: true, required: true },
+        { id: 'studio', name: 'Studio', enabled },
+        { id: 'aso', name: 'ASO', availability: 'planned', enabled: false },
+      ];
+    }
+    return original(path, options);
+  });
+  render(<App />);
+  await screen.findByRole('heading', { name: 'Your apps' });
+  const nav = within(screen.getByRole('navigation', { name: 'Modules' }));
+  fireEvent.click(nav.getByRole('button', { name: 'Modules' }));
+  const studioCard = within(screen.getByRole('heading', { name: 'Studio' }).closest('article')!);
+  expect(studioCard.getByText('Enabled')).toBeTruthy();
+  const planned = within(screen.getByRole('heading', { name: 'ASO' }).closest('article')!);
+  expect(planned.getByText('Planned')).toBeTruthy();
+  expect(
+    (planned.getByRole('button', { name: 'Not available yet' }) as HTMLButtonElement).disabled,
+  ).toBe(true);
+  expect(nav.queryByRole('button', { name: 'ASO' })).toBeNull();
+  fireEvent.click(studioCard.getByRole('button', { name: 'Disable' }));
+  await studioCard.findByText('Disabled');
+  expect(nav.queryByRole('button', { name: 'Studio' })).toBeNull();
+  fireEvent.click(studioCard.getByRole('button', { name: 'Enable module' }));
+  fireEvent.click(await nav.findByRole('button', { name: 'Studio' }));
+  await screen.findByRole('heading', { name: 'Script workspace' });
+  enabled = false;
+  fireEvent(window, new Event('focus'));
+  await waitFor(() =>
+    expect(screen.queryByRole('heading', { name: 'Script workspace' })).toBeNull(),
+  );
+  expect(nav.queryByRole('button', { name: 'Studio' })).toBeNull();
+  expect(screen.getByText('This module is not enabled in this workspace.')).toBeTruthy();
 });

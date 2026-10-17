@@ -33,7 +33,7 @@ build-backend = "setuptools.build_meta"
 include = ["panda_store*", "addons*"]
 
 [tool.setuptools.package-data]
-"*" = ["module.json", "fixtures/*.json"]
+"*" = ["module.json", "fixtures/*.json", "knowledge/*.json"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "panda_store.settings_test"

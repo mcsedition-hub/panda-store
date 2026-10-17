@@ -39,6 +39,10 @@ Les familles sont frost, coral et lichen. `icon` désigne une ressource locale
 `web/public/modules/<icon>.webp`. Les capabilities sont des déclarations
 descriptives, pas des permissions appliquées automatiquement.
 
+`availability` vaut `available` par défaut. La valeur `planned` présente un module
+à venir au catalogue et interdit son activation, y compris comme dépendance.
+Un module requis ne peut pas être prévu. ASO utilise ce statut pendant sa conception.
+
 ## Installation et activation
 
 1. Ajouter le module sous `addons/` avec un id égal au nom du dossier. Cette
