@@ -75,6 +75,7 @@ export interface ModuleProps {
   refreshApps: () => Promise<void>;
   demoMode: boolean;
   previewMode?: boolean;
+  registerLeaveGuard?: (guard: () => Promise<boolean>) => () => void;
 }
 export interface Creative {
   id: string;

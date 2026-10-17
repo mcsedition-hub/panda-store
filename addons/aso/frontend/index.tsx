@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 import type { WorkflowStatus } from '../../../web/src/workflows/types';
+import Drafts from './Drafts';
+import type { DraftSeed } from './draftTypes';
 
 type CheckStatus = 'issue' | 'recommendation' | 'review' | 'unavailable' | 'passed';
 interface Check {
@@ -51,7 +53,7 @@ const date = (value: string) =>
     second: '2-digit',
   });
 
-function Finding({ check }: { check: Check }) {
+function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
   const [copyState, setCopyState] = useState('');
   return (
     <details
@@ -78,6 +80,11 @@ function Finding({ check }: { check: Check }) {
               <textarea rows={3} readOnly value={check.replacement} />
             </label>
             <div className="action-group">
+              {onAdd && (
+                <button className="button primary" onClick={onAdd}>
+                  Add to draft
+                </button>
+              )}
               <button
                 className="button secondary"
                 onClick={async () => {
@@ -119,7 +126,27 @@ function Finding({ check }: { check: Check }) {
   );
 }
 
-function AppAudit({ app, workspace, previewMode, navigate }: ModuleProps & { app: MobileApp }) {
+function AppAudit(props: ModuleProps & { app: MobileApp }) {
+  const { app, workspace, previewMode, navigate, registerLeaveGuard } = props;
+  const [tab, setTab] = useState<'overview' | 'drafts'>('overview');
+  const [draftSeed, setDraftSeed] = useState<DraftSeed | null>(null);
+  const draftGuard = useRef<(() => Promise<boolean>) | null>(null);
+  const registerDraftGuard = useCallback(
+    (guard: () => Promise<boolean>) => {
+      draftGuard.current = guard;
+      const release = registerLeaveGuard?.(guard);
+      return () => {
+        draftGuard.current = null;
+        release?.();
+      };
+    },
+    [registerLeaveGuard],
+  );
+  async function switchTab(next: 'overview' | 'drafts') {
+    if (draftGuard.current && !(await draftGuard.current())) return;
+    setDraftSeed(null);
+    setTab(next);
+  }
   const metadata = app.metadata;
   const locales = metadata?.data.localizations?.length
     ? metadata.data.localizations.map((item) => item.locale)
@@ -219,124 +246,175 @@ function AppAudit({ app, workspace, previewMode, navigate }: ModuleProps & { app
   const passed = checks.filter((check) => check.status === 'passed');
   return (
     <>
-      <section className="aso-toolbar" aria-label="Audit settings">
-        <label className="compact-label">
-          Language
-          <select
-            value={locale}
-            disabled={busy || !locales.length}
-            onChange={(event) => {
-              setLocale(event.target.value);
-              setRunId('');
-            }}
-          >
-            {locales.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-        <div className="aso-import-date">
-          <span>Imported listing</span>
-          <strong>{metadata ? date(metadata.captured_at) : 'No metadata yet'}</strong>
-        </div>
+      <nav className="aso-tabs" aria-label="ASO views">
         <button
-          className="button primary"
-          disabled={!canWrite || !locale || !metadata || busy || working || loading || loadFailed}
-          onClick={() => start()}
+          aria-current={tab === 'overview' ? 'page' : undefined}
+          onClick={() => void switchTab('overview')}
         >
-          {busy ? 'Starting…' : working ? 'Audit in progress…' : run ? 'Run again' : 'Run audit'}
+          Overview
         </button>
-      </section>
-      <p className="aso-scope">App Store metadata checks · Apple sources · No AI key needed</p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {loading ? (
-        <p role="status">Loading audits…</p>
-      ) : loadFailed ? (
-        <p>Reopen ASO to load your audits again.</p>
-      ) : !run ? (
-        <section className="aso-empty">
-          <img src="/modules/audit-aso.webp" alt="" />
-          <h2>Review your store listing</h2>
-          <p>Check field limits and repeated keywords in the imported language.</p>
-          {!metadata && (
-            <button className="button secondary" onClick={() => navigate('app_catalog')}>
-              Open My apps
-            </button>
-          )}
-        </section>
+        <button
+          aria-current={tab === 'drafts' ? 'page' : undefined}
+          onClick={() => void switchTab('drafts')}
+        >
+          Drafts
+        </button>
+      </nav>
+      {tab === 'drafts' ? (
+        <Drafts
+          {...props}
+          app={app}
+          locale={locale}
+          seed={draftSeed}
+          registerLeaveGuard={registerDraftGuard}
+        />
       ) : (
         <>
-          <div className="aso-history">
-            <h2>Audit</h2>
+          <section className="aso-toolbar" aria-label="Audit settings">
             <label className="compact-label">
-              History
+              Language
               <select
-                value={run.id}
-                disabled={busy}
-                onChange={(event) => setRunId(event.target.value)}
+                value={locale}
+                disabled={busy || !locales.length}
+                onChange={(event) => {
+                  setLocale(event.target.value);
+                  setRunId('');
+                }}
               >
-                {history.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {date(item.created_at)} ·{' '}
-                    {item.status === 'succeeded' ? 'Completed' : item.status}
-                  </option>
+                {locales.map((item) => (
+                  <option key={item}>{item}</option>
                 ))}
               </select>
             </label>
-          </div>
-          {run.snapshot_id !== metadata?.id && (
-            <p className="notice">
-              This audit uses an earlier import. Run again to check the latest listing.
+            <div className="aso-import-date">
+              <span>Imported listing</span>
+              <strong>{metadata ? date(metadata.captured_at) : 'No metadata yet'}</strong>
+            </div>
+            <button
+              className="button primary"
+              disabled={
+                !canWrite || !locale || !metadata || busy || working || loading || loadFailed
+              }
+              onClick={() => start()}
+            >
+              {busy
+                ? 'Starting…'
+                : working
+                  ? 'Audit in progress…'
+                  : run
+                    ? 'Run again'
+                    : 'Run audit'}
+            </button>
+          </section>
+          <p className="aso-scope">App Store metadata checks · Apple sources · No AI key needed</p>
+          {error && (
+            <p className="error" role="alert">
+              {error}
             </p>
           )}
-          {run.is_demo && <p className="notice">This audit uses fictional demo metadata.</p>}
-          <WorkflowPanel
-            key={run.workflow_id}
-            workspaceId={workspace.id}
-            workflowId={run.workflow_id}
-            canWrite={canWrite && !busy}
-            onRetry={() => start(true)}
-            onStatus={(status) => {
-              setRuns((old) =>
-                old.map((item) => (item.id === run.id ? { ...item, status } : item)),
-              );
-              if (!pending(status)) void refresh();
-            }}
-          />
-          {run.report && (
-            <section className="aso-report" aria-label="Audit findings">
-              <div className="aso-report-heading">
-                <h2>Findings</h2>
-                <span className="note">
-                  {run.locale} · Imported {date(run.captured_at)}
-                </span>
-              </div>
-              {actionable.length ? (
-                actionable.map((check) => <Finding key={`${run.id}:${check.id}`} check={check} />)
-              ) : (
-                <p className="aso-no-issues">No changes identified by these metadata checks.</p>
+          {loading ? (
+            <p role="status">Loading audits…</p>
+          ) : loadFailed ? (
+            <p>Reopen ASO to load your audits again.</p>
+          ) : !run ? (
+            <section className="aso-empty">
+              <img src="/modules/audit-aso.webp" alt="" />
+              <h2>Review your store listing</h2>
+              <p>Check field limits and repeated keywords in the imported language.</p>
+              {!metadata && (
+                <button className="button secondary" onClick={() => navigate('app_catalog')}>
+                  Open My apps
+                </button>
               )}
-              <h3>Still to assess</h3>
-              {coverage.map((check) => (
-                <Finding key={`${run.id}:${check.id}`} check={check} />
-              ))}
-              {!!passed.length && (
-                <details className="aso-passed">
-                  <summary>{passed.length} checks passed</summary>
-                  {passed.map((check) => (
+            </section>
+          ) : (
+            <>
+              <div className="aso-history">
+                <h2>Audit</h2>
+                <label className="compact-label">
+                  History
+                  <select
+                    value={run.id}
+                    disabled={busy}
+                    onChange={(event) => setRunId(event.target.value)}
+                  >
+                    {history.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {date(item.created_at)} ·{' '}
+                        {item.status === 'succeeded' ? 'Completed' : item.status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {run.snapshot_id !== metadata?.id && (
+                <p className="notice">
+                  This audit uses an earlier import. Run again to check the latest listing.
+                </p>
+              )}
+              {run.is_demo && <p className="notice">This audit uses fictional demo metadata.</p>}
+              <WorkflowPanel
+                key={run.workflow_id}
+                workspaceId={workspace.id}
+                workflowId={run.workflow_id}
+                canWrite={canWrite && !busy}
+                onRetry={() => start(true)}
+                onStatus={(status) => {
+                  setRuns((old) =>
+                    old.map((item) => (item.id === run.id ? { ...item, status } : item)),
+                  );
+                  if (!pending(status)) void refresh();
+                }}
+              />
+              {run.report && (
+                <section className="aso-report" aria-label="Audit findings">
+                  <div className="aso-report-heading">
+                    <h2>Findings</h2>
+                    <span className="note">
+                      {run.locale} · Imported {date(run.captured_at)}
+                    </span>
+                  </div>
+                  {actionable.length ? (
+                    actionable.map((check) => (
+                      <Finding
+                        key={`${run.id}:${check.id}`}
+                        check={check}
+                        onAdd={
+                          canWrite && check.replacement
+                            ? () => {
+                                setDraftSeed({
+                                  audit_id: run.id,
+                                  check_id: check.id,
+                                  name: 'Keyword cleanup',
+                                });
+                                setTab('drafts');
+                              }
+                            : undefined
+                        }
+                      />
+                    ))
+                  ) : (
+                    <p className="aso-no-issues">No changes identified by these metadata checks.</p>
+                  )}
+                  <h3>Still to assess</h3>
+                  {coverage.map((check) => (
                     <Finding key={`${run.id}:${check.id}`} check={check} />
                   ))}
-                </details>
+                  {!!passed.length && (
+                    <details className="aso-passed">
+                      <summary>{passed.length} checks passed</summary>
+                      {passed.map((check) => (
+                        <Finding key={`${run.id}:${check.id}`} check={check} />
+                      ))}
+                    </details>
+                  )}
+                  <p className="aso-report-footnote">
+                    No changes have been sent to Apple. Editorial AI, competitor research and
+                    performance measurement are not included in this audit.
+                  </p>
+                </section>
               )}
-              <p className="aso-report-footnote">
-                No changes have been sent to Apple. Editorial AI, competitor research and
-                performance measurement are not included in this audit.
-              </p>
-            </section>
+            </>
           )}
         </>
       )}

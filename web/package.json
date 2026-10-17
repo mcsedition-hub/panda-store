@@ -11,8 +11,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "format": "prettier --config .prettierrc.json --write src '../addons/*/frontend/**/*.tsx' vite.config.ts tsconfig.json package.json index.html",
-    "format:check": "prettier --config .prettierrc.json --check src '../addons/*/frontend/**/*.tsx' vite.config.ts tsconfig.json package.json index.html"
+    "format": "prettier --config .prettierrc.json --write src '../addons/*/frontend/**/*.{ts,tsx}' vite.config.ts tsconfig.json package.json index.html",
+    "format:check": "prettier --config .prettierrc.json --check src '../addons/*/frontend/**/*.{ts,tsx}' vite.config.ts tsconfig.json package.json index.html"
   },
   "dependencies": {
     "react": "19.3.1",

@@ -150,9 +150,32 @@ export default function App() {
   const [selectedId, setSelectedId] = useState('');
   const [current, setCurrent] = useState('app_catalog');
   const [detailAppId, setDetailAppId] = useState('');
+  const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
+  const leaving = useRef(false);
+  const registerLeaveGuard = useCallback((guard: () => Promise<boolean>) => {
+    leaveGuard.current = guard;
+    return () => {
+      if (leaveGuard.current === guard) leaveGuard.current = null;
+    };
+  }, []);
+  async function leave(action: () => void | Promise<void>) {
+    if (!leaveGuard.current) {
+      await action();
+      return;
+    }
+    if (leaving.current) return;
+    leaving.current = true;
+    try {
+      if (!leaveGuard.current || (await leaveGuard.current())) await action();
+    } finally {
+      leaving.current = false;
+    }
+  }
   function navigate(module: string, appId = '') {
-    setCurrent(module);
-    setDetailAppId(appId);
+    void leave(() => {
+      setCurrent(module);
+      setDetailAppId(appId);
+    });
   }
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -294,7 +317,10 @@ export default function App() {
           <select
             id="workspace"
             value={workspaceId}
-            onChange={(e) => setWorkspaceId(e.target.value)}
+            onChange={(e) => {
+              const id = e.target.value;
+              void leave(() => setWorkspaceId(id));
+            }}
           >
             {workspaces.map((w) => (
               <option key={w.id} value={w.id}>
@@ -320,7 +346,7 @@ export default function App() {
           ))}
           <button
             className={`nav-item ${current === 'modules' ? 'active' : ''}`}
-            onClick={() => setCurrent('modules')}
+            onClick={() => navigate('modules')}
             aria-current={current === 'modules' ? 'page' : undefined}
           >
             <img src="/modules/extensions.webp" alt="" />
@@ -348,7 +374,7 @@ export default function App() {
             )}
             <span className="user-name">{session.user.username}</span>
             {!session.preview_mode && (
-              <button className="text-button" onClick={signOut}>
+              <button className="text-button" onClick={() => void leave(signOut)}>
                 Sign out
               </button>
             )}
@@ -381,7 +407,8 @@ export default function App() {
                 workspace={workspace}
                 apps={apps}
                 selectedApp={selectedApp}
-                selectApp={(app) => setSelectedId(app.id)}
+                selectApp={(app) => void leave(() => setSelectedId(app.id))}
+                registerLeaveGuard={registerLeaveGuard}
                 navigate={navigate}
                 detailAppId={detailAppId}
                 availableModules={enabled.map((module) => module.id)}

@@ -27,6 +27,8 @@ publishing are not implemented yet.
   icons, primary-language screenshots and manual metadata refresh.
 - ASO audits of imported Apple metadata: sourced field limits, exact keyword
   repetition, copyable cleanup proposals and explicit coverage gaps, per language.
+- Listing drafts with autosave, comparison, named variants, revision history,
+  manual review, text exports and comparison with refreshed Apple metadata.
 - Editable briefs and three script variants built from local writing templates.
 - Generation history, script editing, separate approval and Markdown exports.
 - Live workflow steps and activity, stop requests, and retries that keep completed steps.
@@ -109,9 +111,24 @@ can be copied for review and manual application in App Store Connect. Apple's
 conflicting byte/character keyword limits are disclosed; non-ASCII overflow is
 flagged for review. Missing fields are not treated as empty store fields.
 
+Use **Add to draft** on a proposal to create a draft with only that change, or
+**Drafts → New draft** to start from an imported language. Edit beside the frozen
+reference, or switch the comparison to the latest import. Drafts autosave and keep
+named copies and immutable revisions. Restore creates a new revision; it does not
+change Apple or erase history. Concurrent edits return a conflict, keeping the
+local text available to copy before reloading. Navigation waits for pending saves.
+
+**Mark ready** is a separate review action, available after required fields and
+field limits are resolved. Editing returns the copy to **Draft**. **Copy changes**
+and **Export changes** support manual application; exports pin the saved revision.
+**Refresh and compare** uses the enabled Apple connection to refresh metadata,
+then compares modified fields without overwriting the draft. If Connections is
+disabled or the app has no connector, **Compare latest import** only reads the
+saved snapshot. Matching values do not establish publication or download impact.
+
 No AI key is required. This is a bounded metadata audit, not a complete compliance
 review: visual quality, relevance, competitors, search demand and download impact
-remain unassessed. Google Play audits, editorial AI, editable drafts and publishing
+remain unassessed. Google Play audits, editorial AI and publishing
 are not implemented. Passed checks are not an ASO score or a promise of growth.
 
 ## Connect an Apple account

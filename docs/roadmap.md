@@ -24,8 +24,8 @@ propositions de nettoyage copiables et limites de couverture explicites. Il cons
 l'import choisi et utilise le suivi commun en trois étapes. Les captures, la qualité
 éditoriale et l'impact sur les téléchargements ne sont pas évalués automatiquement.
 La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
-La prochaine tranche porte sur les brouillons et l'analyse éditoriale avec un
-fournisseur IA choisi par l'utilisateur. Sa
+Les brouillons sont maintenant implémentés. La prochaine tranche porte sur
+l'analyse éditoriale avec un fournisseur IA choisi par l'utilisateur. Sa
 [conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
 spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
 observations, propositions et résultats. La première sélection inclut Apple,
@@ -56,22 +56,23 @@ Parcours initial livré : l'utilisateur ouvre son app,
 choisit la langue App Store, puis lance `Run audit`. Le contexte de l'app,
 la langue et la date de dernière synchronisation restent visibles. Les résultats
 présentent chaque problème avec le contenu actuel, une proposition concrète,
-sa justification et ses sources. Les brouillons décrits ci-dessous restent à construire.
-`Add to draft` ajoutera uniquement la proposition
-choisie à un brouillon ; l'utilisateur peut la modifier ou l'ignorer.
+sa justification et ses sources. `Add to draft` crée un brouillon contenant uniquement
+la proposition choisie ; l'utilisateur peut la modifier ensuite. `New draft` permet
+aussi de partir de la langue importée choisie sans proposition automatique.
 
-L'espace ASO propose `Overview`, `Drafts` et `Activity`. Le premier audit est
+L'espace ASO propose `Overview` et `Drafts`, avec l'activité intégrée à l'audit. Le premier audit est
 l'action principale de l'écran vide. Un brouillon suffit pour commencer ;
 `Duplicate` permet de préparer une variante nommée, avec sauvegarde automatique
-et historique consultable. L'éditeur compare `Current listing` et `Draft`,
+et historique consultable. L'éditeur compare l'import de référence ou le dernier import et le brouillon,
 signale les différences par des libellés en plus des couleurs, affiche les limites
 des champs et propose un aperçu. Sur petit écran, ces vues se suivent verticalement.
 La fiche importée reste intacte ; une actualisation qui change la référence du
 brouillon signale les écarts à relire, sans écraser le travail en cours.
 
-Pour la première version, les actions de sortie sont `Copy changes`, `Export`
-et `Check store update`. Elles accompagnent l'application manuelle dans la console
-du store. `Draft`, `Ready` et `Changes detected` décrivent des faits distincts :
+Les actions de sortie sont `Copy changes`, `Export changes` et `Refresh and compare`
+(ou comparaison de l'import enregistré si Connections est désactivé).
+Elles accompagnent l'application manuelle dans la console du store.
+`Draft`, `Ready` et la correspondance détectée dans l'import décrivent des faits distincts :
 un brouillon validé n'est pas publié, un export n'est pas une publication, et une
 correspondance à l'import ne confirme la mise en ligne que si le statut du store
 le permet. La date de détection ne remplace pas la date réelle de publication.

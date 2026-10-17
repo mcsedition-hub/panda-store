@@ -1,14 +1,20 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from './App';
 import { api, setCsrfToken } from './api';
+import type { ModuleProps } from './contracts';
+
+const guardMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./api', () => ({ api: vi.fn(), setCsrfToken: vi.fn() }));
 vi.mock('./modules', () => ({
   moduleViews: {
     app_catalog: () => <h1>Your apps</h1>,
-    studio: () => <h1>Script workspace</h1>,
+    studio: ({ registerLeaveGuard }: ModuleProps) => {
+      useEffect(() => registerLeaveGuard?.(guardMock), [registerLeaveGuard]);
+      return <h1>Script workspace</h1>;
+    },
   },
 }));
 const mockApi = vi.mocked(api);
@@ -22,6 +28,7 @@ const configured = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  guardMock.mockResolvedValue(true);
   mockApi.mockImplementation(async (path) => {
     if (path === '/api/session/') return initial;
     if (path === '/api/setup/') return configured;
@@ -33,6 +40,30 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it('waits for module edits before navigation and stays put when saving fails', async () => {
+  mockApi.mockImplementation(async (path) => {
+    if (path === '/api/session/') return configured;
+    if (path === '/api/workspaces/') return [{ id: 'local', name: 'Northstar', role: 'owner' }];
+    if (path.endsWith('/modules/'))
+      return [
+        { id: 'app_catalog', name: 'My apps', enabled: true },
+        { id: 'studio', name: 'Studio', enabled: true },
+      ];
+    if (path.endsWith('/apps/')) return [];
+    throw new Error(path);
+  });
+  render(<App />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Studio' }));
+  await screen.findByRole('heading', { name: 'Script workspace' });
+  guardMock.mockResolvedValue(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Modules' }));
+  await waitFor(() => expect(guardMock).toHaveBeenCalled());
+  expect(screen.getByRole('heading', { name: 'Script workspace' })).toBeTruthy();
+  guardMock.mockResolvedValue(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Modules' }));
+  await screen.findByRole('heading', { name: 'Modules' });
+});
 
 async function fillSetup() {
   fireEvent.change(await screen.findByLabelText('Organization name'), {

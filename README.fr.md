@@ -27,6 +27,8 @@ et la publication ne sont pas encore implémentés.
   la langue principale et actualisation manuelle des métadonnées.
 - Audit ASO Apple par langue : limites sourcées, répétitions exactes de mots-clés,
   nettoyage copiable et données non évaluables signalées.
+- Brouillons ASO : sauvegarde automatique, comparaison, duplication, révisions,
+  restauration, revue séparée et export des modifications.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
 - Historique des générations, édition, validation séparée et export Markdown.
 - Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
@@ -42,8 +44,18 @@ et son journal d'exécution. **Run again** utilise le dernier import ; une repri
 garde les données originales et les contrôles déjà terminés. Copier une proposition
 ne modifie rien chez Apple. La divergence entre les limites Apple de mots-clés en
 octets et en caractères est signalée. Aucun score de croissance n'est calculé.
-L'audit fonctionne sans clé IA ; analyse éditoriale IA, concurrence, mesure,
-brouillons éditables et audit Google Play restent à construire.
+L'audit fonctionne sans clé IA ; analyse éditoriale IA, concurrence, mesure et
+audit Google Play restent à construire.
+
+**Add to draft** crée un brouillon depuis la seule proposition choisie.
+**Drafts → New draft** part d'une langue importée. La référence reste figée ;
+on peut comparer avec le dernier import. Une restauration ajoute une révision et
+une modification remet le statut **Ready** à **Draft**. Les éditions concurrentes
+sont bloquées sans écraser le texte local. La navigation attend la sauvegarde.
+**Copy changes** et **Export changes** préparent l'application manuelle.
+**Refresh and compare** relit Apple si Connections est activé ; sinon la comparaison
+utilise uniquement l'import enregistré. Une correspondance ne prouve ni publication
+ni gain de téléchargements.
 
 ## Démarrer en local
 

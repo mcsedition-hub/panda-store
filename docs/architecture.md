@@ -188,6 +188,29 @@ La suite de cette section décrit l'agent à implémenter. Le
 avec usages et limites ; les contrôles actuels utilisent uniquement les sources Apple.
 Ce n'est pas encore un corpus indexé ou un agent IA.
 
+### Brouillons implémentés
+
+`ListingDraft` conserve une référence importée immuable, une langue, le contenu
+éditable et les propositions sources sélectionnées. Un brouillon peut venir d'un
+import, d'une proposition d'audit terminée ou d'une copie nommée d'un brouillon.
+`DraftRevision` conserve chaque sauvegarde, son auteur, sa raison et son contenu.
+Les mutations exigent la version attendue et un identifiant de requête : un conflit
+retourne 409 ; rejouer la même requête ne crée pas une seconde révision. Le verrou
+de l'espace puis celui du brouillon sérialisent les mutations sur PostgreSQL.
+
+La sauvegarde différée du frontend ne remplace pas les frappes intervenues pendant
+une requête. Un garde de navigation attend la sauvegarde avant de changer de module,
+d'app, d'espace ou de se déconnecter. En cas d'échec, le texte reste à l'écran avec
+une action de reprise ; en cas de conflit, on peut le copier puis charger la version
+enregistrée. Le statut `ready` exige une action séparée et des limites de champs
+résolues, y compris la divergence octets/caractères ; une modification le réinitialise.
+
+La comparaison lit le dernier import de la langue exacte, sans repli ni réécriture
+du brouillon. L'actualisation Apple passe par le connecteur existant et ses contrôles
+de droits/activation. Les champs modifiés peuvent correspondre au dernier import,
+sans changement de statut de revue et sans déduction de publication ou de performance.
+Les exports texte utilisent une révision explicite. Aucun endpoint ne publie sur Apple.
+
 ### Connaissances et preuves
 
 La spécialisation doit couvrir découverte, intentions de recherche, mots-clés,
