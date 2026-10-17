@@ -7,10 +7,10 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
-| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple, revue IA de cinq champs, sources annotées, brouillons et évaluations implémentés ; captures et recherche à construire |
+| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple, revue IA des textes et captures, brouillons, briefs de captures et évaluations implémentés ; recherche propre à chaque audit à construire |
 | Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé et Studio à modèles locaux implémentés ; agents et branches parallèles à construire |
-| Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
-| Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
+| Veille | Recherche concurrentielle et navigateur avec traces consultables | Première tranche Studio implémentée : recherche chez les trois fournisseurs, ouverture/défilement bornés, texte et captures archivés, analyse puis vérification ; vidéos et navigation ouverte à construire |
+| Création IA | Générations sourcées à partir d'une fiche auditée et d'une veille relue, 3 angles, suivi consommation/durée, reprise et validation | À construire après la veille |
 | Google Play | Métadonnées et rapports via mécanismes officiels disponibles | À construire |
 | Publication | Comptes sociaux, aperçu, validation, calendrier, statut d'envoi | À construire |
 | Mesure | Liens de campagne, séries temporelles, rapports et limites d'attribution | À construire |
@@ -18,10 +18,25 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 
 ## Prochaine tranche
 
+**Ordre retenu : ASO → veille → création IA → publication → mesure.** Studio s'ouvre
+sur Research. La première veille recherche six sources au maximum et tente de consulter
+trois fiches connues de domaines différents à chaque nouvelle session. Les sources
+inaccessibles restent visibles, sans observations inventées. L'utilisateur peut reprendre
+les sources manquantes sans relancer la découverte, en conservant l'ancien rapport.
+Le navigateur consulte deux positions de chaque page ; il ne regarde pas encore les
+vidéos et ne pilote pas les réseaux sociaux authentifiés. Voir le
+[parcours livré](../README.md#creative-research).
+
+La prochaine tranche de Studio devra permettre de retenir les observations pertinentes
+puis de générer trois angles à partir de cette sélection et des affirmations documentées
+de l'app. Chaque angle devra montrer les sources qui l'ont inspiré, les faits propres à
+l'app et les hypothèses créatives. Les exemples concurrents ne prouvent ni la viralité,
+ni la conversion, ni les fonctionnalités de l'app de l'utilisateur.
+
 Le module ASO est disponible et activable. Le premier audit contrôle les longueurs,
 le budget de mots-clés et les répétitions exactes, avec sources Apple datées,
 propositions de nettoyage copiables et limites de couverture explicites. Il conserve
-l'import choisi et utilise le suivi commun en trois étapes. Les captures et l'impact sur les téléchargements ne sont pas évalués automatiquement.
+l'import choisi et utilise le suivi commun en trois étapes. L'impact sur les téléchargements n'est pas évalué automatiquement.
 La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
 Les brouillons et la revue éditoriale OpenAI/Gemini/Claude sont implémentés, avec
 choix explicite du modèle et propositions sourcées à relire. Le projet

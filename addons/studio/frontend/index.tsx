@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, download, moduleUrl } from '../../../web/src/api';
 import type { Brief, Creative, ModuleProps, Run } from '../../../web/src/contracts';
+import Research from './Research';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
 function CreativeEditor({
@@ -131,6 +132,7 @@ export default function Studio({
   demoMode,
   previewMode,
 }: ModuleProps) {
+  const [section, setSection] = useState<'research' | 'scripts'>('research');
   const [brief, setBrief] = useState<Brief>({
     audience: '',
     goal: '',
@@ -282,213 +284,237 @@ export default function Studio({
           </select>
         </label>
       </div>
-      <div className="studio-disclosure">
-        <span className="signal-dot" />
-        <p>
-          Demo scripts use templates. AI generation and competitor research are not available yet.
-        </p>
+      <nav className="aso-tabs" aria-label="Studio sections">
+        <button
+          aria-current={section === 'research' ? 'page' : undefined}
+          onClick={() => setSection('research')}
+        >
+          Research
+        </button>
+        <button
+          aria-current={section === 'scripts' ? 'page' : undefined}
+          onClick={() => setSection('scripts')}
+        >
+          Scripts
+        </button>
+      </nav>
+      <div hidden={section !== 'research'}>
+        <Research
+          key={`${workspace.id}:${selectedApp.id}`}
+          workspace={workspace}
+          app={selectedApp}
+          previewMode={previewMode}
+        />
       </div>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      {loading ? (
-        <p role="status">Loading brief…</p>
-      ) : loadFailed ? (
-        <p>We could not load the brief. Reopen this module to try again.</p>
-      ) : (
-        <>
-          <section className="brief-panel">
-            <div className="brief-intro">
-              <h2>Brief</h2>
-              <p>{selectedApp.metadata?.data.subtitle}</p>
-              <div className="feature-tags">
-                {selectedApp.metadata?.data.features.map((feature) => (
-                  <span key={feature}>{feature}</span>
-                ))}
+      <div hidden={section !== 'scripts'}>
+        <div className="studio-disclosure">
+          <span className="signal-dot" />
+          <p>These demo scripts use templates. AI creation from your research is the next step.</p>
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        {loading ? (
+          <p role="status">Loading brief…</p>
+        ) : loadFailed ? (
+          <p>We could not load the brief. Reopen this module to try again.</p>
+        ) : (
+          <>
+            <section className="brief-panel">
+              <div className="brief-intro">
+                <h2>Brief</h2>
+                <p>{selectedApp.metadata?.data.subtitle}</p>
+                <div className="feature-tags">
+                  {selectedApp.metadata?.data.features.map((feature) => (
+                    <span key={feature}>{feature}</span>
+                  ))}
+                </div>
               </div>
-            </div>
-            <form
-              className="brief-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submit(true);
-              }}
-            >
-              <label>
-                Audience
-                <textarea
-                  name="audience"
-                  rows={2}
-                  maxLength={500}
-                  value={brief.audience}
-                  onChange={(e) => setBrief({ ...brief, audience: e.target.value })}
-                  disabled={!canWrite || busy}
-                />
-              </label>
-              <div className="brief-fields">
+              <form
+                className="brief-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submit(true);
+                }}
+              >
                 <label>
-                  Goal
-                  <input
-                    name="goal"
-                    required
+                  Audience
+                  <textarea
+                    name="audience"
+                    rows={2}
                     maxLength={500}
-                    value={brief.goal}
-                    onChange={(e) => setBrief({ ...brief, goal: e.target.value })}
+                    value={brief.audience}
+                    onChange={(e) => setBrief({ ...brief, audience: e.target.value })}
                     disabled={!canWrite || busy}
                   />
                 </label>
-                <label>
-                  Tone
-                  <input
-                    name="tone"
-                    required
-                    maxLength={80}
-                    value={brief.tone}
-                    onChange={(e) => setBrief({ ...brief, tone: e.target.value })}
+                <div className="brief-fields">
+                  <label>
+                    Goal
+                    <input
+                      name="goal"
+                      required
+                      maxLength={500}
+                      value={brief.goal}
+                      onChange={(e) => setBrief({ ...brief, goal: e.target.value })}
+                      disabled={!canWrite || busy}
+                    />
+                  </label>
+                  <label>
+                    Tone
+                    <input
+                      name="tone"
+                      required
+                      maxLength={80}
+                      value={brief.tone}
+                      onChange={(e) => setBrief({ ...brief, tone: e.target.value })}
+                      disabled={!canWrite || busy}
+                    />
+                  </label>
+                </div>
+                <div className="brief-actions">
+                  <button
+                    type="submit"
+                    className="button primary"
+                    disabled={!canWrite || busy || pending || !demoMode}
+                  >
+                    {busy || pending ? 'Creating scripts…' : 'Create scripts'}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-button"
                     disabled={!canWrite || busy}
-                  />
-                </label>
+                    onClick={() => submit(false)}
+                  >
+                    Save brief
+                  </button>
+                </div>
+                {notice && (
+                  <p className="saved" role="status">
+                    {notice}
+                  </p>
+                )}
+              </form>
+            </section>
+            <section className="results">
+              <div className="results-heading">
+                <div>
+                  <h2>Scripts</h2>
+                </div>
+                <div className="results-tools">
+                  {runs.length > 1 && (
+                    <label>
+                      Session
+                      <select
+                        aria-label="Creative session"
+                        value={run?.id}
+                        onChange={(e) => setRunId(e.target.value)}
+                      >
+                        {runs.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {new Date(item.created_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            })}{' '}
+                            ·{' '}
+                            {item.status === 'succeeded'
+                              ? 'Completed'
+                              : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {run?.status === 'succeeded' && !previewMode && (
+                    <a
+                      className="button secondary"
+                      href={moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void download(
+                          moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`),
+                          `panda-scripts-${run.id}.md`,
+                        ).catch((err) => setError(err.message));
+                      }}
+                    >
+                      Export scripts
+                    </a>
+                  )}
+                </div>
               </div>
-              <div className="brief-actions">
-                <button
-                  type="submit"
-                  className="button primary"
-                  disabled={!canWrite || busy || pending || !demoMode}
-                >
-                  {busy || pending ? 'Creating scripts…' : 'Create scripts'}
-                </button>
-                <button
-                  type="button"
-                  className="text-button"
-                  disabled={!canWrite || busy}
-                  onClick={() => submit(false)}
-                >
-                  Save brief
-                </button>
-              </div>
-              {notice && (
-                <p className="saved" role="status">
-                  {notice}
+              {!run && (
+                <div className="results-empty">
+                  <p>No scripts yet.</p>
+                </div>
+              )}
+              {run?.workflow_id && !previewMode && (
+                <WorkflowPanel
+                  key={run.workflow_id}
+                  workspaceId={workspace.id}
+                  workflowId={run.workflow_id}
+                  canWrite={canWrite}
+                  onRetry={retry}
+                  onStatus={(status) => {
+                    setRuns((old) =>
+                      old.map((item) => (item.id === run.id ? { ...item, status } : item)),
+                    );
+                    if (['succeeded', 'failed', 'canceled'].includes(status)) {
+                      api<Run[]>(base + 'runs/')
+                        .then((next) => {
+                          if (currentBase.current === base) setRuns(next);
+                        })
+                        .catch((err) => {
+                          if (currentBase.current === base) setError(err.message);
+                        });
+                    }
+                  }}
+                />
+              )}
+              {pending && !run?.workflow_id && (
+                <p className="notice" role="status">
+                  Creating scripts…
                 </p>
               )}
-            </form>
-          </section>
-          <section className="results">
-            <div className="results-heading">
-              <div>
-                <h2>Scripts</h2>
-              </div>
-              <div className="results-tools">
-                {runs.length > 1 && (
-                  <label>
-                    Session
-                    <select
-                      aria-label="Creative session"
-                      value={run?.id}
-                      onChange={(e) => setRunId(e.target.value)}
-                    >
-                      {runs.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {new Date(item.created_at).toLocaleString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}{' '}
-                          ·{' '}
-                          {item.status === 'succeeded'
-                            ? 'Completed'
-                            : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {run?.status === 'succeeded' && !previewMode && (
-                  <a
-                    className="button secondary"
-                    href={moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`)}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      void download(
-                        moduleUrl(workspace.id, 'studio', `runs/${run.id}/export/`),
-                        `panda-scripts-${run.id}.md`,
-                      ).catch((err) => setError(err.message));
-                    }}
-                  >
-                    Export scripts
-                  </a>
-                )}
-              </div>
-            </div>
-            {!run && (
-              <div className="results-empty">
-                <p>No scripts yet.</p>
-              </div>
-            )}
-            {run?.workflow_id && !previewMode && (
-              <WorkflowPanel
-                key={run.workflow_id}
-                workspaceId={workspace.id}
-                workflowId={run.workflow_id}
-                canWrite={canWrite}
-                onRetry={retry}
-                onStatus={(status) => {
-                  setRuns((old) =>
-                    old.map((item) => (item.id === run.id ? { ...item, status } : item)),
-                  );
-                  if (['succeeded', 'failed', 'canceled'].includes(status)) {
-                    api<Run[]>(base + 'runs/')
-                      .then((next) => {
-                        if (currentBase.current === base) setRuns(next);
-                      })
-                      .catch((err) => {
-                        if (currentBase.current === base) setError(err.message);
-                      });
-                  }
-                }}
-              />
-            )}
-            {pending && !run?.workflow_id && (
-              <p className="notice" role="status">
-                Creating scripts…
-              </p>
-            )}
-            {run?.status === 'failed' && !run.workflow_id && (
-              <p className="error" role="alert">
-                {run.error}
-              </p>
-            )}
-            {run?.status === 'succeeded' && (
-              <div className="creative-grid">
-                {run.creatives.map((creative) => (
-                  <CreativeEditor
-                    key={creative.id}
-                    creative={creative}
-                    canWrite={canWrite}
-                    workspaceId={workspace.id}
-                    onSave={(next) =>
-                      setRuns((old) =>
-                        old.map((item) =>
-                          item.id === run.id
-                            ? {
-                                ...item,
-                                creatives: item.creatives.map((c) => (c.id === next.id ? next : c)),
-                              }
-                            : item,
-                        ),
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
+              {run?.status === 'failed' && !run.workflow_id && (
+                <p className="error" role="alert">
+                  {run.error}
+                </p>
+              )}
+              {run?.status === 'succeeded' && (
+                <div className="creative-grid">
+                  {run.creatives.map((creative) => (
+                    <CreativeEditor
+                      key={creative.id}
+                      creative={creative}
+                      canWrite={canWrite}
+                      workspaceId={workspace.id}
+                      onSave={(next) =>
+                        setRuns((old) =>
+                          old.map((item) =>
+                            item.id === run.id
+                              ? {
+                                  ...item,
+                                  creatives: item.creatives.map((c) =>
+                                    c.id === next.id ? next : c,
+                                  ),
+                                }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+      </div>
     </>
   );
 }

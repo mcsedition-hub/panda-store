@@ -53,6 +53,9 @@ services:
       retries: 12
   worker:
     <<: *backend
+    init: true
+    shm_size: 1gb
+    security_opt: ["seccomp=./deploy/research-seccomp.json"]
     command: ["celery", "-A", "panda_store", "worker", "--loglevel=info", "--concurrency=2"]
     depends_on:
       init: {condition: service_completed_successfully}

@@ -13,6 +13,39 @@ def execute(run_id):
 
 RUNNERS = {"studio.scripts": (VERSION, execute)}
 
+
+def research_execute(run_id):
+    from .research_tasks import research
+
+    research(str(run_id))
+
+
+RESEARCH_VERSION = 1
+RUNNERS["studio.research"] = (RESEARCH_VERSION, research_execute)
+RESEARCH_STEPS = [
+    {"key": "context", "title": "Check app and browser", "kind": "validation", "depends_on": []},
+    {
+        "key": "discover",
+        "title": "Search competitors and posts",
+        "kind": "search",
+        "depends_on": ["context"],
+    },
+    {
+        "key": "browse",
+        "title": "Open and scroll sources",
+        "kind": "browser",
+        "depends_on": ["discover"],
+    },
+    {"key": "analyze", "title": "Analyze visible examples", "kind": "ai", "depends_on": ["browse"]},
+    {
+        "key": "verify",
+        "title": "Check observations against evidence",
+        "kind": "ai",
+        "depends_on": ["analyze"],
+    },
+    {"key": "report", "title": "Save research", "kind": "storage", "depends_on": ["verify"]},
+]
+
 STEPS = [
     {"key": "context", "title": "Read app and brief", "kind": "validation", "depends_on": []},
     {

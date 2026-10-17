@@ -31,13 +31,15 @@ AI script generation, Google Play and publishing are not implemented yet.
   with provider model discovery and optional ASO editorial recommendations.
 - Listing drafts with autosave, comparison, named variants, revision history,
   manual review, text exports and comparison with refreshed Apple metadata.
+- Studio research with provider web search, browser captures, source-linked observations
+  and three cross-domain references, before creative writing.
 - Editable briefs and three script variants built from local writing templates.
 - Generation history, script editing, separate approval and Markdown exports.
 - Live workflow steps and activity, stop requests, and retries that keep completed steps.
 - An example extension using the same conventions as the built-in modules.
 
-The Research, Publishing, Analytics and Agents illustrations are part
-of the visual identity. Their features are not implemented yet.
+Research is available within Studio. The Publishing, Analytics and Agents illustrations
+are part of the visual identity; those modules are not implemented yet.
 See the [roadmap](docs/roadmap.md).
 
 ## Run locally
@@ -96,8 +98,52 @@ Earlier generations remain available without retroactively invented activity.
 and uses its Redis/Celery services instead. A queued workflow with no worker fails
 after five minutes when inspected; an interrupted worker's lease expires after
 45 seconds. Live clients and the local worker detect expired leases. The current
-UI follows sequential Studio and ASO steps; autonomous browser agents, parallel scheduling and a visual
-workflow editor are still planned.
+UI follows sequential Studio and ASO steps. Studio research can search, open and scroll a bounded
+set of public pages. Open-ended browser navigation, parallel scheduling and a visual workflow
+editor are still planned.
+
+## Creative research
+
+Studio opens on **Research**, before **Scripts**. Choose an app, enter a research topic and
+market, then explicitly select an OpenAI, Google Gemini or Anthropic Claude model from your
+workspace's connections. The selected model must support the provider's web-search tool and
+image analysis; unsupported combinations fail explicitly, without switching providers.
+
+For local development, install Chromium in the same Python environment as the worker:
+
+```sh
+.venv/bin/python -m playwright install chromium
+# On Linux, install the system dependencies too:
+.venv/bin/python -m playwright install --with-deps chromium
+```
+
+Restart the workflow worker after updating backend code. The Docker image includes Chromium;
+Compose runs its non-root worker with the bundled Playwright seccomp profile and shared memory.
+Chromium's sandbox must be supported by the host. A launch check runs before paid discovery.
+
+Research uses up to three model calls: web discovery, analysis, and an independent review against
+the same saved evidence. Provider search fees are additional. OpenAI/Claude searches are bounded
+to three tool calls; Google's requested three-query limit is advisory, not a hard billing cap.
+Actual provider usage is retained per completed step. Timeouts may still be billed and never
+trigger an automatic paid retry.
+
+The browser opens up to six discovered sources and three cross-domain App Store references
+(Duolingo, Spotify and Tinder), scrolls once and saves two page views, bounded text, dates and
+content hashes in this installation's database. It uses an ephemeral session without personal
+cookies. Private addresses, credentials in URLs, downloads, media playback, form submission,
+embedded frames and WebSockets are not available. Site access policies and login/challenge walls
+can leave sources unavailable. This is page/still research, not video or audio analysis.
+
+Results separate discovered links, captured pages, reviewed observations and withheld claims.
+Visible metrics retain their exact quoted labels; no popularity score, install attribution or
+performance guarantee is inferred. The three large apps are structural references, not assumed
+niche competitors. Every session exposes its actual coverage, including missing references.
+The research inputs and saved evidence are immutable. **Retry unfinished steps** reuses completed
+work; **Retry unavailable sources** keeps the search and readable pages and creates a new attempt
+for the missing pages, without changing the original report. Analysis/review calls may run again.
+
+**Scripts** still uses the explicit local demo templates. AI creation from selected research,
+full video analysis, authenticated social connectors and publishing remain planned.
 
 ## Audit an App Store listing
 

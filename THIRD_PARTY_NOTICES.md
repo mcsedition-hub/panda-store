@@ -27,3 +27,12 @@ Odoo a servi de référence pour l'organisation modulaire et la variation des
 familles de couleurs. Aucun code, logo, icône ou illustration Odoo n'est repris.
 Les noms App Store, Apple, Google Play et autres services appartiennent à leurs
 titulaires. Le projet n'affirme ni affiliation ni certification par ces services.
+
+## Research browser sandbox profile
+
+`deploy/research-seccomp.json` is the Playwright Docker seccomp profile from
+Microsoft's Playwright project, retrieved on 2026-10-17:
+https://github.com/microsoft/playwright/blob/main/utils/docker/seccomp_profile.json.
+It retains Docker's syscall restrictions while allowing Chromium's user namespaces.
+Copyright Microsoft Corporation. Licensed under Apache License 2.0; a copy is in
+`deploy/PLAYWRIGHT-LICENSE.txt`.

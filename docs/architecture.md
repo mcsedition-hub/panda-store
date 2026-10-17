@@ -651,3 +651,62 @@ limites des sources ; il ne contacte aucun store et ne télécharge pas une nouv
 image. Aucun fichier arbitraire du système n'est ajouté. L'UI sauvegarde avant
 export, duplication et navigation, garde les modifications locales lors d'un
 conflit et réutilise une requête dont le résultat était incertain.
+
+### Veille avant création dans Studio
+
+`ResearchRun` fige l'import, le sujet, le marché, le fournisseur/modèle et la révision
+de connexion. Le workflow `studio.research` suit six étapes : contrôle du navigateur,
+découverte web, consultation des sources, analyse, vérification séparée, rapport.
+Il utilise le même journal durable, l'annulation coopérative et les reprises que l'ASO.
+La création de scripts IA reste une tranche distincte ; les scripts actuels sont des
+modèles locaux. La veille ne modifie ni les fiches stores ni les comptes sociaux.
+
+Les adaptateurs de découverte utilisent les outils officiels
+[OpenAI Web search](https://developers.openai.com/api/docs/guides/tools-web-search),
+[Google Search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search)
+et [Claude Web search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool),
+consultés le 17 octobre 2026. Les URLs candidates proviennent des métadonnées des
+outils, jamais d'une URL inventée dans le texte du modèle. Les réponses narratives
+de recherche ne sont pas utilisées comme observations. Les liens de redirection de
+Google sont résolus uniquement sur son endpoint documenté, puis la page de destination
+subit les contrôles habituels. Les suggestions Google sont affichées dans une iframe
+sandboxée sans scripts, formulaires ni accès à l'origine de l'application.
+
+Un processus Chromium éphémère ouvre au maximum six sources découvertes et les trois
+références Duolingo, Spotify et Tinder. Il capture le premier écran, fait défiler d'un
+écran partiel et capture une seconde vue. `ResearchPage` conserve le texte borné,
+les JPEG, les empreintes, les dates, les URLs et les actions effectivement réalisées.
+Ce parcours n'est pas une exploration illimitée, une lecture de carrousel complet ni
+une analyse vidéo/audio. Les pages bloquées, incomplètes et les références manquantes
+sont visibles ; une réussite de workflow ne signifie pas couverture complète.
+
+Le navigateur reçoit un environnement minimal, un HOME temporaire, aucun cookie
+personnel et aucune clé fournisseur. Son sandbox Chromium reste activé. Les requêtes
+GET passent par un relais HTTPCore qui résout chaque hôte, refuse toute adresse privée
+ou réservée et connecte l'IP contrôlée en gardant le nom TLS d'origine. Le navigateur
+a un proxy fermé, sans contournement loopback ; il ne peut pas utiliser un chemin réseau
+direct si le relais refuse. Les robots des pages destinations sont vérifiés. Les
+services workers, WebSockets, médias, formulaires et frames sont bloqués. Les captures
+sont accessibles seulement aux membres de l'espace si Studio est actif.
+
+Chaque page a un délai externe de 65 secondes, un budget réseau de 20 Mo et 120 requêtes,
+avec des bornes par réponse et capture. L'annulation tue le groupe du processus navigateur.
+Ces limites et le sandbox ne remplacent pas l'isolation de déploiement nécessaire à une
+offre cloud : ses workers et quotas restent un chantier distinct. Docker utilise le
+profil seccomp Playwright fourni et un utilisateur non root, sans désactiver le sandbox.
+
+L'analyse reçoit seulement les pages observées et deux vues au maximum par page.
+Les citations textuelles et métriques doivent être retrouvées dans le texte archivé.
+Une seconde analyse vérifie les constats contre les mêmes preuves. Les résultats
+retenus restent des observations IA à relire, pas des mesures de conversion. Aucune
+note de viralité ou causalité sur les installations n'est calculée. Les références
+transversales ne sont pas des concurrents supposés. Le texte des pages reste une donnée
+non fiable et ne donne aucune instruction au navigateur ni au worker.
+
+La reprise après échec réutilise les étapes terminées et les pages déjà archivées.
+Après une réussite partielle, `Retry unavailable sources` conserve la découverte,
+copie les pages lisibles avec leurs dates, empreintes et références d'origine, puis
+retente seulement les sources manquantes dans une nouvelle exécution. L'analyse et
+la vérification peuvent être facturées à nouveau. Le rapport d'origine est conservé.
+La consommation enregistrée dans une étape réutilisée vient de la tentative d'origine ;
+le journal indique sa réutilisation, ce n'est pas un nouvel appel facturé.

@@ -80,12 +80,15 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
     )
   ) {
     result = [];
+  } else if (path === `${prefix}studio/research-capabilities/`) {
+    result = { browser_installed: false };
   } else {
     const sample = sampleRuns.find((item) =>
       path.startsWith(`${prefix}studio/apps/${item.app_id}/`),
     );
     if (!sample) throw new Error('This page is not part of the visual preview.');
     if (path === `${prefix}studio/apps/${sample.app_id}/brief/`) result = sample.brief;
+    else if (path === `${prefix}studio/apps/${sample.app_id}/research/`) result = [];
     else if (path === `${prefix}studio/apps/${sample.app_id}/runs/`) result = [sample.run];
     else throw new Error('This page is not part of the visual preview.');
   }

@@ -75,6 +75,10 @@ djangorestframework==3.18.3
     # via
     #   -c requirements.txt
     #   panda-store (pyproject.toml)
+greenlet==3.5.6
+    # via
+    #   -c requirements.txt
+    #   playwright
 gunicorn==23.0.0
     # via
     #   -c requirements.txt
@@ -88,6 +92,7 @@ httpcore==1.0.9
     # via
     #   -c requirements.txt
     #   httpx
+    #   panda-store (pyproject.toml)
 httpx==0.28.1
     # via
     #   -c requirements.txt
@@ -118,6 +123,10 @@ pillow==13.0.0
     #   panda-store (pyproject.toml)
 pip-tools==7.6.2
     # via panda-store (pyproject.toml)
+playwright==1.64.0
+    # via
+    #   -c requirements.txt
+    #   panda-store (pyproject.toml)
 pluggy==1.7.0
     # via pytest
 prompt-toolkit==3.0.53
@@ -136,6 +145,10 @@ pycparser==3.11
     # via
     #   -c requirements.txt
     #   cffi
+pyee==14.0.0
+    # via
+    #   -c requirements.txt
+    #   playwright
 pygments==2.21.0
     # via pytest
 pyjwt==2.15.1
@@ -181,6 +194,7 @@ typing-extensions==4.16.0
     #   anyio
     #   click-repl
     #   psycopg
+    #   pyee
 tzdata==2026.5
     # via
     #   -c requirements.txt

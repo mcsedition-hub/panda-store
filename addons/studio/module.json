@@ -8,8 +8,9 @@
   },
   "family": "coral",
   "icon": "studio",
-  "description": "A brief and three script directions to review, edit and export.",
+  "description": "Research public examples, review sources and prepare creative work.",
   "capabilities": [
+    "research.browse",
     "briefs.edit",
     "scripts.demo_generate",
     "scripts.edit",

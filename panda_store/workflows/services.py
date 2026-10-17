@@ -29,7 +29,9 @@ def _event(run, kind, message, step_key=""):
 
 
 @transaction.atomic
-def create_run(*, workspace, user, module_id, key, version, title, steps, retry_of=None):
+def create_run(
+    *, workspace, user, module_id, key, version, title, steps, retry_of=None, reuse_steps=None
+):
     if retry_of and (
         retry_of.workspace_id != workspace.pk
         or retry_of.module_id != module_id
@@ -61,6 +63,7 @@ def create_run(*, workspace, user, module_id, key, version, title, steps, retry_
         old = previous.get(step.key)
         if (
             old
+            and (reuse_steps is None or step.key in reuse_steps)
             and old.status == StepRun.Status.SUCCEEDED
             and set(step.depends_on) <= reused
             and old.kind == step.kind
@@ -171,6 +174,13 @@ def complete_step(run_id, token, key, message, output=None):
         step.output = output
         step.save()
         _event(run, "step_completed", message, key)
+
+
+def progress(run_id, token, key, message):
+    """Emit a factual milestone within an active step, fenced like all other writes."""
+    with execution_lock(run_id, token) as run:
+        run.steps.get(key=key, status=StepRun.Status.RUNNING)
+        _event(run, "progress", message[:300], key)
 
 
 def succeed(run_id, token, message="Workflow completed."):

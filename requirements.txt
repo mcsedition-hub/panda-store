@@ -46,6 +46,8 @@ django==5.2.18
     #   panda-store (pyproject.toml)
 djangorestframework==3.18.3
     # via panda-store (pyproject.toml)
+greenlet==3.5.6
+    # via playwright
 gunicorn==23.0.0
     # via panda-store (pyproject.toml)
 h11==0.16.0
@@ -53,7 +55,9 @@ h11==0.16.0
     #   httpcore
     #   uvicorn
 httpcore==1.0.9
-    # via httpx
+    # via
+    #   httpx
+    #   panda-store (pyproject.toml)
 httpx==0.28.1
     # via panda-store (pyproject.toml)
 idna==3.20
@@ -69,6 +73,8 @@ packaging==26.3
     #   panda-store (pyproject.toml)
 pillow==13.0.0
     # via panda-store (pyproject.toml)
+playwright==1.64.0
+    # via panda-store (pyproject.toml)
 prompt-toolkit==3.0.53
     # via click-repl
 psycopg==3.3.6
@@ -77,6 +83,8 @@ psycopg-binary==3.3.6
     # via psycopg
 pycparser==3.11
     # via cffi
+pyee==14.0.0
+    # via playwright
 pyjwt==2.15.1
     # via
     #   panda-store (pyproject.toml)
@@ -96,6 +104,7 @@ typing-extensions==4.16.0
     #   anyio
     #   click-repl
     #   psycopg
+    #   pyee
 tzdata==2026.5
     # via kombu
 tzlocal==5.4.4

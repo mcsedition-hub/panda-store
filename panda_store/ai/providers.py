@@ -182,7 +182,16 @@ def list_models(provider, key):
 
 
 def generate(
-    provider, key, model, instruction, context, schema, *, max_output_tokens=6000, images=None
+    provider,
+    key,
+    model,
+    instruction,
+    context,
+    schema,
+    *,
+    max_output_tokens=6000,
+    images=None,
+    output_name="listing_review",
 ):
     if not supported(provider, model):
         raise ProviderError("This model is not supported for listing analysis.")
@@ -236,7 +245,7 @@ def generate(
                 "text": {
                     "format": {
                         "type": "json_schema",
-                        "name": "listing_review",
+                        "name": output_name,
                         "strict": True,
                         "schema": schema,
                     }
@@ -340,18 +349,18 @@ def generate(
                 "messages": [{"role": "user", "content": claude_content if images else text}],
                 "tools": [
                     {
-                        "name": "listing_review",
-                        "description": "Return a listing review for human approval.",
+                        "name": output_name,
+                        "description": "Return the requested structured analysis for human review.",
                         "input_schema": schema,
                     }
                 ],
-                "tool_choice": {"type": "tool", "name": "listing_review"},
+                "tool_choice": {"type": "tool", "name": output_name},
             },
         )
         outputs = [
             item["input"]
             for item in data.get("content", [])
-            if item.get("type") == "tool_use" and item.get("name") == "listing_review"
+            if item.get("type") == "tool_use" and item.get("name") == output_name
         ]
         if data.get("stop_reason") == "refusal":
             raise ProviderError(

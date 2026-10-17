@@ -28,12 +28,14 @@ export default function AIOptions({
   disabled,
   onChange,
   suggestions = {},
+  emptyLabel = 'Rules only · No AI',
 }: {
   workspaceId: string;
   owner: boolean;
   disabled: boolean;
   onChange: (choice: AIChoice, loading: boolean) => void;
   suggestions?: ModelSuggestions;
+  emptyLabel?: string;
 }) {
   const [catalog, setCatalog] = useState<Catalog>({ providers: [], credentials_ready: false });
   const [provider, setProvider] = useState('');
@@ -150,7 +152,7 @@ export default function AIOptions({
             disabled={disabled || loading || busy}
             onChange={(e) => choose(e.target.value)}
           >
-            <option value="">Rules only · No AI</option>
+            <option value="">{emptyLabel}</option>
             {Object.entries(names).map(([id, name]) => (
               <option
                 key={id}

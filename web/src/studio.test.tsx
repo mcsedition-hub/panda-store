@@ -8,6 +8,9 @@ vi.mock('./api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./api')>()),
   api: vi.fn(),
 }));
+vi.mock('../../addons/studio/frontend/Research', () => ({
+  default: () => <p>Research workspace</p>,
+}));
 const mockApi = vi.mocked(api);
 const app = { id: 'app-one', name: 'Runclub', metadata: null } as MobileApp;
 const props: ModuleProps = {
@@ -56,6 +59,7 @@ it('saves the brief before generation, then lets the user edit and approve separ
     throw new Error(`Unexpected request: ${path}`);
   });
   render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
   const audience = await screen.findByLabelText('Audience');
   fireEvent.change(audience, { target: { value: 'Weekend runners' } });
   fireEvent.click(screen.getByRole('button', { name: 'Create scripts' }));
@@ -87,6 +91,7 @@ it('does not generate if saving the brief fails', async () => {
     return path.endsWith('brief/') ? brief : [];
   });
   render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Create scripts' }));
   await screen.findByRole('alert');
   expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
@@ -95,6 +100,7 @@ it('does not generate if saving the brief fails', async () => {
 it('does not expose stale editable content when loading fails', async () => {
   mockApi.mockRejectedValue(new Error('Access unavailable'));
   render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
   await screen.findByRole('alert');
   await waitFor(() => expect(screen.queryByLabelText('Audience')).toBeNull());
   expect(screen.queryByRole('button', { name: 'Create scripts' })).toBeNull();
@@ -103,6 +109,7 @@ it('does not expose stale editable content when loading fails', async () => {
 it('prevents writes in a read-only workspace', async () => {
   mockApi.mockImplementation(async (path) => (path.endsWith('brief/') ? brief : [run]));
   render(<Studio {...props} workspace={{ ...props.workspace, role: 'viewer' }} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
   const button = (await screen.findByRole('button', {
     name: 'Create scripts',
   })) as HTMLButtonElement;
@@ -121,6 +128,7 @@ it('ignores a generation response after switching workspace', async () => {
     return [];
   });
   const view = render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Create scripts' }));
   await waitFor(() =>
     expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(true),

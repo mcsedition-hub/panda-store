@@ -31,14 +31,23 @@ facultative. Google Play, les scripts IA et la publication restent à construire
   actualisable et revue éditoriale ASO facultative.
 - Brouillons ASO : sauvegarde automatique, comparaison, duplication, révisions,
   restauration, revue séparée et export des modifications.
+- Veille dans Studio : recherche web, ouverture et défilement des pages, captures,
+  observations reliées aux sources et trois références de domaines différents.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
 - Historique des générations, édition, validation séparée et export Markdown.
 - Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
 - Module d'exemple utilisant les mêmes conventions que les modules intégrés.
 
-Les visuels Veille, Publication, Mesure et Agents font partie de
-l'identité graphique ; leurs fonctionnalités ne sont pas encore implémentées.
+La veille est disponible dans Studio, avant les scripts. Les visuels Publication,
+Mesure et Agents font partie de l'identité graphique ; ces modules restent à construire.
 Voir la [feuille de route](docs/roadmap.md).
+
+**Studio → Research** utilise le fournisseur et le modèle choisis dans l'espace.
+Installer Chromium avec `.venv/bin/python -m playwright install chromium`, puis
+redémarrer le worker. Les pages publiques consultables sont archivées ; les blocages,
+sources manquantes et hypothèses restent visibles. Les appels IA et recherches peuvent
+être facturés par le fournisseur. La vidéo, l'audio et la création de scripts IA ne
+sont pas encore intégrés. Voir le [fonctionnement et les limites](README.md#creative-research).
 
 Activer **ASO** dans **Modules**, choisir l'app et la langue, puis **Run audit**.
 Le bilan utilise l'import enregistré et conserve ses sources, leur date de revue
@@ -62,9 +71,9 @@ Les références inconnues, extraits inventés, doublons et dépassements de cha
 propositions IA restent des hypothèses à vérifier. Zéro proposition est un résultat valide.
 OpenAI et Gemini ont été testés réellement ; Claude est couvert par les tests de contrat.
 
-La recherche concurrentielle, l’analyse d’images, la demande de recherche, la mesure
-et l’audit Google Play restent à construire. Le modèle utilise des annotations Apple
-sélectionnées, sans navigation web ni corpus indexé pour cette première intégration.
+La demande de recherche, la mesure et l'audit Google Play restent à construire.
+L'ASO s'appuie sur les sources et références conservées par le projet ; la navigation
+dans les sources découvertes appartient à la veille Studio.
 
 **Add to draft** crée un brouillon depuis la seule proposition choisie.
 **Drafts → New draft** part d'une langue importée. La référence reste figée ;
