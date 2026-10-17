@@ -112,6 +112,10 @@ packaging==26.3
     #   panda-store (pyproject.toml)
     #   pytest
     #   wheel
+pillow==13.0.0
+    # via
+    #   -c requirements.txt
+    #   panda-store (pyproject.toml)
 pip-tools==7.6.2
     # via panda-store (pyproject.toml)
 pluggy==1.7.0

@@ -171,7 +171,7 @@ it('distinguishes dated public examples from guidance and keeps old audits uncha
   expect(
     within(examples).getByText(/US · English · Audio entertainment · Manual browser review/),
   ).toBeTruthy();
-  expect(within(examples).getByText(/Saved text observations, not live research/)).toBeTruthy();
+  expect(within(examples).getByText(/Saved observations, not live research/)).toBeTruthy();
   expect(within(examples).getByRole('link').getAttribute('href')).toBe(listingExample.source.url);
   fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'saved' } });
   expect(screen.queryByText(listingExample.guidance)).toBeNull();
@@ -370,6 +370,113 @@ it('requires an explicit model and sends it with the AI audit; labels AI proposa
   expect(screen.getByRole('heading', { name: 'Recommendations' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Add to draft' })).toBeTruthy();
   expect(screen.getByLabelText('Proposed text')).toBeTruthy();
+});
+
+it('reviews screenshots with the chosen model and blocks a language without imported images', async () => {
+  const visualApp = {
+    ...app,
+    metadata: {
+      ...app.metadata!,
+      data: {
+        ...app.metadata!.data,
+        screenshots_locale: 'en-US',
+        screenshots: [
+          { name: 'run.png', url: 'https://example.com/run.png', display_type: 'APP_IPHONE_65' },
+        ],
+      },
+    },
+  };
+  mockApi.mockImplementation(async (path, options) =>
+    path.endsWith('/ai/')
+      ? {
+          providers: [
+            {
+              id: 'openai',
+              name: 'OpenAI',
+              connected: true,
+              revision: 'rev',
+              models: [{ id: 'gpt-4.1-mini', name: 'Mini' }],
+            },
+          ],
+          credentials_ready: true,
+        }
+      : options?.method === 'POST'
+        ? { ...run, mode: 'screenshots', status: 'queued', report: null }
+        : [],
+  );
+  render(<ASO {...props} apps={[visualApp]} selectedApp={visualApp} />);
+  await screen.findByLabelText('Model');
+  fireEvent.change(screen.getByLabelText('Review'), { target: { value: 'screenshots' } });
+  const button = screen.getByRole('button', { name: 'Review screenshots' }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'gpt-4.1-mini' } });
+  expect(button.disabled).toBe(false);
+  expect(screen.getByText(/images and listing text are sent twice/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'fr-CA' } });
+  expect(button.disabled).toBe(true);
+  expect(screen.getByText(/No screenshots imported for fr-CA/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'en-US' } });
+  fireEvent.click(button);
+  await screen.findByText('Workflow activity');
+  const post = mockApi.mock.calls.find(([, options]) => options?.method === 'POST')!;
+  expect(JSON.parse(post[1]!.body as string)).toMatchObject({
+    mode: 'screenshots',
+    provider: 'openai',
+    model: 'gpt-4.1-mini',
+    locale: 'en-US',
+    snapshot_id: app.metadata!.id,
+  });
+});
+
+it('displays saved screenshot evidence and withheld coverage without text draft actions', async () => {
+  mockData(async () => [
+    {
+      ...run,
+      mode: 'screenshots',
+      ai: { provider: 'google', model: 'gemini-4-argon' },
+      report: {
+        checks: [],
+        counts: {},
+        visual: {
+          total_imported: 3,
+          reviewed_images: 1,
+          withheld: 1,
+          resolved_model: 'gemini-4-argon',
+          usage: {},
+          verification: { usage: {} },
+          images: [
+            {
+              image_id: 'shot-1',
+              position: 1,
+              name: 'run.png',
+              display_type: 'APP_IPHONE_65',
+              status: 'withheld',
+              error: '',
+              url: '/api/workspaces/one/aso/images/one/',
+            },
+            {
+              image_id: 'shot-2',
+              position: 2,
+              name: 'detail.png',
+              display_type: 'APP_IPHONE_65',
+              status: 'unavailable',
+              error: 'Image download timed out.',
+            },
+          ],
+        },
+      },
+    },
+  ]);
+  render(<ASO {...props} />);
+  await screen.findByRole('heading', { name: 'Screenshot review' });
+  expect(screen.getByText('Assessment withheld')).toBeTruthy();
+  expect(screen.getByText('Image download timed out.')).toBeTruthy();
+  expect(
+    screen.getByRole('img', { name: 'Imported screenshot: run.png' }).getAttribute('src'),
+  ).toBe('/api/workspaces/one/aso/images/one/');
+  expect(screen.getByText(/remaining 1 images were not analyzed/)).toBeTruthy();
+  expect(screen.queryByText('Content review')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Add to draft' })).toBeNull();
 });
 
 it('shows all content assessments separately from passed length checks without duplicating proposals', async () => {

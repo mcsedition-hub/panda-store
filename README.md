@@ -189,8 +189,32 @@ Each cited reference also exposes its saved annotation under **Guidance used**.
 Maintainers extend [the versioned annotations](addons/aso/knowledge/editorial.json)
 through code review and evaluation; adding a link to the broader source catalog
 does not automatically include it in AI context. There is no live web research.
-Visual analysis, competitors, search demand, download measurement, Google Play
+Live competitor research, search demand, download measurement, Google Play
 audits and publishing are not implemented. No score or growth guarantee is produced.
+
+For images, select **Review → Screenshots**, a provider/model and the imported
+language, then **Review screenshots**. This is a separate five-step workflow:
+read listing, save images, analyze, check visual evidence, save findings. Up to ten
+imported screenshots and the listing text are sent in **two image-capable model
+calls**, billed by the selected provider. The review covers message clarity,
+visible UI and consistency with the listing, with a saved image and sources beside
+each assessment. Unsupported or uncertain assessments are withheld. Provider errors
+use the same failure/retry flow as text audits; completed image and model steps are
+reused. No image editing or publishing is performed.
+
+The import currently includes screenshots only for the app's primary language.
+Missing images and the ten-image cap are disclosed. Import order is **not** verified
+storefront order; downloaded images are **not** original upload files. Upload size
+compliance, readability on a real phone and conversion are not established by this
+review. The verifier is another model call, not a guarantee of visual correctness.
+OpenAI, Gemini and Claude image adapters have contract tests; live visual validation
+is recorded in [the evaluation notes](docs/aso-evaluation.md).
+
+Bounded JPEG derivatives are archived privately in the database, together with
+dimensions, capture time and SHA-256. Each review stores at most 15 MB of image
+data, usually much less. Include these rows in database backups; no shared media
+volume is required between the API and worker. Apply migrations and restart both
+services when upgrading. Access requires workspace membership and an active ASO module.
 
 The [backing research](addons/aso/knowledge/visual-research.json) records a browser
 review on October 17, 2026 (US App Store, English, iPhone gallery). Selected **text**
@@ -199,7 +223,8 @@ frozen with each new AI audit, provided to both model calls and visible in
 **Sources → Public listing examples** with their date and context. They cannot
 justify keyword or promotional-text recommendations, replace an official source,
 or establish features or performance of the audited app. Screenshot observations
-remain research material and are not sent to the text reviewer. Historical audits
+feed the separate visual reviewer, alongside scoped Apple, Phiture and AppTweak
+notes; they are not sent to the text reviewer. Historical audits
 keep their previous references. No browser research runs during an audit.
 The [planned research workflow](docs/architecture.md#recherche-sur-trois-fiches-de-référence)
 requires opening three well-known apps from different domains, recording coverage

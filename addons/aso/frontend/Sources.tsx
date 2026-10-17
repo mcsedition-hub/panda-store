@@ -39,11 +39,13 @@ export const fieldNames: Record<string, string> = {
   description: 'Description',
   promotional_text: 'Promotional text',
   keywords: 'Keywords',
+  screenshots: 'Screenshots',
 };
 export function sourceKind(source: Source) {
   return (
     {
       official_guidance: 'Official guidance',
+      official_policy: 'Official policy',
       official_reference: 'Official reference',
       practitioner_framework: 'Practitioner framework',
       vendor_methodology: 'Vendor methodology',
@@ -123,9 +125,11 @@ export function SourceReference({ source }: { source: Source }) {
 export default function Sources({
   workspaceId,
   saved,
+  mode = 'listing',
 }: {
   workspaceId: string;
   saved?: Knowledge & { created_at: string };
+  mode?: 'listing' | 'screenshots';
 }) {
   const [view, setView] = useState(saved ? 'saved' : 'current');
   const [current, setCurrent] = useState<Knowledge | null>(null);
@@ -136,7 +140,13 @@ export default function Sources({
     let active = true;
     setCurrent(null);
     setError('');
-    api<Knowledge>(moduleUrl(workspaceId, 'aso', 'knowledge/'))
+    api<Knowledge>(
+      moduleUrl(
+        workspaceId,
+        'aso',
+        `knowledge/${mode === 'screenshots' ? '?mode=screenshots' : ''}`,
+      ),
+    )
       .then((data) => {
         if (active) setCurrent(data);
       })
@@ -146,7 +156,7 @@ export default function Sources({
     return () => {
       active = false;
     };
-  }, [workspaceId, view, attempt]);
+  }, [workspaceId, view, attempt, mode]);
   const data = view === 'saved' ? saved : current;
   const examples =
     data?.entries.filter((entry) => entry.source.kind === 'public_listing_observation') ?? [];
@@ -194,7 +204,7 @@ export default function Sources({
             <section aria-label="Public listing examples" className="aso-listing-examples">
               <h2>Public listing examples</h2>
               <p className="note">
-                {examples.length} reviewed examples · Saved text observations, not live research or
+                {examples.length} reviewed examples · Saved observations, not live research or
                 conversion results.
               </p>
               {examples.map((entry) => (

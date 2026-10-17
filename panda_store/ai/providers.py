@@ -181,10 +181,47 @@ def list_models(provider, key):
     return sorted(found.values(), key=lambda item: item["id"], reverse=True)
 
 
-def generate(provider, key, model, instruction, context, schema, *, max_output_tokens=6000):
+def generate(
+    provider, key, model, instruction, context, schema, *, max_output_tokens=6000, images=None
+):
     if not supported(provider, model):
         raise ProviderError("This model is not supported for listing analysis.")
     text = json.dumps(context, ensure_ascii=False)
+    images = images or []
+    openai_content = [{"type": "input_text", "text": text}]
+    google_content = [{"text": text}]
+    claude_content = [{"type": "text", "text": text}]
+    for image in images:
+        label = f"Screenshot ID: {image['id']}"
+        openai_content.extend(
+            [
+                {"type": "input_text", "text": label},
+                {
+                    "type": "input_image",
+                    "image_url": f"data:{image['mime_type']};base64,{image['data']}",
+                    "detail": "high",
+                },
+            ]
+        )
+        google_content.extend(
+            [
+                {"text": label},
+                {"inlineData": {"mimeType": image["mime_type"], "data": image["data"]}},
+            ]
+        )
+        claude_content.extend(
+            [
+                {"type": "text", "text": label},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": image["mime_type"],
+                        "data": image["data"],
+                    },
+                },
+            ]
+        )
     if provider == "openai":
         data = request(
             provider,
@@ -194,7 +231,7 @@ def generate(provider, key, model, instruction, context, schema, *, max_output_t
                 "model": model,
                 "store": False,
                 "instructions": instruction,
-                "input": text,
+                "input": [{"role": "user", "content": openai_content}] if images else text,
                 "max_output_tokens": max_output_tokens,
                 "text": {
                     "format": {
@@ -257,7 +294,7 @@ def generate(provider, key, model, instruction, context, schema, *, max_output_t
             f"/models/{model}:generateContent",
             payload={
                 "systemInstruction": {"parts": [{"text": instruction}]},
-                "contents": [{"role": "user", "parts": [{"text": text}]}],
+                "contents": [{"role": "user", "parts": google_content}],
                 "generationConfig": generation_config,
             },
         )
@@ -300,7 +337,7 @@ def generate(provider, key, model, instruction, context, schema, *, max_output_t
                 "model": model,
                 "max_tokens": max_output_tokens,
                 "system": instruction,
-                "messages": [{"role": "user", "content": text}],
+                "messages": [{"role": "user", "content": claude_content if images else text}],
                 "tools": [
                     {
                         "name": "listing_review",

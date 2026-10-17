@@ -285,7 +285,8 @@ Chaque annotation porte son champ d'application,
 son store, sa date de revue, le type de source et ses limites. Les seuils chiffrés
 et affirmations algorithmiques non corroborés ne sont pas ingérés. Le catalogue
 plus large inclut des références Google et des études de cas qui ne sont pas
-envoyées au modèle. La recherche en direct, le graphe et les images restent à faire.
+envoyées au modèle. La recherche en direct et le graphe restent à faire. La revue
+des images fonctionne dans un workflow séparé décrit plus bas.
 
 Depuis `apple-editorial-2026-10-17.2`, chaque avis ou proposition doit citer au
 moins une référence officielle applicable ; une méthodologie de prestataire ne
@@ -561,3 +562,54 @@ sources obsolètes ou contradictoires, absence de statistiques, promesses non
 confirmées et contenus tentant de détourner l'agent. Vérifier citations, portée
 des règles, utilité des propositions et abstention pour chaque fournisseur.
 Les évaluations du modèle ne remplacent pas la mesure des gains sur le store.
+
+### Revue des captures importées
+
+`AuditRun.inputs.mode = screenshots` sélectionne `aso.visual` version 1. Le parcours
+comprend `listing`, `images`, `visual`, `verify_visual`, `report`. Il utilise le
+modèle choisi, deux appels et les mêmes révisions de connexion, délais, notifications,
+permissions et reprises que l'audit texte. Les audits texte gardent leurs contrats.
+La version des instructions visuelles est gelée dans les entrées et contrôlée avant
+un appel. Une reprise conserve les images et appels terminés ; une réponse perdue
+ou invalide peut nécessiter un nouvel appel facturé, jamais lancé automatiquement.
+
+`images.py` ne lit que les URL de l'instantané appartenant à l'app du workspace.
+Seuls les hôtes HTTPS `isN-ssl.mzstatic.com` sont admis, sans identifiants ni port
+alternatif ni redirection. Limites : dix images, 8 MB téléchargés par image,
+12 secondes par téléchargement et 45 secondes pour le lot, 20 millions de pixels,
+formats PNG/JPEG/WebP non animés. Pillow prépare un JPEG sans métadonnées, de côté
+maximal 2048 px et de taille maximale 1,5 MB. Les dimensions téléchargées ne sont
+pas celles des originaux App Store Connect et ne valident pas les spécifications.
+
+`ScreenshotEvidence` conserve ces octets en base et leur empreinte. Ce compromis
+initial fonctionne avec SQLite ou PostgreSQL et évite une configuration de fichiers
+partagés entre worker et API. Coût maximal : 15 MB par nouveau lot, sans politique
+de purge automatique. La suppression de l'audit parent supprime ses images ; les
+reprises référencent les images du premier audit. Une future purge doit donc tenir
+compte de ces références. L'API d'image vérifie l'appartenance au workspace et
+l'activation du module, avec cache privé désactivé. Aucun octet d'image n'apparaît
+dans les réponses d'historique ou les événements du workflow.
+
+Les formats officiels des trois transports sont documentés ici :
+[OpenAI Responses](https://developers.openai.com/api/docs/guides/images-vision),
+[Gemini Generate Content](https://ai.google.dev/gemini-api/docs/generate-content/image-understanding),
+[Claude Messages](https://platform.claude.com/docs/en/build-with-claude/vision).
+Les mêmes octets et identifiants d'image accompagnent les deux appels. Aucun modèle
+alternatif n'est appelé automatiquement. Les erreurs d'accès, quota, délai ou
+incompatibilité remontent dans le workflow existant.
+
+La revue reçoit cinq notes applicables à l'App Store et les trois observations
+visuelles datées de Duolingo, Spotify et Tinder. Les notes Google sont exclues.
+Le premier appel décrit chaque image et peut suggérer un changement ; le second
+revoit constat, extrait visible, interprétation de règle et recommandation contre
+les mêmes images, la fiche et les références. Une réponse incomplète ou incohérente
+échoue avant publication ; une conclusion non étayée ou incertaine est masquée.
+L'empreinte du contexte empêche de réutiliser une vérification pour d'autres
+candidats. Cette vérification probabiliste ne remplace pas une relecture humaine.
+
+La langue doit correspondre exactement aux captures importées. Les appareils,
+images indisponibles et éventuelles images au-delà de la limite sont affichés.
+Ni l'ordre importé ni le nom du fichier ne prouvent l'ordre de la galerie en ligne.
+Les observations publiques restent des notes de recherche manuelle ; aucune copie
+des images des trois références n'est téléchargée et aucun navigateur autonome
+n'intervient dans ce workflow. Il n'édite ni ne publie les captures.

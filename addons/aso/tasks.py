@@ -9,11 +9,59 @@ from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.workflows import services
 
-from . import editorial, grounding
+from . import editorial, grounding, images, visual
 from .models import AuditRun
 from .rules import audit, localized_metadata
 
 logger = logging.getLogger(__name__)
+
+
+def review_screenshots(run, token):
+    workflow_id = run.workflow_id
+    manifest = services.start_step(
+        workflow_id, token, "images", "Loading up to 10 imported screenshots for this language."
+    )
+    if manifest is None:
+        manifest = images.capture(run, token)
+        saved = sum(bool(item.get("asset_id")) for item in manifest["images"])
+        services.complete_step(
+            workflow_id,
+            token,
+            "images",
+            f"{saved} images saved; {manifest['total_imported']} imported. "
+            "Original upload dimensions and storefront order are not verified.",
+            manifest,
+        )
+    output = services.start_step(
+        workflow_id,
+        token,
+        "visual",
+        "Reviewing images with the selected model and 3 dated public gallery examples. "
+        "No live web research.",
+    )
+    if output is None:
+        output = visual.analyze(run, manifest)
+        visual.candidates(run, manifest, output)
+        services.complete_step(workflow_id, token, "visual", "Visual assessments received.", output)
+    reviewed = services.start_step(
+        workflow_id,
+        token,
+        "verify_visual",
+        "Checking every assessment against the same images and listing. Second model call.",
+    )
+    if reviewed is None:
+        reviewed = visual.verify(run, manifest, output)
+        result = visual.report(run, manifest, output, reviewed)
+        services.complete_step(
+            workflow_id,
+            token,
+            "verify_visual",
+            f"{result['reviewed_images']} assessments checked; {result['withheld']} withheld.",
+            reviewed,
+        )
+    else:
+        result = visual.report(run, manifest, output, reviewed)
+    return {"visual": result, "checks": [], "counts": {}}
 
 
 @shared_task(
@@ -53,89 +101,93 @@ def audit_listing(workflow_id):
                 {"snapshot_id": run.inputs["snapshot_id"], "locale": run.locale},
             )
         services.heartbeat(workflow_id, token)
-        report = services.start_step(
-            workflow_id, token, "checks", "Checking field limits and exact keyword repetition."
-        )
-        if report is None:
-            report = audit(run.inputs)
-            counts = report["counts"]
-            services.complete_step(
-                workflow_id,
-                token,
-                "checks",
-                f"{counts['issue']} issues; {counts['recommendation']} recommendations. "
-                "Source references and coverage recorded.",
-                report,
+        if run.inputs.get("mode") == "screenshots":
+            report = review_screenshots(run, token)
+        else:
+            report = services.start_step(
+                workflow_id, token, "checks", "Checking field limits and exact keyword repetition."
             )
-        services.heartbeat(workflow_id, token)
-        if "ai" in run.inputs:
-            choice = run.inputs["ai"]
-            examples = sum(
-                note["source"].get("kind") == "public_listing_observation"
-                for note in run.inputs["knowledge"]
-            )
-            output = services.start_step(
-                workflow_id,
-                token,
-                "editorial",
-                f"Reviewing {run.locale} text with {choice['provider']} / {choice['model']}. "
-                f"Using {len(run.inputs['knowledge'])} saved reference notes, including "
-                f"{examples} public listing examples. No live web research.",
-            )
-            if output is None:
-                output = editorial.analyze(run, report["checks"])
+            if report is None:
+                report = audit(run.inputs)
+                counts = report["counts"]
                 services.complete_step(
+                    workflow_id,
+                    token,
+                    "checks",
+                    f"{counts['issue']} issues; {counts['recommendation']} recommendations. "
+                    "Source references and coverage recorded.",
+                    report,
+                )
+            services.heartbeat(workflow_id, token)
+            if "ai" in run.inputs:
+                choice = run.inputs["ai"]
+                examples = sum(
+                    note["source"].get("kind") == "public_listing_observation"
+                    for note in run.inputs["knowledge"]
+                )
+                output = services.start_step(
                     workflow_id,
                     token,
                     "editorial",
-                    "Model response received. Checking evidence and field constraints.",
-                    output,
+                    f"Reviewing {run.locale} text with {choice['provider']} / {choice['model']}. "
+                    f"Using {len(run.inputs['knowledge'])} saved reference notes, including "
+                    f"{examples} public listing examples. No live web research.",
                 )
-            validated = services.start_step(
-                workflow_id,
-                token,
-                "validate",
-                "Checking quoted evidence, source IDs and proposed field lengths.",
-            )
-            if validated is None:
-                validated = editorial.validate(output, run.inputs, report)
-                info = validated["editorial"]
-                coverage = (
-                    f"{info['reviewed_fields']} of 5 field reviews validated. "
-                    if "reviewed_fields" in info
-                    else ""
-                )
-                services.complete_step(
+                if output is None:
+                    output = editorial.analyze(run, report["checks"])
+                    services.complete_step(
+                        workflow_id,
+                        token,
+                        "editorial",
+                        "Model response received. Checking evidence and field constraints.",
+                        output,
+                    )
+                validated = services.start_step(
                     workflow_id,
                     token,
                     "validate",
-                    coverage + f"{info['accepted_proposals']} proposals retained for human review; "
-                    f"{info['rejected_proposals']} rejected by validation.",
-                    validated,
+                    "Checking quoted evidence, source IDs and proposed field lengths.",
                 )
-            checked = services.start_step(
-                workflow_id,
-                token,
-                "grounding",
-                "Reviewing observations and proposals against the imported text. "
-                "This is a second model call.",
-            )
-            if checked is None:
-                checked = grounding.review(run, validated)
-                # Validate completeness before checkpointing; a malformed review must be retried.
-                report = grounding.apply(checked, run.inputs, validated)
-                info = report["editorial"]["grounding"]
-                services.complete_step(
+                if validated is None:
+                    validated = editorial.validate(output, run.inputs, report)
+                    info = validated["editorial"]
+                    coverage = (
+                        f"{info['reviewed_fields']} of 5 field reviews validated. "
+                        if "reviewed_fields" in info
+                        else ""
+                    )
+                    services.complete_step(
+                        workflow_id,
+                        token,
+                        "validate",
+                        coverage
+                        + f"{info['accepted_proposals']} proposals retained for human review; "
+                        f"{info['rejected_proposals']} rejected by validation.",
+                        validated,
+                    )
+                checked = services.start_step(
                     workflow_id,
                     token,
                     "grounding",
-                    f"{info['reviewed_items']} items reviewed against the listing; "
-                    f"{info['withheld_observations']} observations and "
-                    f"{info['withheld_proposals']} proposals withheld.",
-                    checked,
+                    "Reviewing observations and proposals against the imported text. "
+                    "This is a second model call.",
                 )
-            else:
-                report = grounding.apply(checked, run.inputs, validated)
+                if checked is None:
+                    checked = grounding.review(run, validated)
+                    # Reject malformed reviews before checkpointing so this step can be retried.
+                    report = grounding.apply(checked, run.inputs, validated)
+                    info = report["editorial"]["grounding"]
+                    services.complete_step(
+                        workflow_id,
+                        token,
+                        "grounding",
+                        f"{info['reviewed_items']} items reviewed against the listing; "
+                        f"{info['withheld_observations']} observations and "
+                        f"{info['withheld_proposals']} proposals withheld.",
+                        checked,
+                    )
+                else:
+                    report = grounding.apply(checked, run.inputs, validated)
         services.start_step(workflow_id, token, "report", "Saving the audit and source references.")
         with services.execution_lock(workflow_id, token):
             run.report = report

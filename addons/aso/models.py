@@ -25,6 +25,21 @@ class AuditRun(models.Model):
         ]
 
 
+class ScreenshotEvidence(models.Model):
+    """Private, bounded model inputs; kept in the DB for shared worker/API storage."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    audit = models.ForeignKey(AuditRun, on_delete=models.CASCADE, related_name="images")
+    position = models.PositiveSmallIntegerField()
+    metadata = models.JSONField()
+    data = models.BinaryField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["audit", "position"], name="unique_aso_image")
+        ]
+
+
 class ListingDraft(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey("core.Workspace", on_delete=models.CASCADE)

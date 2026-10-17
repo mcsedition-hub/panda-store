@@ -1,16 +1,18 @@
 {
   "schema_version": 1,
   "version": "aso-visual-research-2026-10-17.1",
-  "status": "text_annotations_active_visual_research_pending",
+  "status": "text_and_visual_annotations_active",
   "reviewed_on": "2026-10-17",
-  "purpose": "Backing research for the three text annotations selected in editorial.json. Those text annotations are supplied to current audits and shown in Sources. This file's screenshot observations and visual source notes are not loaded by corpus.knowledge(); screenshot analysis and live browser research remain unimplemented.",
+  "purpose": "Reviewed source notes and three public gallery observations supplied to screenshot reviews. Selected text annotations also feed editorial reviews through editorial.json. Live browser research is not implemented.",
   "sources": [
     {
       "id": "apple-accurate-metadata",
       "publisher": "Apple",
       "url": "https://developer.apple.com/app-store/review/guidelines/#accurate-metadata",
       "kind": "official_policy",
-      "stores": ["app_store"],
+      "stores": [
+        "app_store"
+      ],
       "scope": "Sections 2.3, 2.3.2, 2.3.3 and 2.3.9",
       "note": "Represent the actual app experience. Identify additional purchases for featured paid content. Screenshots should demonstrate use; overlays are permitted. Use fictional account information and secure rights to depicted materials.",
       "limitations": "A visible UI or publisher claim does not independently verify functionality, compliance or safety. Do not transfer preview-video or creative-asset rules to screenshots without checking their scope."
@@ -20,7 +22,9 @@
       "publisher": "Apple",
       "url": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
       "kind": "official_reference",
-      "stores": ["app_store"],
+      "stores": [
+        "app_store"
+      ],
       "scope": "Screenshot count, format and device-specific dimensions",
       "note": "Select requirements for the supported device and display size. The reference permits one to ten screenshots per device size and documents scaling and transparency restrictions.",
       "limitations": "No dimensions are implemented from this research. Recheck the current device table before implementing deterministic checks; an older blog's size list is insufficient."
@@ -30,7 +34,9 @@
       "publisher": "Apple",
       "url": "https://developer.apple.com/app-store/asset-best-practices/",
       "kind": "official_guidance",
-      "stores": ["app_store"],
+      "stores": [
+        "app_store"
+      ],
       "scope": "Screenshots section",
       "note": "Show the app experience and organize the principal benefits into a coherent sequence. Avoid dedicating an entire screenshot to accolades or an installation prompt.",
       "limitations": "Guidance does not prove conversion gains. The same page also describes headers, search creative assets and videos, whose capabilities and requirements are separate."
@@ -40,7 +46,9 @@
       "publisher": "Google",
       "url": "https://support.google.com/googleplay/android-developer/answer/9866151?hl=en",
       "kind": "official_reference_and_guidance",
-      "stores": ["google_play"],
+      "stores": [
+        "google_play"
+      ],
       "scope": "Screenshots: device sections, Requirements and Highly recommended",
       "note": "Distinguish publication requirements from recommendations and eligibility for particular promotional placements. Show actual UI, prioritize it early, keep text readable and localize overlays. Google recommends avoiding installation prompts in screenshot taglines.",
       "limitations": "Apply the selected device's rules. The recommendation limiting taglines to a fifth of an image is not an Apple rule or a universal publication constraint. Wear OS restrictions are not phone screenshot restrictions."
@@ -51,7 +59,9 @@
       "url": "https://phiture.com/asostack/ios-15-our-flywheel-approach-to-screenshots/",
       "published_on": "2021-09-23",
       "kind": "practitioner_framework",
-      "stores": ["app_store"],
+      "stores": [
+        "app_store"
+      ],
       "scope": "Iterative design and testing methodology",
       "note": "Prepare a design, test individual elements, document results by market and use those results in the next iteration.",
       "limitations": "Historical methodology, not current store specifications. Do not inherit performance guarantees or assume a successful change transfers to another market."
@@ -61,11 +71,18 @@
       "publisher": "AppTweak",
       "url": "https://www.apptweak.com/en/aso-blog/how-to-optimize-your-app-screenshots",
       "kind": "vendor_methodology",
-      "stores": ["app_store", "google_play"],
+      "stores": [
+        "app_store",
+        "google_play"
+      ],
       "scope": "Message selection, visual consistency and test hypotheses only",
       "note": "Use the discussion of concise feature messages, consistent presentation and testing as design hypotheses.",
       "limitations": "Do not adopt the article's store-rule summaries, universal advice to fill every slot, or performance claims. Its broad Google Play CTA advice needs narrowing against Google's screenshot guidance. Its blanket statement about prohibited Apple promotional text does not establish a ban on explanatory overlays.",
-      "cross_checked_against": ["google-preview-assets", "apple-accurate-metadata", "apple-screenshot-specifications"]
+      "cross_checked_against": [
+        "google-preview-assets",
+        "apple-accurate-metadata",
+        "apple-screenshot-specifications"
+      ]
     }
   ],
   "listing_review": {

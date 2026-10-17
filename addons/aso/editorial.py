@@ -184,7 +184,7 @@ def review_context(inputs, checks):
     }
 
 
-def call(run, instruction, context, schema, *, max_output_tokens):
+def call(run, instruction, context, schema, *, max_output_tokens, images=None):
     choice = run.inputs["ai"]
     connection = AIConnection.objects.filter(
         pk=choice["connection_id"],
@@ -207,6 +207,7 @@ def call(run, instruction, context, schema, *, max_output_tokens):
         context,
         schema,
         max_output_tokens=max_output_tokens,
+        **({"images": images} if images is not None else {}),
     )
 
 

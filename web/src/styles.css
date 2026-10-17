@@ -1698,6 +1698,56 @@ strong {
   }
 }
 
+.aso-visual-card {
+  display: grid;
+  grid-template-columns: minmax(150px, 230px) minmax(0, 1fr);
+  gap: 28px;
+  padding: 26px 0;
+  border-top: 1px solid var(--line);
+}
+.aso-visual-image {
+  padding: 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  align-self: start;
+}
+.aso-visual-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+.aso-visual-content header {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.aso-visual-content h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+.aso-visual-content p {
+  line-height: 1.65;
+}
+.aso-image-hash {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (max-width: 700px) {
+  .aso-visual-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .aso-visual-image {
+    width: min(230px, 100%);
+  }
+}
+
 /* ASO findings share the imported listing's quiet, document-like surface. */
 .aso-toolbar {
   display: flex;

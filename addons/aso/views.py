@@ -2,6 +2,7 @@ import logging
 
 from django.conf import settings
 from django.db import transaction
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 from rest_framework.decorators import api_view
@@ -15,11 +16,11 @@ from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows.models import WorkflowRun
 from panda_store.workflows.services import fail, recover
 
-from . import editorial, grounding
-from .models import AuditRun
+from . import editorial, grounding, visual
+from .models import AuditRun, ScreenshotEvidence
 from .rules import RULESET, localized_metadata
 from .tasks import audit_listing
-from .workflow import AI_VERSION, VERSION, create_workflow
+from .workflow import AI_VERSION, VERSION, VISUAL_VERSION, create_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,13 @@ class AuditRequest(serializers.Serializer):
     snapshot_id = serializers.UUIDField()
     provider = serializers.ChoiceField(choices=list(PROVIDERS), required=False)
     model = serializers.CharField(max_length=120, required=False)
+    mode = serializers.ChoiceField(choices=["listing", "screenshots"], default="listing")
 
     def validate(self, attrs):
         if ("provider" in attrs) != ("model" in attrs):
             raise ValidationError("Choose both a provider and a model, or use rules only.")
+        if attrs["mode"] == "screenshots" and "provider" not in attrs:
+            raise ValidationError("Choose a provider and model to review screenshots.")
         return attrs
 
 
@@ -44,6 +48,7 @@ class RetryRequest(serializers.Serializer):
 def serialize(run):
     return {
         "id": str(run.pk),
+        "mode": run.inputs.get("mode", "listing"),
         "workflow_id": str(run.workflow_id),
         "status": run.workflow.status,
         "error": run.workflow.error,
@@ -75,6 +80,8 @@ def dispatch(workflow_id):
 @api_view(["GET"])
 def knowledge(request, workspace_id):
     workspace_access(request.user, workspace_id, module="aso")
+    if request.query_params.get("mode") == "screenshots":
+        return Response({"version": visual.KNOWLEDGE_VERSION, "entries": visual.knowledge()})
     return Response({"version": editorial.KNOWLEDGE_VERSION, "entries": editorial.knowledge()})
 
 
@@ -111,6 +118,13 @@ def runs(request, workspace_id, app_id):
         "locale": values["locale"],
         "ruleset": RULESET,
     }
+    screenshots = values["mode"] == "screenshots"
+    if screenshots:
+        if not snapshot.data.get("screenshots") or (
+            snapshot.data.get("screenshots_locale") != values["locale"]
+        ):
+            raise ValidationError("No screenshots were imported for this language.")
+        inputs.update(mode="screenshots", visual_version=visual.VERSION)
     with transaction.atomic():
         Workspace.objects.select_for_update().get(pk=workspace.pk)
         workspace_access(request.user, workspace_id, write=True, module="aso")
@@ -132,16 +146,23 @@ def runs(request, workspace_id, app_id):
                 "grounding_version": grounding.VERSION,
                 "grounding_max_output_tokens": grounding.MAX_OUTPUT_TOKENS,
             }
-            inputs["knowledge"] = editorial.knowledge(platform=app.platform)
-            inputs["knowledge_version"] = editorial.KNOWLEDGE_VERSION
-            inputs["field_criteria"] = editorial.FIELD_CRITERIA
+            inputs["knowledge"] = (
+                visual.knowledge() if screenshots else editorial.knowledge(platform=app.platform)
+            )
+            inputs["knowledge_version"] = (
+                visual.KNOWLEDGE_VERSION if screenshots else editorial.KNOWLEDGE_VERSION
+            )
+            if not screenshots:
+                inputs["field_criteria"] = editorial.FIELD_CRITERIA
         run = AuditRun.objects.filter(workspace=workspace, request_id=values["request_id"]).first()
         created = run is None
         if run:
             if run.app_id != app.pk or run.inputs != inputs:
                 return Response({"error": "This request ID has already been used."}, status=409)
         else:
-            workflow = create_workflow(workspace, request.user, ai="ai" in inputs)
+            workflow = create_workflow(
+                workspace, request.user, ai="ai" in inputs, screenshots=screenshots
+            )
             run = AuditRun.objects.create(
                 workspace=workspace,
                 app=app,
@@ -173,8 +194,17 @@ def retry(request, workspace_id, run_id):
             return Response(serialize(existing))
         if previous.status not in {WorkflowRun.Status.FAILED, WorkflowRun.Status.CANCELED}:
             raise ValidationError("Only failed or canceled audits can be retried.")
+        screenshots = original.inputs.get("mode") == "screenshots"
         if (
-            previous.version != (AI_VERSION if "ai" in original.inputs else VERSION)
+            previous.version
+            != (
+                VISUAL_VERSION
+                if screenshots
+                else AI_VERSION
+                if "ai" in original.inputs
+                else VERSION
+            )
+            or (screenshots and original.inputs.get("visual_version") != visual.VERSION)
             or original.inputs["ruleset"] != RULESET
             or (
                 "ai" in original.inputs
@@ -189,7 +219,11 @@ def retry(request, workspace_id, run_id):
         if AuditRun.objects.filter(workspace=workspace, request_id=request_id).exists():
             return Response({"error": "This request ID has already been used."}, status=409)
         workflow = create_workflow(
-            workspace, request.user, retry_of=previous, ai="ai" in original.inputs
+            workspace,
+            request.user,
+            retry_of=previous,
+            ai="ai" in original.inputs,
+            screenshots=screenshots,
         )
         run = AuditRun.objects.create(
             workspace=workspace,
@@ -202,3 +236,13 @@ def retry(request, workspace_id, run_id):
         transaction.on_commit(lambda: dispatch(workflow.pk))
     run.refresh_from_db()
     return Response(serialize(run), status=202)
+
+
+@api_view(["GET"])
+def image(request, workspace_id, image_id):
+    workspace_access(request.user, workspace_id, module="aso")
+    asset = get_object_or_404(ScreenshotEvidence, pk=image_id, audit__workspace_id=workspace_id)
+    response = HttpResponse(bytes(asset.data), content_type="image/jpeg")
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response

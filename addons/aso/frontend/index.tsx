@@ -9,6 +9,7 @@ import type { DraftSeed } from './draftTypes';
 import { modelSuggestions } from './modelSuggestions';
 import { notify } from '../../../web/src/notifications/store';
 import Sources, { fieldNames, SourceReference, type Guidance, type Source } from './Sources';
+import Screenshots, { type VisualReport } from './Screenshots';
 
 type CheckStatus = 'issue' | 'recommendation' | 'review' | 'unavailable' | 'passed';
 interface Check {
@@ -41,6 +42,7 @@ const verdictLabels = {
 };
 interface AuditRun {
   id: string;
+  mode?: 'listing' | 'screenshots';
   workflow_id: string;
   status: WorkflowStatus;
   locale: string;
@@ -53,6 +55,7 @@ interface AuditRun {
   knowledge_version?: string | null;
   ai?: { provider: string; model: string } | null;
   report: {
+    visual?: VisualReport;
     editorial?: {
       provider: string;
       model: string;
@@ -255,6 +258,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   );
   const [ai, setAI] = useState<AIChoice>(null);
   const [aiLoading, setAILoading] = useState(true);
+  const [mode, setMode] = useState<'listing' | 'screenshots'>('listing');
   const [runs, setRuns] = useState<AuditRun[]>([]);
   const [runId, setRunId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -268,6 +272,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const history = runs.filter((item) => item.locale === locale);
   const run = history.find((item) => item.id === runId) ?? history[0];
   const working = history.some((item) => pending(item.status));
+  const screenshotCount =
+    metadata?.data.screenshots_locale === locale ? (metadata.data.screenshots?.length ?? 0) : 0;
 
   useEffect(() => {
     alive.current = true;
@@ -312,7 +318,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     setError('');
     const key = retry
       ? `retry:${run.id}`
-      : `${metadata.id}:${locale}:${ai?.provider || 'rules'}:${ai?.model || ''}`;
+      : `${metadata.id}:${locale}:${mode}:${ai?.provider || 'rules'}:${ai?.model || ''}`;
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
     try {
       const next = await api<AuditRun>(
@@ -322,7 +328,12 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           feedback: { success: retry ? 'Audit retry started.' : 'Audit started.' },
           body: JSON.stringify({
             request_id: request.current.id,
-            ...(!retry && { snapshot_id: metadata.id, locale, ...(ai || {}) }),
+            ...(!retry && {
+              snapshot_id: metadata.id,
+              locale,
+              ...(mode === 'screenshots' ? { mode } : {}),
+              ...(ai || {}),
+            }),
           }),
         },
       );
@@ -394,6 +405,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         <Sources
           key={run?.id || 'current'}
           workspaceId={workspace.id}
+          mode={run?.mode ?? mode}
           saved={
             run?.ai
               ? {
@@ -417,6 +429,17 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
             }}
           />
           <section className="aso-toolbar" aria-label="Audit settings">
+            <label className="compact-label">
+              Review
+              <select
+                value={mode}
+                disabled={busy || working}
+                onChange={(event) => setMode(event.target.value as 'listing' | 'screenshots')}
+              >
+                <option value="listing">Listing text</option>
+                <option value="screenshots">Screenshots</option>
+              </select>
+            </label>
             <label className="compact-label">
               Language
               <select
@@ -447,17 +470,28 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                 loading ||
                 loadFailed ||
                 aiLoading ||
+                (mode === 'screenshots' && (!ai || !screenshotCount)) ||
                 (!!ai && !ai.model)
               }
               onClick={() => start()}
             >
-              {busy ? 'Starting…' : working ? 'Audit in progress…' : 'Run audit'}
+              {busy
+                ? 'Starting…'
+                : working
+                  ? 'Audit in progress…'
+                  : mode === 'screenshots'
+                    ? 'Review screenshots'
+                    : 'Run audit'}
             </button>
           </section>
           <p className="aso-scope">
-            {ai
-              ? 'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.'
-              : 'Apple metadata checks · No AI call'}
+            {mode === 'screenshots'
+              ? screenshotCount
+                ? `${screenshotCount} screenshots imported for ${locale} · Choose an AI model. Up to 10 images and listing text are sent twice to your provider; usage is billed there.`
+                : `No screenshots imported for ${locale}. ${metadata?.data.screenshots_locale ? `Images are available for ${metadata.data.screenshots_locale}.` : 'Refresh the app import in My apps.'}`
+              : ai
+                ? 'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.'
+                : 'Apple metadata checks · No AI call'}
           </p>
           {error && (
             <p className="error" role="alert">
@@ -496,6 +530,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                     {history.map((item) => (
                       <option key={item.id} value={item.id}>
                         {date(item.created_at)} ·{' '}
+                        {item.mode === 'screenshots' ? 'Screenshots · ' : ''}
                         {item.status === 'succeeded' ? 'Completed' : item.status} ·{' '}
                         {item.ai?.model || 'Rules only'}
                       </option>
@@ -525,124 +560,134 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
               {run.report && (
                 <section className="aso-report" aria-label="Audit findings">
                   <div className="aso-report-heading">
-                    <h2>Recommendations</h2>
+                    <h2>{run.report.visual ? 'Screenshot review' : 'Recommendations'}</h2>
                     <span className="note">
                       {run.locale} · Imported {date(run.captured_at)}
                     </span>
                   </div>
-                  {run.report.editorial && (
-                    <p className="notice">
-                      {run.report.editorial.resolved_model} ·{' '}
-                      {run.report.editorial.accepted_proposals} AI proposals ·{' '}
-                      {run.report.editorial.usage.input_tokens ?? '—'} input /{' '}
-                      {run.report.editorial.usage.output_tokens ?? '—'} output tokens
-                      {!!run.report.editorial.usage.reasoning_tokens &&
-                        ` + ${run.report.editorial.usage.reasoning_tokens} reasoning tokens`}
-                      {run.report.editorial.rejected_proposals > 0 &&
-                        ` · ${run.report.editorial.rejected_proposals} proposals excluded by validation.`}
-                    </p>
-                  )}
-                  {run.report.editorial?.grounding ? (
-                    <p className="note">
-                      Evidence review · {run.report.editorial.grounding.reviewed_items} items
-                      checked
-                      {' · '}
-                      {run.report.editorial.grounding.withheld_observations}{' '}
-                      {run.report.editorial.grounding.withheld_observations === 1
-                        ? 'observation'
-                        : 'observations'}{' '}
-                      and {run.report.editorial.grounding.withheld_proposals}{' '}
-                      {run.report.editorial.grounding.withheld_proposals === 1
-                        ? 'proposal'
-                        : 'proposals'}{' '}
-                      withheld
-                      {' · '}
-                      {run.report.editorial.grounding.usage.input_tokens ?? '—'} input /{' '}
-                      {run.report.editorial.grounding.usage.output_tokens ?? '—'} output tokens
-                      {!!run.report.editorial.grounding.usage.reasoning_tokens &&
-                        ` + ${run.report.editorial.grounding.usage.reasoning_tokens} reasoning tokens`}
-                    </p>
-                  ) : run.report.editorial ? (
-                    <p className="notice">
-                      This earlier audit did not include the separate evidence review. Run a new AI
-                      audit to check its claims.
-                    </p>
-                  ) : null}
-                  <h3>Content review</h3>
-                  {assessments ? (
+                  {run.report.visual ? (
+                    <Screenshots report={run.report.visual} />
+                  ) : (
                     <>
-                      <p className="note">
-                        {run.report.editorial?.reviewed_fields} of {assessments.length} fields
-                        reviewed · AI assessment
-                      </p>
-                      {assessments.map((assessment) => {
-                        const proposal = checks.find(
-                          (check) =>
-                            check.field === assessment.field &&
-                            check.basis === 'editorial_hypothesis',
-                        );
-                        const finding: Check = proposal ?? {
-                          id: `assessment.${assessment.field}`,
-                          field: assessment.field,
-                          title: fieldNames[assessment.field],
-                          status: assessment.verdict === 'keep' ? 'passed' : 'review',
-                          basis: 'editorial_assessment',
-                          observation: assessment.observation,
-                          action: '',
-                          observed: assessment.observed,
-                          sources: [],
-                        };
-                        return (
+                      {run.report.editorial && (
+                        <p className="notice">
+                          {run.report.editorial.resolved_model} ·{' '}
+                          {run.report.editorial.accepted_proposals} AI proposals ·{' '}
+                          {run.report.editorial.usage.input_tokens ?? '—'} input /{' '}
+                          {run.report.editorial.usage.output_tokens ?? '—'} output tokens
+                          {!!run.report.editorial.usage.reasoning_tokens &&
+                            ` + ${run.report.editorial.usage.reasoning_tokens} reasoning tokens`}
+                          {run.report.editorial.rejected_proposals > 0 &&
+                            ` · ${run.report.editorial.rejected_proposals} proposals excluded by validation.`}
+                        </p>
+                      )}
+                      {run.report.editorial?.grounding ? (
+                        <p className="note">
+                          Evidence review · {run.report.editorial.grounding.reviewed_items} items
+                          checked
+                          {' · '}
+                          {run.report.editorial.grounding.withheld_observations}{' '}
+                          {run.report.editorial.grounding.withheld_observations === 1
+                            ? 'observation'
+                            : 'observations'}{' '}
+                          and {run.report.editorial.grounding.withheld_proposals}{' '}
+                          {run.report.editorial.grounding.withheld_proposals === 1
+                            ? 'proposal'
+                            : 'proposals'}{' '}
+                          withheld
+                          {' · '}
+                          {run.report.editorial.grounding.usage.input_tokens ?? '—'} input /{' '}
+                          {run.report.editorial.grounding.usage.output_tokens ?? '—'} output tokens
+                          {!!run.report.editorial.grounding.usage.reasoning_tokens &&
+                            ` + ${run.report.editorial.grounding.usage.reasoning_tokens} reasoning tokens`}
+                        </p>
+                      ) : run.report.editorial ? (
+                        <p className="notice">
+                          This earlier audit did not include the separate evidence review. Run a new
+                          AI audit to check its claims.
+                        </p>
+                      ) : null}
+                      <h3>Content review</h3>
+                      {assessments ? (
+                        <>
+                          <p className="note">
+                            {run.report.editorial?.reviewed_fields} of {assessments.length} fields
+                            reviewed · AI assessment
+                          </p>
+                          {assessments.map((assessment) => {
+                            const proposal = checks.find(
+                              (check) =>
+                                check.field === assessment.field &&
+                                check.basis === 'editorial_hypothesis',
+                            );
+                            const finding: Check = proposal ?? {
+                              id: `assessment.${assessment.field}`,
+                              field: assessment.field,
+                              title: fieldNames[assessment.field],
+                              status: assessment.verdict === 'keep' ? 'passed' : 'review',
+                              basis: 'editorial_assessment',
+                              observation: assessment.observation,
+                              action: '',
+                              observed: assessment.observed,
+                              sources: [],
+                            };
+                            return (
+                              <Finding
+                                key={`${run.id}:assessment:${assessment.field}`}
+                                check={finding}
+                                assessment={assessment}
+                                onAdd={
+                                  canWrite && proposal?.replacement
+                                    ? () => addToDraft(proposal)
+                                    : undefined
+                                }
+                              />
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <p className="note">
+                          {run.ai
+                            ? 'This earlier audit did not record a review for each field. Run a new AI audit to see them.'
+                            : 'Content was not reviewed by AI. Choose a provider and model to review each field.'}
+                        </p>
+                      )}
+                      <h3>{assessments || !run.ai ? 'Apple checks' : 'Saved recommendations'}</h3>
+                      {actionable.length ? (
+                        actionable.map((check) => (
                           <Finding
-                            key={`${run.id}:assessment:${assessment.field}`}
-                            check={finding}
-                            assessment={assessment}
+                            key={`${run.id}:${check.id}`}
+                            check={check}
                             onAdd={
-                              canWrite && proposal?.replacement
-                                ? () => addToDraft(proposal)
-                                : undefined
+                              canWrite && check.replacement ? () => addToDraft(check) : undefined
                             }
                           />
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <p className="note">
-                      {run.ai
-                        ? 'This earlier audit did not record a review for each field. Run a new AI audit to see them.'
-                        : 'Content was not reviewed by AI. Choose a provider and model to review each field.'}
-                    </p>
-                  )}
-                  <h3>{assessments || !run.ai ? 'Apple checks' : 'Saved recommendations'}</h3>
-                  {actionable.length ? (
-                    actionable.map((check) => (
-                      <Finding
-                        key={`${run.id}:${check.id}`}
-                        check={check}
-                        onAdd={canWrite && check.replacement ? () => addToDraft(check) : undefined}
-                      />
-                    ))
-                  ) : (
-                    <p className="aso-no-issues">No changes identified by these metadata checks.</p>
-                  )}
-                  <h3>Still to assess</h3>
-                  {coverage.map((check) => (
-                    <Finding key={`${run.id}:${check.id}`} check={check} />
-                  ))}
-                  {!!passed.length && (
-                    <details className="aso-passed-group">
-                      <summary>{passed.length} Apple checks passed</summary>
-                      {passed.map((check) => (
+                        ))
+                      ) : (
+                        <p className="aso-no-issues">
+                          No changes identified by these metadata checks.
+                        </p>
+                      )}
+                      <h3>Still to assess</h3>
+                      {coverage.map((check) => (
                         <Finding key={`${run.id}:${check.id}`} check={check} />
                       ))}
-                    </details>
+                      {!!passed.length && (
+                        <details className="aso-passed-group">
+                          <summary>{passed.length} Apple checks passed</summary>
+                          {passed.map((check) => (
+                            <Finding key={`${run.id}:${check.id}`} check={check} />
+                          ))}
+                        </details>
+                      )}
+                      <p className="aso-report-footnote">
+                        No changes have been sent to Apple.{' '}
+                        {run.ai ? 'AI proposals require review. ' : 'Editorial AI was not used. '}
+                        Competitor research, screenshot analysis and download measurement are not
+                        included.
+                      </p>
+                    </>
                   )}
-                  <p className="aso-report-footnote">
-                    No changes have been sent to Apple.{' '}
-                    {run.ai ? 'AI proposals require review. ' : 'Editorial AI was not used. '}
-                    Competitor research, screenshot analysis and download measurement are not
-                    included.
-                  </p>
                 </section>
               )}
             </>

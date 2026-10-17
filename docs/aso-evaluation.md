@@ -257,3 +257,45 @@ The evaluation method follows the distinction between automated checks and human
 calibration in the official [OpenAI evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices).
 Sources were consulted on October 17, 2026 (UTC). This implementation is local and
 provider-independent; it does not depend on OpenAI's hosted Evals platform.
+
+## Screenshot review validation — 2026-10-17
+
+The screenshot workflow has protocol/security tests distinct from model-quality
+checks. Automated cases cover all three inline-image formats, exact locale and
+workspace/module isolation, private archived images, partial and complete image
+failures, URL/redirect/size/decoder restrictions, a total download deadline,
+the ten-image cap, cancellation before an AI call, complete evidence-review coverage,
+stale-context rejection, and retry without downloading images or repeating a
+completed generation. These tests use synthetic images and mocked provider verdicts;
+they do not establish visual reasoning quality.
+
+Live Gemini `gemini-4-argon` was exercised with five imported en-US iPhone screenshots
+from the connected test app. Both calls received the same archived image bytes.
+Human inspection of the first run found overly broad paid-control and overlapping
+card-layout advice. `apple-visual-2026-10-17.2` now distinguishes featured paid
+content from incidental controls, and layout hypotheses from purported Apple rules.
+It also treats a feature missing from the listing as an evidence gap, not proof
+that the app lacks the feature. The official policy scope was rechecked against
+[Apple §§2.3.2–2.3.3](https://developer.apple.com/app-store/review/guidelines/#accurate-metadata).
+
+A targeted live verifier check used ten predefined candidates in two batches:
+six invalid claims (mandatory placement of purchase labels, overlap as a UI defect,
+fake overlay/20% rules, filename-derived storefront order, fabricated download gain,
+and a fabricated caption) plus four bounded observations/hypotheses. All ten verdicts
+matched the human expectations in this single run. This is a narrow sanity check,
+not an estimate of error rate or validation across stores, languages and providers.
+
+A full run of the revised prompt produced an invalid structured assessment and was
+blocked before publication. An explicit retry reused the archived images and
+completed in 39 seconds, retaining three suggestions to test and two keep assessments.
+The final images and observations were inspected together. The initial malformed
+response was not retained, so its exact validation failure is unknown; the retry's
+raw response was retained locally. No automatic paid retries were introduced.
+Private test inputs/results are under ignored `output/aso-visual-20261017/`; they are
+not committed with the source. No store assets were changed or published.
+
+A separate live OpenAI `gpt-6.1-sol` image-transport smoke check correctly read the
+large caption from one archived image (519 input / 19 output tokens). This verifies
+image delivery and a simple reading task, not the full OpenAI visual-audit quality.
+Claude image transport has automated contract coverage only; no live Claude visual
+review was performed.

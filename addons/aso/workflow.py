@@ -2,6 +2,7 @@ from panda_store.workflows.services import create_run
 
 VERSION = 1
 AI_VERSION = 2
+VISUAL_VERSION = 1
 STEPS = [
     {"key": "listing", "title": "Read saved listing", "kind": "validation", "depends_on": []},
     {"key": "checks", "title": "Check Apple guidance", "kind": "rules", "depends_on": ["listing"]},
@@ -36,17 +37,37 @@ AI_STEPS = STEPS[:2] + [
         "depends_on": ["grounding"],
     },
 ]
-RUNNERS = {"aso.audit": (VERSION, execute), "aso.editorial": (AI_VERSION, execute)}
+VISUAL_STEPS = STEPS[:1] + [
+    {
+        "key": "images",
+        "title": "Save screenshot evidence",
+        "kind": "storage",
+        "depends_on": ["listing"],
+    },
+    {"key": "visual", "title": "Review screenshots", "kind": "ai", "depends_on": ["images"]},
+    {
+        "key": "verify_visual",
+        "title": "Check visual evidence",
+        "kind": "ai",
+        "depends_on": ["visual"],
+    },
+    {"key": "report", "title": "Save findings", "kind": "storage", "depends_on": ["verify_visual"]},
+]
+RUNNERS = {
+    "aso.audit": (VERSION, execute),
+    "aso.editorial": (AI_VERSION, execute),
+    "aso.visual": (VISUAL_VERSION, execute),
+}
 
 
-def create_workflow(workspace, user, retry_of=None, ai=False):
+def create_workflow(workspace, user, retry_of=None, ai=False, screenshots=False):
     return create_run(
         workspace=workspace,
         user=user,
         module_id="aso",
-        key="aso.editorial" if ai else "aso.audit",
-        version=AI_VERSION if ai else VERSION,
-        title="Audit store listing",
-        steps=AI_STEPS if ai else STEPS,
+        key="aso.visual" if screenshots else "aso.editorial" if ai else "aso.audit",
+        version=VISUAL_VERSION if screenshots else AI_VERSION if ai else VERSION,
+        title="Review screenshots" if screenshots else "Audit store listing",
+        steps=VISUAL_STEPS if screenshots else AI_STEPS if ai else STEPS,
         retry_of=retry_of,
     )
