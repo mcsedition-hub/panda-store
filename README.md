@@ -191,6 +191,15 @@ does not automatically include it in AI context. There is no live web research.
 Visual analysis, competitors, search demand, download measurement, Google Play
 audits and publishing are not implemented. No score or growth guarantee is produced.
 
+Preparation for visual research includes [reviewed source notes and three public
+listing studies](addons/aso/knowledge/visual-research.json): Duolingo, Spotify and
+Tinder, inspected in a browser on October 17, 2026 (US App Store, English, iPhone
+gallery). These observations are not included in AI audits or the Sources tab.
+The [planned research workflow](docs/architecture.md#recherche-sur-trois-fiches-de-référence)
+requires opening three well-known apps from different domains, recording coverage
+and checking relevance separately from niche competitors. Public examples provide
+test hypotheses, not evidence of conversion gains.
+
 Maintainers can run the [ASO evaluation suite](docs/aso-evaluation.md) against ten
 synthetic cases using any connected provider. It keeps automated expectations
 separate from human editorial review, saves inspectable reports, and supports

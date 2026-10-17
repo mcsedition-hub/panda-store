@@ -446,6 +446,54 @@ Le catalogue distribué contient liens et annotations originales. L'indexation
 future respecte les autorisations d'accès et de réutilisation ; aucune copie
 intégrale de blogs tiers n'est redistribuée. Les règles évoluent avec historique.
 
+### Recherche sur trois fiches de référence
+
+Exigence pour chaque future recherche ASO enrichie : ouvrir les fiches publiques
+de trois apps connues dans trois domaines différents et parcourir leurs textes
+et galeries disponibles. Une liste de noms, un résultat de recherche ou le souvenir
+du modèle ne constitue pas une consultation. Ce regard transversal complète une
+recherche de concurrents pertinents pour la niche ; il ne la remplace pas.
+
+La [première revue manuelle](../addons/aso/knowledge/visual-research.json) du
+17 octobre 2026 porte sur Duolingo, Spotify et Tinder : App Store américain,
+texte anglais et galerie iPhone, parcourue jusqu'à sa fin dans le navigateur.
+Elle conserve des observations originales et des liens, sans redistribuer les
+images. Le téléchargement des assets ayant été refusé, aucune copie ni empreinte
+des images n'est archivée. Ce fichier est une préparation documentaire : ni
+`corpus.knowledge()`, ni les audits existants, ni l'onglet Sources ne le chargent.
+Les audits antérieurs ne disposaient pas de cette recherche sur trois fiches.
+
+Le futur workflow devra :
+
+- Ouvrir ou revérifier les pages à chaque recherche ; conserver URL, date, store,
+  pays, langue, appareil et couverture réelle. Une version d'app observée ne date
+  pas ses captures. Une note ancienne ne devient pas une observation actuelle.
+- Examiner nom, sous-titre ou description courte, structure de description,
+  message des captures, interface montrée et ordre de la galerie. Ne pas déduire
+  des mots-clés Apple privés à partir de la fiche publique.
+- Afficher les pages consultées dans l'activité et la couverture obtenue sur les
+  trois références. Une page inaccessible ou une galerie partielle reste signalée ;
+  une observation manquante n'est jamais inventée pour atteindre trois.
+- Séparer règles officielles, recommandations officielles, méthodes de praticiens,
+  observations publiques et résultats d'expériences. Conserver les contradictions
+  et les conditions de paiement, de marché ou de disponibilité.
+- Justifier la pertinence de chaque exemple pour l'app auditée et formuler une
+  hypothèse testable. Ni la notoriété, ni une interface visible ne prouvent une
+  hausse de conversion, la conformité ou le fonctionnement réel d'une feature.
+- Figer les notes utilisées avec l'audit et rendre leurs sources consultables.
+  Avant injection, évaluer les confusions entre exemple et règle, les transferts
+  entre stores/langues, les promesses inventées et les instructions présentes
+  dans les pages. Le choix du modèle et les accès restent propres à l'installation.
+
+Pour les captures, la revue préparatoire couvre les règles Apple sur les
+métadonnées, ses spécifications et conseils de présentation, puis les exigences et
+recommandations Google sur les assets. Phiture fournit une méthode d'itération
+historique ; les conseils AppTweak sont retenus par affirmation après recoupement.
+Par exemple, son conseil général d'ajouter des CTA doit être restreint par la
+recommandation Google d'éviter les invitations à installer dans les captures.
+L'agent ne doit pas absorber un article entier au seul motif de la réputation de
+son éditeur. Les méthodes de mesure restent distinctes des observations visuelles.
+
 ### Graphe de connaissances et recherche documentaire
 
 Le graphe proposé relie chaque proposition à ses preuves :

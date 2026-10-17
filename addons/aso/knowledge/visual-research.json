@@ -1,0 +1,147 @@
+{
+  "schema_version": 1,
+  "version": "aso-visual-research-2026-10-17.1",
+  "status": "reviewed_research_not_runtime_context",
+  "reviewed_on": "2026-10-17",
+  "purpose": "Preparation for screenshot analysis and browser research. This file is not loaded by corpus.knowledge(), supplied to current audits, or displayed in the Sources tab.",
+  "sources": [
+    {
+      "id": "apple-accurate-metadata",
+      "publisher": "Apple",
+      "url": "https://developer.apple.com/app-store/review/guidelines/#accurate-metadata",
+      "kind": "official_policy",
+      "stores": ["app_store"],
+      "scope": "Sections 2.3, 2.3.2, 2.3.3 and 2.3.9",
+      "note": "Represent the actual app experience. Identify additional purchases for featured paid content. Screenshots should demonstrate use; overlays are permitted. Use fictional account information and secure rights to depicted materials.",
+      "limitations": "A visible UI or publisher claim does not independently verify functionality, compliance or safety. Do not transfer preview-video or creative-asset rules to screenshots without checking their scope."
+    },
+    {
+      "id": "apple-screenshot-specifications",
+      "publisher": "Apple",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/",
+      "kind": "official_reference",
+      "stores": ["app_store"],
+      "scope": "Screenshot count, format and device-specific dimensions",
+      "note": "Select requirements for the supported device and display size. The reference permits one to ten screenshots per device size and documents scaling and transparency restrictions.",
+      "limitations": "No dimensions are implemented from this research. Recheck the current device table before implementing deterministic checks; an older blog's size list is insufficient."
+    },
+    {
+      "id": "apple-screenshot-practices",
+      "publisher": "Apple",
+      "url": "https://developer.apple.com/app-store/asset-best-practices/",
+      "kind": "official_guidance",
+      "stores": ["app_store"],
+      "scope": "Screenshots section",
+      "note": "Show the app experience and organize the principal benefits into a coherent sequence. Avoid dedicating an entire screenshot to accolades or an installation prompt.",
+      "limitations": "Guidance does not prove conversion gains. The same page also describes headers, search creative assets and videos, whose capabilities and requirements are separate."
+    },
+    {
+      "id": "google-preview-assets",
+      "publisher": "Google",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151?hl=en",
+      "kind": "official_reference_and_guidance",
+      "stores": ["google_play"],
+      "scope": "Screenshots: device sections, Requirements and Highly recommended",
+      "note": "Distinguish publication requirements from recommendations and eligibility for particular promotional placements. Show actual UI, prioritize it early, keep text readable and localize overlays. Google recommends avoiding installation prompts in screenshot taglines.",
+      "limitations": "Apply the selected device's rules. The recommendation limiting taglines to a fifth of an image is not an Apple rule or a universal publication constraint. Wear OS restrictions are not phone screenshot restrictions."
+    },
+    {
+      "id": "phiture-screenshot-flywheel",
+      "publisher": "Phiture",
+      "url": "https://phiture.com/asostack/ios-15-our-flywheel-approach-to-screenshots/",
+      "published_on": "2021-09-23",
+      "kind": "practitioner_framework",
+      "stores": ["app_store"],
+      "scope": "Iterative design and testing methodology",
+      "note": "Prepare a design, test individual elements, document results by market and use those results in the next iteration.",
+      "limitations": "Historical methodology, not current store specifications. Do not inherit performance guarantees or assume a successful change transfers to another market."
+    },
+    {
+      "id": "apptweak-screenshot-methods",
+      "publisher": "AppTweak",
+      "url": "https://www.apptweak.com/en/aso-blog/how-to-optimize-your-app-screenshots",
+      "kind": "vendor_methodology",
+      "stores": ["app_store", "google_play"],
+      "scope": "Message selection, visual consistency and test hypotheses only",
+      "note": "Use the discussion of concise feature messages, consistent presentation and testing as design hypotheses.",
+      "limitations": "Do not adopt the article's store-rule summaries, universal advice to fill every slot, or performance claims. Its broad Google Play CTA advice needs narrowing against Google's screenshot guidance. Its blanket statement about prohibited Apple promotional text does not establish a ban on explanatory overlays.",
+      "cross_checked_against": ["google-preview-assets", "apple-accurate-metadata", "apple-screenshot-specifications"]
+    }
+  ],
+  "listing_review": {
+    "method": "Manual browser review of public listing text and visible iPhone screenshot carousels, scrolling through each carousel until Next Page was disabled.",
+    "store": "app_store",
+    "storefront": "US",
+    "observed_language": "en",
+    "device_gallery": "iPhone",
+    "viewing_context": "Desktop web App Store; no on-device readability test",
+    "reviewed_on": "2026-10-17",
+    "evidence_kind": "public_listing_observation",
+    "asset_files_saved": false,
+    "asset_access_note": "Browser asset download was denied. Only on-screen review, source links and original notes were retained; no alternative download was attempted.",
+    "limitations": [
+      "These cross-domain examples are not direct competitors or a representative sample of all successful apps.",
+      "Observed app versions do not establish when listing text or screenshot assets changed.",
+      "Public pages reveal neither hidden Apple keyword fields nor conversion, experiment or attributed-install results.",
+      "Publisher descriptions and depicted UI are not independently tested product behavior.",
+      "English US observations require a separate relevance check for another language, market, device or store.",
+      "No asset copies, source dimensions, OCR output or content hashes are archived. Reopen the linked pages to verify current observations."
+    ],
+    "apps": [
+      {
+        "id": "duolingo-us-iphone-2026-10-17",
+        "name": "Duolingo",
+        "store_app_id": "570060128",
+        "url": "https://apps.apple.com/us/app/duolingo-learn-languages/id570060128",
+        "domain": "education",
+        "observed_app_version": "7.144.0",
+        "text_observations": [
+          "The name establishes language learning; the subtitle adds examples and other subjects.",
+          "The description explains short lessons, groups subjects and separates the paid offer."
+        ],
+        "visual_observations": [
+          "White interface areas dominate, with illustrated characters and short captions in colored blocks at the bottom.",
+          "The sequence moves from course breadth to exercises, then conversation practice, a daily streak, arithmetic and music."
+        ],
+        "hypothesis_to_test": "Pair a task visible in the target app with one short benefit caption, then test its position in the sequence.",
+        "transfer_limits": "Do not copy the mascot, claim learning efficacy, or infer that bottom captions or streaks suit every app."
+      },
+      {
+        "id": "spotify-us-iphone-2026-10-17",
+        "name": "Spotify",
+        "store_app_id": "324684580",
+        "url": "https://apps.apple.com/us/app/spotify-music-and-podcasts/id324684580",
+        "domain": "audio_entertainment",
+        "observed_app_version": "9.1.90",
+        "text_observations": [
+          "Name and subtitle enumerate listening formats and uses.",
+          "The description separates free and Premium benefits; downloads for offline listening appear in the paid offer, with audiobook availability qualifications."
+        ],
+        "visual_observations": [
+          "Pink backgrounds, green borders, large upper headlines and angled interface crops recur across the gallery.",
+          "Screens group distinct uses: discovery, lyrics, playlists, audiobooks, saved favorites and cover creation. Audiobook imagery includes market qualifications."
+        ],
+        "hypothesis_to_test": "Use a consistent layout for separate use cases and keep relevant feature qualifications visible.",
+        "transfer_limits": "The palette and interface angles are design choices, not proven conversion factors. Do not erase paid or regional restrictions."
+      },
+      {
+        "id": "tinder-us-iphone-2026-10-17",
+        "name": "Tinder",
+        "store_app_id": "547702041",
+        "url": "https://apps.apple.com/us/app/tinder-dating-app-date-chat/id547702041",
+        "domain": "dating",
+        "observed_app_version": "17.39.2",
+        "text_observations": [
+          "Name and subtitle foreground meeting and dating; description sections cover use, self-expression, safety messaging and subscriptions.",
+          "The description identifies profile imagery as illustrative models."
+        ],
+        "visual_observations": [
+          "Large upper headlines accompany lifestyle photos, profile examples and interface crops on varied backgrounds.",
+          "The opening scene and profile prompts lead into double dates, photo verification, matching modes, shared interests, chat and sharing meetup details."
+        ],
+        "hypothesis_to_test": "Connect a user motivation to a concrete interface example and explain relevant controls later in the sequence.",
+        "transfer_limits": "Depicted profiles are not testimonials. Verification imagery does not prove safety; dating imagery and a brand-led opening are not universal templates."
+      }
+    ]
+  }
+}

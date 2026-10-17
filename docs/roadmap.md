@@ -45,6 +45,16 @@ observations, propositions et résultats. La première sélection inclut Apple,
 Google, Phiture, AppTweak et SplitMetrics ; Google n'est pas injecté dans la revue
 Apple. L'indexation et le graphe restent à implémenter.
 
+La préparation des captures comprend désormais une [revue documentaire et trois
+fiches examinées dans le navigateur](../addons/aso/knowledge/visual-research.json) :
+Duolingo, Spotify et Tinder, dans trois domaines différents, le 17 octobre 2026.
+Ces notes ne sont pas encore injectées dans l'IA. La tranche recherche devra
+ouvrir trois fiches à chaque exécution, afficher ses sources et sa couverture,
+vérifier la pertinence des exemples, puis figer les observations avec l'audit.
+Une consultation incomplète doit rester visible. Ajouter la recherche de niche
+séparément ; les choix d'une grande app ne démontrent pas leur efficacité.
+Voir les [critères du parcours](architecture.md#recherche-sur-trois-fiches-de-référence).
+
 Auditer la fiche ASO avant de générer des scripts. Pour chaque store et
 langue, distinguer les contraintes officielles vérifiables des recommandations
 éditoriales : noms, sous-titres ou descriptions courtes, descriptions, mots-clés
