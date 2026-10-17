@@ -236,6 +236,7 @@ def test_parallel_deliveries_only_execute_once(api, workspace, imported, setting
     assert run.workflow.events.filter(kind="started").count() == 1
 
 
+@pytest.mark.django_db(transaction=True)
 def test_database_worker_executes_without_a_broker(
     api, workspace, imported, settings, django_capture_on_commit_callbacks
 ):
