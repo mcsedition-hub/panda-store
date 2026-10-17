@@ -143,7 +143,9 @@ There is no provider fallback or automatic paid retry. **Rules only · No AI** k
 the original checks available without a key. All three adapters have automated
 contract tests; OpenAI and Gemini have also been exercised with live accounts.
 
-Follow the five workflow steps, then read **Recommendations** below the activity.
+Follow the five workflow steps, then read **Content review** below the activity.
+Each of the five fields receives an observation, including when no change is
+suggested or evidence is missing. Mechanical limits remain under **Apple checks**.
 Each AI proposal includes a replacement, rationale, quoted listing evidence and
 curated Apple references. **Add to draft** starts a separate editable draft.
 The report records the requested/resolved model and token usage, not an estimated
@@ -159,6 +161,11 @@ quality or improved conversion. Zero AI proposals is a valid result. The current
 review uses curated Apple annotations, not live web research or an indexed corpus.
 Visual analysis, competitors, search demand, download measurement, Google Play
 audits and publishing are not implemented. No score or growth guarantee is produced.
+
+Maintainers can run the [ASO evaluation suite](docs/aso-evaluation.md) against ten
+synthetic cases using any connected provider. It keeps automated expectations
+separate from human editorial review, saves inspectable reports, and supports
+offline replay. The default command and CI tests make no paid calls.
 
 ## Connect an Apple account
 

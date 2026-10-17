@@ -294,6 +294,18 @@ limites sont libellées « Within limit ». Les anciens rapports restent inchang
 indiquent qu’une nouvelle analyse est nécessaire pour obtenir la couverture par champ.
 Le validateur garde la lecture des anciens checkpoints sans leur inventer d’avis.
 
+Les instructions `apple-editorial-2026-10-17.1` appliquent explicitement les mêmes
+exigences de preuve aux observations et aux justifications : le stockage local
+ne démontre pas un fonctionnement hors ligne, et un nom lisible ne démontre pas
+son unicité sur le marché. Les checkpoints de la version précédente conservent
+leurs cinq avis lors de la validation.
+
+Le [banc d'évaluation](aso-evaluation.md) utilise exactement le contexte et
+l'adaptateur de production, avec dix fiches synthétiques. Les contrôles de sortie
+sont distincts de la revue éditoriale humaine. Les attentes ne sont jamais envoyées
+au modèle. Les rapports enregistrent les entrées, versions, réponses et échecs ;
+une réévaluation explicite conserve les anciens critères et n'effectue aucun appel IA.
+
 Références d’implémentation : [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
 [Gemini generateContent](https://ai.google.dev/api/generate-content),
 [Claude Messages](https://platform.claude.com/docs/en/api/messages/create).

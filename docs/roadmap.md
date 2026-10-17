@@ -24,8 +24,12 @@ propositions de nettoyage copiables et limites de couverture explicites. Il cons
 l'import choisi et utilise le suivi commun en trois étapes. Les captures et l'impact sur les téléchargements ne sont pas évalués automatiquement.
 La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
 Les brouillons et la revue éditoriale OpenAI/Gemini/Claude sont implémentés, avec
-choix explicite du modèle et propositions sourcées à relire. La prochaine tranche
-porte sur les évaluations de qualité et les outils de recherche. La
+choix explicite du modèle et propositions sourcées à relire. Le projet
+dispose désormais d'un banc de dix cas synthétiques, de contrôles automatiques,
+de rapports relisibles et d'une grille de revue humaine. Les premiers critères
+restent provisoires : la calibration par des spécialistes, les cas réels consentis
+et un jeu réservé restent à faire. Voir [l'évaluation ASO](aso-evaluation.md).
+La suite porte sur cette calibration et les outils de recherche. La
 [conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
 spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
 observations, propositions et résultats. La première sélection inclut Apple,
