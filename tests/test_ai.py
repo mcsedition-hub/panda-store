@@ -177,6 +177,7 @@ def test_catalog_filters_media_models_and_paginates():
                     {
                         "name": "models/gemini-2.5-flash",
                         "supportedGenerationMethods": ["generateContent"],
+                        "thinking": True,
                     },
                     {
                         "name": "models/gemini-image",
@@ -197,9 +198,55 @@ def test_catalog_filters_media_models_and_paginates():
     ) as call:
         models = providers.list_models("google", KEY)
     assert {item["id"] for item in models} == {"gemini-2.5-flash", "gemini-2.5-pro"}
+    assert {item["id"]: item["thinking"] for item in models} == {
+        "gemini-2.5-flash": True,
+        "gemini-2.5-pro": None,
+    }
     assert call.call_args.kwargs["params"]["pageToken"] == "next"
     assert not providers.supported("openai", "gpt-4o-audio-preview")
     assert not providers.supported("google", "../../secrets")
+
+
+@pytest.mark.parametrize("thinking,expected", [(False, False), ("true", None)])
+def test_google_catalog_does_not_infer_reasoning_from_a_model_name(thinking, expected):
+    with patch(
+        "panda_store.ai.providers.request",
+        return_value={
+            "models": [
+                {
+                    "name": "models/gemini-4-argon",
+                    "supportedGenerationMethods": ["generateContent"],
+                    "thinking": thinking,
+                }
+            ]
+        },
+    ):
+        assert providers.list_models("google", KEY)[0]["thinking"] is expected
+
+
+@pytest.mark.parametrize(
+    "model,thinking_config",
+    [
+        ("gemini-4-argon", {"thinkingLevel": "medium"}),
+        ("gemini-3.8-flash", {"thinkingLevel": "medium"}),
+        ("gemini-2.5-flash", None),
+    ],
+)
+def test_google_reasoning_config_and_truncated_response(model, thinking_config):
+    with patch(
+        "panda_store.ai.providers.request",
+        return_value={
+            "candidates": [
+                {"finishReason": "MAX_TOKENS", "content": {"parts": [{"text": '{"proposals":'}]}}
+            ]
+        },
+    ) as call:
+        with pytest.raises(providers.ProviderError, match="did not finish"):
+            providers.generate("google", KEY, model, "instruction", {}, editorial.SCHEMA)
+    config = call.call_args.kwargs["payload"]["generationConfig"]
+    assert config.get("thinkingConfig") == thinking_config
+    assert config["maxOutputTokens"] == 6000
+    assert call.call_count == 1
 
 
 @pytest.mark.parametrize(

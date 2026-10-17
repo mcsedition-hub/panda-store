@@ -103,6 +103,28 @@ ou d’écraser un remplacement concurrent. Les clés d’environnement ne devie
 implicitement accessibles à tous les espaces. L’interface ASO choisit explicitement
 le modèle pour chaque analyse ; il n’existe pas encore de préférence de modèle durable.
 
+Pour Gemini, le catalogue conserve aussi la capacité `thinking` déclarée par l’API
+(absente = inconnue). Le module ASO fournit une sélection courte au composant commun :
+Gemini 3.8 Flash et Gemini 4 Argon, versions stables avec raisonnement et sortie structurée
+selon les fiches Google relues le 16 octobre 2026. Elle est intersectée avec le catalogue
+de la clé de chaque espace et exige `thinking: true`. Aucun modèle n’est choisi automatiquement.
+« Show other models » donne accès aux autres modèles compatibles, dont les versions Lite,
+preview et alias mobiles. Les anciennes connexions doivent actualiser leur catalogue pour
+obtenir la nouvelle capacité. Une clé sans modèle suggéré peut toujours afficher les autres.
+Cette sélection est un conseil de départ, pas un classement mesuré de qualité ASO ; elle
+appartient au module et doit être révisée à l’évolution des modèles.
+
+L’adaptateur envoie explicitement `thinkingLevel: medium` aux deux modèles suggérés,
+conformément au défaut documenté ; ce paramètre est obligatoire pour Gemini 4.
+La limite de 6 000 tokens inclut le raisonnement et peut interrompre une réponse :
+l’analyse échoue alors explicitement sans enregistrer une proposition incomplète ni
+relancer un appel payant automatiquement. Les autres modèles gardent leurs réglages
+fournisseur par défaut ; notamment, supporter le raisonnement ne signifie pas l’activer
+par défaut sur toutes les versions Lite.
+Sources : [catalogue Google](https://ai.google.dev/gemini-api/docs/models),
+[capacité thinking](https://ai.google.dev/api/models),
+[réglages du raisonnement](https://ai.google.dev/gemini-api/docs/generate-content/thinking).
+
 Les futurs agents devront conserver les sources et dates de leurs observations,
 les actions effectuées et les coûts. Les connecteurs de stores et réseaux
 sociaux auront des interfaces séparées. La veille et la génération peuvent

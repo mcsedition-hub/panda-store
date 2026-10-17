@@ -2080,6 +2080,13 @@ strong {
 .ai-choice-row .text-button {
   margin-bottom: 10px;
 }
+.ai-model-guide {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 10px;
+}
 .ai-settings {
   margin-top: 18px;
   padding: 24px;

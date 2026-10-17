@@ -2,12 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 
 export type AIChoice = { provider: string; model: string } | null;
+type Model = { id: string; name: string; thinking?: boolean | null };
+export type ModelSuggestions = Record<
+  string,
+  {
+    label: string;
+    description: string;
+    models: { id: string; label: string; requiresThinking?: boolean }[];
+  }
+>;
 type Provider = {
   id: string;
   name: string;
   connected: boolean;
   revision: string | null;
-  models: { id: string; name: string }[];
+  models: Model[];
   checked_at: string | null;
 };
 type Catalog = { providers: Provider[]; credentials_ready: boolean };
@@ -18,15 +27,18 @@ export default function AIOptions({
   owner,
   disabled,
   onChange,
+  suggestions = {},
 }: {
   workspaceId: string;
   owner: boolean;
   disabled: boolean;
   onChange: (choice: AIChoice, loading: boolean) => void;
+  suggestions?: ModelSuggestions;
 }) {
   const [catalog, setCatalog] = useState<Catalog>({ providers: [], credentials_ready: false });
   const [provider, setProvider] = useState('');
   const [model, setModel] = useState('');
+  const [showOtherModels, setShowOtherModels] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [target, setTarget] = useState('openai');
@@ -40,6 +52,19 @@ export default function AIOptions({
   const endpoint = `/api/workspaces/${workspaceId}/ai/`;
   const selected = catalog.providers.find((item) => item.id === provider);
   const connection = catalog.providers.find((item) => item.id === target);
+  const suggestion = suggestions[provider];
+  const suggestedModels = (suggestion?.models ?? []).filter((item) =>
+    selected?.models.some(
+      (available) =>
+        available.id === item.id && (!item.requiresThinking || available.thinking === true),
+    ),
+  );
+  const otherModels = (selected?.models ?? []).filter(
+    (item) => !suggestedModels.some((suggested) => suggested.id === item.id),
+  );
+  // A refresh can change the shortlist. Keep an existing explicit choice visible.
+  const showingOthers =
+    showOtherModels || (!!model && otherModels.some((item) => item.id === model));
 
   useEffect(() => {
     let active = true;
@@ -72,6 +97,7 @@ export default function AIOptions({
   }, [endpoint]);
 
   function choose(nextProvider: string, nextModel = '') {
+    if (nextProvider !== provider) setShowOtherModels(false);
     setProvider(nextProvider);
     setModel(nextModel);
     callback.current(nextProvider ? { provider: nextProvider, model: nextModel } : null, false);
@@ -142,11 +168,30 @@ export default function AIOptions({
               onChange={(e) => choose(provider, e.target.value)}
             >
               <option value="">Choose a model</option>
-              {selected?.models.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.id}
-                </option>
-              ))}
+              {!!suggestedModels.length && (
+                <optgroup label={suggestion.label}>
+                  {suggestedModels.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.id} · {item.label}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {suggestion && showingOthers && (
+                <optgroup label="Other compatible models">
+                  {otherModels.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.id}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {!suggestion &&
+                selected?.models.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.id}
+                  </option>
+                ))}
             </select>
           </label>
         )}
@@ -158,6 +203,29 @@ export default function AIOptions({
           AI settings
         </button>
       </div>
+      {suggestion && !loading && (
+        <div className="ai-model-guide">
+          <span className="note">
+            {suggestedModels.length
+              ? suggestion.description
+              : 'No suggested models in this catalog. Refresh models in AI settings or browse others.'}
+          </span>
+          {!!otherModels.length && (
+            <button
+              className="text-button"
+              disabled={disabled || busy}
+              aria-expanded={showingOthers}
+              onClick={() => {
+                if (showingOthers && otherModels.some((item) => item.id === model))
+                  choose(provider);
+                setShowOtherModels(!showingOthers);
+              }}
+            >
+              {showingOthers ? 'Show suggested models' : 'Show other models'}
+            </button>
+          )}
+        </div>
+      )}
       {loading && (
         <p role="status" className="note">
           Loading AI providers…

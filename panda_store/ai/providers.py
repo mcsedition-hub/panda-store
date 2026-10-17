@@ -140,6 +140,10 @@ def list_models(provider, key):
                 "id": model,
                 "name": item.get("displayName") or item.get("display_name") or model,
             }
+            if provider == "google":
+                # Missing capability metadata is unknown, not evidence of reasoning support.
+                thinking = item.get("thinking")
+                found[model]["thinking"] = thinking if isinstance(thinking, bool) else None
         cursor = (
             data.get("nextPageToken")
             if provider == "google"
@@ -197,6 +201,16 @@ def generate(provider, key, model, instruction, context, schema):
         }
         resolved = data.get("model", model)
     elif provider == "google":
+        generation_config = {
+            "maxOutputTokens": 6000,
+            "responseMimeType": "application/json",
+            "responseJsonSchema": schema,
+        }
+        # Reviewed against Google's thinking guide on 2026-10-16. Gemini 4 requires
+        # a level; medium is the documented default for both suggested ASO models.
+        # Do not send this to 2.5, which uses thinkingBudget instead.
+        if model in {"gemini-4-argon", "gemini-3.8-flash"}:
+            generation_config["thinkingConfig"] = {"thinkingLevel": "medium"}
         data = request(
             provider,
             key,
@@ -204,11 +218,7 @@ def generate(provider, key, model, instruction, context, schema):
             payload={
                 "systemInstruction": {"parts": [{"text": instruction}]},
                 "contents": [{"role": "user", "parts": [{"text": text}]}],
-                "generationConfig": {
-                    "maxOutputTokens": 6000,
-                    "responseMimeType": "application/json",
-                    "responseJsonSchema": schema,
-                },
+                "generationConfig": generation_config,
             },
         )
         candidates = data.get("candidates", [])

@@ -6,6 +6,7 @@ import type { WorkflowStatus } from '../../../web/src/workflows/types';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import Drafts from './Drafts';
 import type { DraftSeed } from './draftTypes';
+import { modelSuggestions } from './modelSuggestions';
 
 type CheckStatus = 'issue' | 'recommendation' | 'review' | 'unavailable' | 'passed';
 interface Check {
@@ -300,6 +301,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       ) : (
         <>
           <AIOptions
+            suggestions={modelSuggestions}
             workspaceId={workspace.id}
             owner={workspace.role === 'owner' && !previewMode}
             disabled={!canWrite || busy || working}
