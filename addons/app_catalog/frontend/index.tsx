@@ -71,9 +71,19 @@ export default function AppCatalog(props: ModuleProps) {
                   <tr key={app.id}>
                     <td>
                       <div className="catalog-app">
-                        <div className="app-monogram" aria-hidden="true">
-                          {app.name.charAt(0)}
-                        </div>
+                        {app.metadata?.data.icon_url ? (
+                          <img
+                            className="store-app-icon"
+                            src={app.metadata.data.icon_url}
+                            alt=""
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="app-monogram" aria-hidden="true">
+                            {app.name.charAt(0)}
+                          </div>
+                        )}
                         <div>
                           <div className="catalog-app-name">
                             <strong>{app.name}</strong>

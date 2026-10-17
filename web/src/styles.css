@@ -566,7 +566,8 @@ strong {
   font-family: Apfel, sans-serif;
   font-size: 26px;
 }
-.catalog-app .app-monogram {
+.catalog-app .app-monogram,
+.catalog-app .store-app-icon {
   width: 40px;
   height: 40px;
   font-size: 23px;
@@ -1276,6 +1277,7 @@ strong {
 .store-app-icon {
   width: 64px;
   height: 64px;
+  flex-shrink: 0;
   border-radius: 14px;
   object-fit: cover;
 }
