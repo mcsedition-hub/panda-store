@@ -56,6 +56,7 @@ def manifest(suite):
         "suite_version": suite["version"],
         "suite_sha256": fingerprint(suite),
         "prompt_version": editorial.VERSION,
+        "knowledge_version": editorial.KNOWLEDGE_VERSION,
         "prompt_sha256": fingerprint(
             {
                 "instruction": editorial.INSTRUCTION,
@@ -83,6 +84,7 @@ def case_inputs(case, provider, model):
             "max_output_tokens": editorial.MAX_OUTPUT_TOKENS,
         },
         "knowledge": editorial.knowledge(),
+        "knowledge_version": editorial.KNOWLEDGE_VERSION,
         "field_criteria": copy.deepcopy(editorial.FIELD_CRITERIA),
     }
 

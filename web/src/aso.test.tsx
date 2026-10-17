@@ -70,6 +70,108 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+const savedGuidance = {
+  id: 'saved-source',
+  guidance: 'The exact notes saved with this audit.',
+  limitations: 'No measured conversion data.',
+  fields: ['subtitle'],
+  source: {
+    id: 'saved-source',
+    publisher: 'SplitMetrics',
+    title: 'Testing framework',
+    url: 'https://splitmetrics.com/',
+    reviewed_on: '2026-10-16',
+    kind: 'vendor_methodology',
+  },
+};
+
+it('shows frozen audit notes separately from the library for new audits', async () => {
+  const aiRun = {
+    ...run,
+    ai: { provider: 'google', model: 'model' },
+    knowledge: [savedGuidance],
+    knowledge_version: 'saved-version',
+  };
+  mockData(async (path) =>
+    path.endsWith('/knowledge/')
+      ? {
+          version: 'new-version',
+          entries: [{ ...savedGuidance, guidance: 'Updated library notes.' }],
+        }
+      : [aiRun],
+  );
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  expect(screen.getByText(savedGuidance.guidance)).toBeTruthy();
+  expect(screen.getByText('Vendor methodology')).toBeTruthy();
+  expect(screen.getByText('Reviewed 2026-10-16')).toBeTruthy();
+  expect(mockApi.mock.calls.some(([path]) => path.endsWith('/knowledge/'))).toBe(false);
+  fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'current' } });
+  await screen.findByText('Updated library notes.');
+  expect(screen.queryByText(savedGuidance.guidance)).toBeNull();
+  fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'saved' } });
+  expect(screen.getByText(savedGuidance.guidance)).toBeTruthy();
+  expect(screen.queryByText('Updated library notes.')).toBeNull();
+});
+
+it('loads the library without an AI audit and recovers from a load error', async () => {
+  let fail = true;
+  mockData(async (path) => {
+    if (!path.endsWith('/knowledge/')) return [];
+    if (fail) throw new Error('Sources unavailable');
+    return { entries: [savedGuidance] };
+  });
+  render(<ASO {...props} />);
+  await screen.findByText('Review your store listing');
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  expect(await screen.findByRole('alert')).toHaveProperty('textContent', 'Sources unavailable');
+  fail = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading sources' }));
+  await screen.findByText(savedGuidance.guidance);
+  expect(screen.getByText(/Notes supplied to new App Store AI reviews/)).toBeTruthy();
+  expect(screen.queryByLabelText('Reference set')).toBeNull();
+});
+
+it('does not substitute current guidance for an older audit without saved notes', async () => {
+  mockData(async () => [{ ...run, ai: { provider: 'google', model: 'model' } }]);
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  expect(screen.getByText('No guidance notes were saved for this audit.')).toBeTruthy();
+  expect(mockApi.mock.calls.some(([path]) => path.endsWith('/knowledge/'))).toBe(false);
+});
+
+it('labels cited vendor methodology and shows its saved annotation', async () => {
+  mockData(async () => [
+    {
+      ...run,
+      report: {
+        ...run.report,
+        checks: [
+          {
+            ...check,
+            basis: 'editorial_hypothesis',
+            sources: [
+              {
+                ...savedGuidance.source,
+                guidance: savedGuidance.guidance,
+                limitations: savedGuidance.limitations,
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  expect(screen.getByText('Vendor methodology · Reviewed 2026-10-16')).toBeTruthy();
+  expect(screen.getByText('Guidance used')).toBeTruthy();
+  expect(screen.getByText(savedGuidance.guidance)).toBeTruthy();
+  expect(screen.queryByText(/Editorial hypothesis · Apple guidance/)).toBeNull();
+});
+
 it('sends the chosen locale and exact snapshot, and shows a sourced copyable proposal', async () => {
   mockData(async (_path, options) => (options?.method === 'POST' ? run : []));
   render(<ASO {...props} />);

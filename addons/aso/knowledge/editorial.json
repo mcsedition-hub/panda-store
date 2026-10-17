@@ -1,0 +1,45 @@
+{
+  "version": "aso-knowledge-2026-10-17.1",
+  "entries": [
+    {
+      "id": "apple-product-page",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["name", "subtitle", "description", "keywords", "promotional_text"],
+      "guidance": "A readable name should suggest the app's purpose. The subtitle should express concrete value or a use case instead of generic praise. Open the description with a clear explanation, then organize the main features for scanning; avoid keyword stuffing and region-specific prices. Keywords should describe the app accurately, without irrelevant or competing brand terms. Promotional text can communicate current news and does not affect search ranking. Localize copy for the intended audience.",
+      "limitations": "Editorial guidance, not proof of demand or conversion. Panda Store reviews only imported text: preserve its material qualifications and language, and never invent current news, offers or features."
+    },
+    {
+      "id": "apple-search",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["keywords"],
+      "guidance": "Choose keywords relevant to actual functionality and users' search intent. Avoid repeating indexed name or subtitle terms, redundant singular/plural forms, category names, competing app names and unauthorized trademarks. Text relevance is one part of discovery; user behavior also matters.",
+      "limitations": "This audit has no search volumes, rankings, competitor research or download data. Semantic relevance does not establish demand, competition or ranking gains."
+    },
+    {
+      "id": "phiture-aso-stack-2026",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["name", "subtitle", "description", "keywords", "promotional_text"],
+      "guidance": "Organize ASO work around visibility, conversion, tools and supporting insights. Distinguish helping people discover an app from helping them understand its value on the listing; metadata, creative work and measurement contribute to different parts of this process.",
+      "limitations": "Practitioner framework from a growth services company, not an Apple rule. Panda Store does not adopt this article's numerical thresholds or algorithm claims. A text review alone cannot demonstrate visibility, conversion or install gains."
+    },
+    {
+      "id": "apptweak-keyword-research",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["keywords"],
+      "guidance": "Separate keyword ideas derived from app metadata or semantic associations from observed rankings, estimated installs and connected advertising account data. Keyword research is specific to a market and language; each type of evidence answers a different question.",
+      "limitations": "Vendor methodology describing AppTweak's product. No AppTweak data is connected here. Proposed terms remain unmeasured ideas grounded in the listing; Apple guidance takes precedence, including restrictions on competing brands."
+    },
+    {
+      "id": "splitmetrics-testing-framework",
+      "reviewed_on": "2026-10-17",
+      "stores": ["app_store"],
+      "fields": ["name", "subtitle", "description", "promotional_text"],
+      "guidance": "Move from research to a specific hypothesis, prepare variants, design an experiment and inspect its outcome. Tie a proposed message change to an observed weakness and a testable expectation; isolate the change so that an eventual result can be interpreted.",
+      "limitations": "Vendor methodology, not an Apple requirement. This audit proposes copy hypotheses and runs no experiment. Simulated store pages and advertising audiences are not interchangeable with native store tests or organic installs. Do not assume Apple supports native A/B testing of these text fields."
+    }
+  ]
+}

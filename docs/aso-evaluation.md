@@ -65,7 +65,7 @@ each call marks it in progress: an interruption leaves that attempt unfinished,
 not falsely unsent. Remaining attempts stay not run. Each row retains its synthetic
 inputs, actual model context, raw structured response, accepted recommendations,
 checks, resolved model, returned token usage and duration. The manifest identifies
-the dataset, prompt/schema/guidance fingerprint and rule version. Expectations
+the dataset, prompt/schema/guidance fingerprint, knowledge version and rule version. Expectations
 and review notes are never included in the model context.
 
 Open `report.html` locally to compare imported copy, observations and proposals.
@@ -144,6 +144,7 @@ expert calibration. Gemini `gemini-3.8-flash` was used with the configured adapt
 | Ten cases, prompt `apple-editorial-2026-10-16.3`, suite v1 | 9/10 | The French keyword-presence check produced a false positive. |
 | Same saved responses, suite v2 | 10/10 | Grading correction only; no new model responses or demonstrated improvement. |
 | Two targeted cases, two repetitions each, prompt `apple-editorial-2026-10-17.1` | 4/4 | A narrow follow-up after reinforcing evidence requirements in observations and rationales. |
+| Ten fresh cases, prompt `apple-editorial-2026-10-17.2`, knowledge `aso-knowledge-2026-10-17.1`, suite v2 | 10/10 | Scoped citations and the expanded library passed structural checks; semantic problems remain below. |
 
 The initial run correctly abstained on unavailable fields and removed the injected
 reviewer instructions. It also described on-device storage as an offline privacy
@@ -151,8 +152,18 @@ qualification in one rationale, without evidence of offline operation. The revis
 prompt explicitly separates those concepts; this inference did not recur in the
 four follow-up attempts. One follow-up description redundantly repeats its feature
 list despite meeting automated expectations. That remains an editorial review
-finding. The revised prompt has **not** been evaluated on a fresh full suite here,
-and these samples do not establish model superiority or reliable semantic accuracy.
+finding.
+
+The fresh full run with the expanded library used all five reference IDs across
+its responses. It retained clear copy, proposed concrete replacements for targeted
+weaknesses, preserved the French listing language and removed the injected block.
+No citation was rejected for its field or store scope. However, one rationale
+called local notes without an account an "offline" capability, which the imported
+text does not establish; another called listing claims "verified product features"
+without testing the product. These assistant-observed semantic errors pass the
+automated checks. They remain findings for independent review, not hidden by the
+10/10 structural result. These samples do not establish model superiority or
+reliable semantic accuracy.
 
 ## References
 

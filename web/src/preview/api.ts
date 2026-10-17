@@ -5,6 +5,8 @@ import exampleModule from '../../../addons/example/module.json';
 import asoModule from '../../../addons/aso/module.json';
 import demoCatalog from '../../../addons/apple_store/fixtures/apps.json';
 import sampleRuns from './scripts.json';
+import knowledge from '../../../addons/aso/knowledge/editorial.json';
+import sourceCatalog from '../../../addons/aso/knowledge/sources.json';
 
 // Only this explicit development preview reads these fictional fixtures.
 // It never reads browser credentials, sends network requests or writes data.
@@ -57,6 +59,17 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
     result = { connections: [], credentials_ready: true };
   } else if (path === `${prefix}ai/`) {
     result = { providers: [], credentials_ready: false };
+  } else if (path === `${prefix}aso/knowledge/`) {
+    result = {
+      version: knowledge.version,
+      entries: knowledge.entries.map((entry) => ({
+        ...entry,
+        source: {
+          ...sourceCatalog.sources.find((source) => source.id === entry.id),
+          reviewed_on: entry.reviewed_on,
+        },
+      })),
+    };
   } else if (path === `${prefix}example/hello/`) {
     result = { message: 'This example uses the same module contract as every built-in tool.' };
   } else if (

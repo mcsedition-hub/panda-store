@@ -147,7 +147,7 @@ Follow the five workflow steps, then read **Content review** below the activity.
 Each of the five fields receives an observation, including when no change is
 suggested or evidence is missing. Mechanical limits remain under **Apple checks**.
 Each AI proposal includes a replacement, rationale, quoted listing evidence and
-curated Apple references. **Add to draft** starts a separate editable draft.
+curated references. **Add to draft** starts a separate editable draft.
 The report records the requested/resolved model and token usage, not an estimated
 price. Sources and instructions are versioned; the selected connection revision
 is frozen. Replacing/removing its key requires a new audit if the AI call has not
@@ -155,10 +155,19 @@ completed. Retry reuses a saved model response when available; a lost response c
 require a new paid request. Stopping discards a late result but cannot undo usage.
 
 Editorial proposals are hypotheses for human review. Validation rejects unknown
-sources, non-verbatim evidence, repeated proposals, field overflows, new numbers
+sources, citations outside the field/store scope, vendor-only citations,
+non-verbatim evidence, repeated proposals, field overflows, new numbers
 and changed URLs. It does not prove feature claims, semantic relevance, translation
 quality or improved conversion. Zero AI proposals is a valid result. The current
-review uses curated Apple annotations, not live web research or an indexed corpus.
+review uses five reviewed annotations from Apple, Phiture, AppTweak and SplitMetrics.
+Apple guidance remains the primary reference; practitioner/vendor methods supplement
+it without supplying app metrics or official requirements.
+Open **ASO → Sources** to inspect the exact notes saved with the selected audit or
+the library for new audits, including field scope, source type, date and limitations.
+Each cited reference also exposes its saved annotation under **Guidance used**.
+Maintainers extend [the versioned annotations](addons/aso/knowledge/editorial.json)
+through code review and evaluation; adding a link to the broader source catalog
+does not automatically include it in AI context. There is no live web research.
 Visual analysis, competitors, search demand, download measurement, Google Play
 audits and publishing are not implemented. No score or growth guarantee is produced.
 

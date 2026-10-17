@@ -8,6 +8,7 @@ import Drafts from './Drafts';
 import type { DraftSeed } from './draftTypes';
 import { modelSuggestions } from './modelSuggestions';
 import { notify } from '../../../web/src/notifications/store';
+import Sources, { fieldNames, SourceReference, type Guidance, type Source } from './Sources';
 
 type CheckStatus = 'issue' | 'recommendation' | 'review' | 'unavailable' | 'passed';
 interface Check {
@@ -21,7 +22,7 @@ interface Check {
   observed?: string | null;
   replacement?: string | null;
   evidence?: { field: string; quote: string }[];
-  sources: { id: string; title: string; publisher: string; url: string; reviewed_on: string }[];
+  sources: Source[];
 }
 interface Assessment {
   field: string;
@@ -31,13 +32,6 @@ interface Assessment {
   evidence: NonNullable<Check['evidence']>;
   sources: Check['sources'];
 }
-const fieldNames: Record<string, string> = {
-  name: 'App name',
-  subtitle: 'Subtitle',
-  description: 'Description',
-  promotional_text: 'Promotional text',
-  keywords: 'Keywords',
-};
 const verdictLabels = {
   keep: 'No change suggested',
   improve: 'Needs improvement',
@@ -55,6 +49,8 @@ interface AuditRun {
   captured_at: string;
   source: string;
   is_demo: boolean;
+  knowledge?: Guidance[];
+  knowledge_version?: string | null;
   ai?: { provider: string; model: string } | null;
   report: {
     editorial?: {
@@ -202,8 +198,8 @@ function Finding({
             <span>
               {isAI
                 ? assessment
-                  ? 'AI content review · Apple guidance'
-                  : 'Editorial hypothesis · Apple guidance'
+                  ? 'AI content review'
+                  : 'Editorial hypothesis'
                 : check.basis === 'requirement'
                   ? 'Official requirement'
                   : check.basis === 'measurement'
@@ -211,11 +207,8 @@ function Finding({
                     : 'Official recommendation'}
             </span>
             {sources.map((source) => (
-              <a key={source.id} href={source.url} target="_blank" rel="noreferrer">
-                {source.publisher} · {source.title} ↗
-              </a>
+              <SourceReference key={source.id} source={source} />
             ))}
-            <small>Sources reviewed {sources[0]?.reviewed_on}</small>
           </footer>
         )}
       </div>
@@ -225,7 +218,7 @@ function Finding({
 
 function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const { app, workspace, previewMode, navigate, registerLeaveGuard } = props;
-  const [tab, setTab] = useState<'overview' | 'drafts'>('overview');
+  const [tab, setTab] = useState<'overview' | 'drafts' | 'sources'>('overview');
   const [draftSeed, setDraftSeed] = useState<DraftSeed | null>(null);
   const draftGuard = useRef<(() => Promise<boolean>) | null>(null);
   const registerDraftGuard = useCallback(
@@ -239,7 +232,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     },
     [registerLeaveGuard],
   );
-  async function switchTab(next: 'overview' | 'drafts') {
+  async function switchTab(next: 'overview' | 'drafts' | 'sources') {
     if (draftGuard.current && !(await draftGuard.current())) return;
     setDraftSeed(null);
     setTab(next);
@@ -375,6 +368,12 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         >
           Drafts
         </button>
+        <button
+          aria-current={tab === 'sources' ? 'page' : undefined}
+          onClick={() => void switchTab('sources')}
+        >
+          Sources
+        </button>
       </nav>
       {tab === 'drafts' ? (
         <Drafts
@@ -383,6 +382,20 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           locale={locale}
           seed={draftSeed}
           registerLeaveGuard={registerDraftGuard}
+        />
+      ) : tab === 'sources' ? (
+        <Sources
+          key={run?.id || 'current'}
+          workspaceId={workspace.id}
+          saved={
+            run?.ai
+              ? {
+                  entries: run.knowledge ?? [],
+                  version: run.knowledge_version,
+                  created_at: run.created_at,
+                }
+              : undefined
+          }
         />
       ) : (
         <>

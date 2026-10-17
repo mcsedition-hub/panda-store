@@ -7,7 +7,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
-| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple par langue, propositions copiables, historique et workflow implémentés ; agent IA à construire |
+| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple, revue IA de cinq champs, sources annotées, brouillons et évaluations implémentés ; captures et recherche à construire |
 | Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé et Studio à modèles locaux implémentés ; agents et branches parallèles à construire |
 | Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
@@ -29,11 +29,16 @@ dispose désormais d'un banc de dix cas synthétiques, de contrôles automatique
 de rapports relisibles et d'une grille de revue humaine. Les premiers critères
 restent provisoires : la calibration par des spécialistes, les cas réels consentis
 et un jeu réservé restent à faire. Voir [l'évaluation ASO](aso-evaluation.md).
-La suite porte sur cette calibration et les outils de recherche. La
+La bibliothèque utilisée par l'IA contient cinq annotations vérifiées, avec leurs
+limites et leur périmètre. `Sources` permet d'inspecter les notes conservées pour
+chaque audit et celles destinées aux nouveaux audits. Apple reste la référence
+officielle ; Phiture, AppTweak et SplitMetrics apportent des méthodes de travail.
+La suite porte sur les captures d'écran, cette calibration et les outils de recherche. La
 [conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
 spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
 observations, propositions et résultats. La première sélection inclut Apple,
-Google, Phiture, AppTweak et SplitMetrics ; indexation et graphe restent à implémenter.
+Google, Phiture, AppTweak et SplitMetrics ; Google n'est pas injecté dans la revue
+Apple. L'indexation et le graphe restent à implémenter.
 
 Auditer la fiche ASO avant de générer des scripts. Pour chaque store et
 langue, distinguer les contraintes officielles vérifiables des recommandations
@@ -64,7 +69,7 @@ sa justification et ses sources. `Add to draft` crée un brouillon contenant uni
 la proposition choisie ; l'utilisateur peut la modifier ensuite. `New draft` permet
 aussi de partir de la langue importée choisie sans proposition automatique.
 
-L'espace ASO propose `Audit` et `Drafts`, avec l'activité intégrée à l'audit. Le premier audit est
+L'espace ASO propose `Audit`, `Drafts` et `Sources`, avec l'activité intégrée à l'audit. Le premier audit est
 l'action principale de l'écran vide. Un brouillon suffit pour commencer ;
 `Duplicate` permet de préparer une variante nommée, avec sauvegarde automatique
 et historique consultable. L'éditeur compare l'import de référence ou le dernier import et le brouillon,

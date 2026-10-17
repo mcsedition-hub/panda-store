@@ -249,17 +249,17 @@ Une langue absente ne bénéficie jamais d'un repli implicite sur la langue prin
 La reprise garde l'import original ; changer les règles impose de changer leur
 version et celle du workflow. Un rapport sauvegardé n'est pas recalculé à la lecture.
 
-La suite de cette section décrit l'agent à implémenter. Le
-[catalogue de sources](../addons/aso/knowledge/sources.json) est une sélection relue,
-avec usages et limites ; les contrôles actuels utilisent uniquement les sources Apple.
-Ce n'est pas encore un corpus indexé ou un agent IA.
+Le [catalogue de sources](../addons/aso/knowledge/sources.json) distingue les
+références disponibles des [annotations utilisées](../addons/aso/knowledge/editorial.json).
+Les contrôles déterministes utilisent les références Apple. La revue IA reçoit
+uniquement les annotations explicitement retenues pour ce store et ces champs.
 
 ### Revue éditoriale implémentée
 
 Le workflow optionnel `aso.editorial` ajoute une requête IA et une validation après
 les règles locales. `AuditRun.inputs` fige fournisseur, modèle demandé, identifiant
 et révision de connexion, version d’instructions, critères par champ, limite de sortie
-et annotations Apple sourcées.
+et annotations sourcées avec leur version.
 Le rapport conserve le modèle résolu et les tokens retournés. Les checkpoints de
 réponse et de validation permettent une reprise sans rappeler un modèle ayant déjà
 répondu. Une réponse perdue avant sauvegarde peut être facturée à nouveau lors d’une
@@ -274,8 +274,34 @@ nombres ou changements d’URLs. Elle ne prouve pas la fidélité des promesses,
 interprétation des sources ou la valeur commerciale : toutes les propositions IA
 sont marquées hypothèses à relire. Elles peuvent alimenter un brouillon, jamais
 écrire chez Apple. Les règles, l’activité et le rapport historique restent distincts.
-Le corpus actuel est constitué d’annotations originales sur deux guides Apple ;
-les blogs sélectionnés, la recherche, le graphe et les images restent hors de ce parcours.
+Le corpus courant contient cinq annotations originales : deux guides Apple, le
+cadre ASO de Phiture, la méthodologie de recherche de mots-clés AppTweak et celle
+d'expérimentation SplitMetrics. Chaque annotation porte son champ d'application,
+son store, sa date de revue, le type de source et ses limites. Les seuils chiffrés
+et affirmations algorithmiques non corroborés ne sont pas ingérés. Le catalogue
+plus large inclut des références Google et des études de cas qui ne sont pas
+envoyées au modèle. La recherche en direct, le graphe et les images restent à faire.
+
+Depuis `apple-editorial-2026-10-17.2`, chaque avis ou proposition doit citer au
+moins une référence officielle applicable ; une méthodologie de prestataire ne
+peut pas être sa seule autorité. Les citations hors champ ou hors store sont
+écartées. Ce contrôle structurel ne prouve pas que le modèle interprète bien la
+source. Le serveur conserve l'annotation exacte sur les citations acceptées.
+Les versions précédentes restent validables avec leurs propres notes sauvegardées.
+
+L'onglet `Sources` sépare les notes de l'audit sélectionné de la bibliothèque pour
+les prochains audits. `GET /api/workspaces/{id}/aso/knowledge/` fournit cette
+dernière aux membres d'un espace où ASO est activé, y compris en lecture seule.
+La lecture des audits renvoie leurs notes sauvegardées et ne les remplace jamais
+par le catalogue courant. Les dates des règles locales restent indépendantes des
+dates de revue des annotations. Aucun appel fournisseur n'est fait pour consulter
+les sources.
+
+Pour contribuer : vérifier l'article original, ajouter une synthèse courte avec
+ses limites et son périmètre dans `knowledge/editorial.json`, puis changer la
+version du corpus et des instructions. Mettre à jour les tests de périmètre,
+exécuter l'évaluation et redémarrer les processus serveur/worker. Un lien ajouté
+seulement à `sources.json` n'est pas une instruction active pour l'agent.
 
 Depuis les instructions `apple-editorial-2026-10-16.3`, chaque nouveau rapport IA
 demande une observation sur les cinq champs : nom, sous-titre, description, texte
@@ -294,8 +320,8 @@ limites sont libellées « Within limit ». Les anciens rapports restent inchang
 indiquent qu’une nouvelle analyse est nécessaire pour obtenir la couverture par champ.
 Le validateur garde la lecture des anciens checkpoints sans leur inventer d’avis.
 
-Les instructions `apple-editorial-2026-10-17.1` appliquent explicitement les mêmes
-exigences de preuve aux observations et aux justifications : le stockage local
+Depuis les instructions `apple-editorial-2026-10-17.1`, les mêmes
+exigences de preuve s'appliquent aux observations et aux justifications : le stockage local
 ne démontre pas un fonctionnement hors ligne, et un nom lisible ne démontre pas
 son unicité sur le marché. Les checkpoints de la version précédente conservent
 leurs cinq avis lors de la validation.

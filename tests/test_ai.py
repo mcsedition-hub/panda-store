@@ -370,6 +370,14 @@ def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
     )
     assert generate.call_args.kwargs["max_output_tokens"] == editorial.MAX_OUTPUT_TOKENS
     assert generate.call_args.args[4]["field_criteria"] == run.inputs["field_criteria"]
+    assert generate.call_args.args[4]["guidance"] == run.inputs["knowledge"]
+    assert run.inputs["knowledge_version"] == editorial.KNOWLEDGE_VERSION
+    assert len(run.inputs["knowledge"]) == 5
+    with patch("addons.aso.editorial.knowledge", return_value=[]):
+        saved = api.get(f"/api/workspaces/{workspace.pk}/aso/apps/{listing[0].pk}/runs/").data[0]
+    assert saved["knowledge"] == run.inputs["knowledge"]
+    assert saved["knowledge_version"] == editorial.KNOWLEDGE_VERSION
+    assert saved["report"] == run.report
     assert run.workflow.steps.count() == 5
     assert run.report["checks"][-1]["basis"] == "editorial_hypothesis"
     draft = api.post(
@@ -506,6 +514,75 @@ def review_inputs(listing):
         "ai": {"prompt_version": editorial.VERSION},
         "knowledge": editorial.knowledge(),
     }
+
+
+@pytest.mark.parametrize(
+    "refs",
+    [
+        ["phiture-aso-stack-2026"],  # A practitioner cannot be the sole authority.
+        ["apple-product-page", "apptweak-keyword-research"],  # Wrong field: subtitle.
+        ["apple-search"],
+        ["apple-product-page", "google-store-listing"],  # Catalog-only, never supplied.
+    ],
+)
+def test_scoped_citations_reject_wrong_field_and_vendor_only_reviews(listing, refs):
+    inputs = review_inputs(listing)
+    response = output()
+    response["result"]["proposals"][0]["source_ids"] = refs
+    result = editorial.validate(response, inputs, audit(inputs))
+    assert result["editorial"]["rejected_proposals"] == 1
+    response["result"]["assessments"]["subtitle"]["source_ids"] = refs
+    result = editorial.validate(response, inputs, audit(inputs))
+    assert result["editorial"]["reviewed_fields"] == 4
+    assert result["editorial"]["assessments"][1]["verdict"] == "unvalidated"
+
+
+def test_citations_preserve_annotation_and_allow_supplemental_methodology(listing):
+    inputs = review_inputs(listing)
+    original = copy.deepcopy(inputs)
+    response = output()
+    refs = ["apple-product-page", "splitmetrics-testing-framework"]
+    response["result"]["assessments"]["subtitle"]["source_ids"] = refs
+    response["result"]["proposals"][0]["source_ids"] = refs
+    result = editorial.validate(response, inputs, audit(inputs))
+    assert result["editorial"]["reviewed_fields"] == 5
+    assert result["editorial"]["accepted_proposals"] == 1
+    citation = result["checks"][-1]["sources"][1]
+    annotation = next(item for item in inputs["knowledge"] if item["id"] == refs[1])
+    assert citation["guidance"] == annotation["guidance"]
+    assert citation["limitations"] == annotation["limitations"]
+    assert citation["kind"] == "vendor_methodology"
+    assert inputs == original
+
+
+@pytest.mark.parametrize("remove_scope", [False, True])
+def test_current_review_rejects_wrong_store_or_missing_scope(listing, remove_scope):
+    inputs = review_inputs(listing)
+    for item in inputs["knowledge"]:
+        if remove_scope:
+            del item["fields"]
+        else:
+            item["stores"] = ["google_play"]
+    result = editorial.validate(output(), inputs, audit(inputs))
+    assert result["editorial"]["reviewed_fields"] == 0
+    assert result["editorial"]["accepted_proposals"] == 0
+
+
+@pytest.mark.parametrize(
+    "version", ["apple-editorial-2026-10-16.3", "apple-editorial-2026-10-17.1"]
+)
+def test_older_frozen_guidance_preserves_five_assessments(listing, version):
+    inputs = review_inputs(listing)
+    inputs["ai"]["prompt_version"] = version
+    inputs["knowledge"] = [
+        {"id": item["id"], "guidance": "Original saved annotation", "source": item["source"]}
+        for item in inputs["knowledge"][:2]
+    ]
+    with patch("addons.aso.editorial.knowledge", return_value=[]):
+        result = editorial.validate(output(), inputs, audit(inputs))
+    assert result["editorial"]["reviewed_fields"] == 5
+    assert result["editorial"]["accepted_proposals"] == 1
+    assert result["checks"][-1]["sources"][0]["guidance"] == "Original saved annotation"
 
 
 def test_field_coverage_without_forcing_rewrites_and_legacy_reports(listing):

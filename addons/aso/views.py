@@ -54,6 +54,8 @@ def serialize(run):
         "source": run.inputs["source"],
         "is_demo": run.inputs["is_demo"],
         "report": run.report,
+        "knowledge": run.inputs.get("knowledge", []),
+        "knowledge_version": run.inputs.get("knowledge_version"),
         "ai": {key: run.inputs["ai"][key] for key in ("provider", "model")}
         if "ai" in run.inputs
         else None,
@@ -68,6 +70,12 @@ def dispatch(workflow_id):
     except Exception:
         logger.exception("Could not enqueue ASO workflow %s", workflow_id)
         fail(workflow_id, "The task service is unavailable. Start the worker and retry.")
+
+
+@api_view(["GET"])
+def knowledge(request, workspace_id):
+    workspace_access(request.user, workspace_id, module="aso")
+    return Response({"version": editorial.KNOWLEDGE_VERSION, "entries": editorial.knowledge()})
 
 
 @api_view(["GET", "POST"])
@@ -122,7 +130,8 @@ def runs(request, workspace_id, app_id):
                 "prompt_version": editorial.VERSION,
                 "max_output_tokens": editorial.MAX_OUTPUT_TOKENS,
             }
-            inputs["knowledge"] = editorial.knowledge()
+            inputs["knowledge"] = editorial.knowledge(platform=app.platform)
+            inputs["knowledge_version"] = editorial.KNOWLEDGE_VERSION
             inputs["field_criteria"] = editorial.FIELD_CRITERIA
         run = AuditRun.objects.filter(workspace=workspace, request_id=values["request_id"]).first()
         created = run is None

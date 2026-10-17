@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
-  "status": "curation_seed",
+  "status": "reference_catalog",
+  "editorial_corpus": "editorial.json",
   "reviewed_on": "2026-10-16",
   "sources": [
     {
