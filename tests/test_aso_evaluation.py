@@ -8,17 +8,25 @@ import pytest
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from addons.aso import editorial
+from addons.aso import editorial, grounding
 from addons.aso.evaluation.report import render
-from addons.aso.evaluation.suite import assess, case_inputs, load_suite
+from addons.aso.evaluation.suite import assess as evaluate
+from addons.aso.evaluation.suite import case_inputs, load_suite
 from addons.aso.models import AuditRun
 from addons.aso.rules import audit
 from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import encrypt
 from panda_store.core.models import AIConnection
+from tests.aso_support import provider, supported_review
 
 MODEL = "gemini-3.8-flash"
 SECRET = "test-evaluation-key-never-real"
+
+
+def assess(case, inputs, output):
+    report = editorial.validate(output, inputs, audit(inputs))
+    checked = supported_review(grounding.context(inputs, report))
+    return evaluate(case, inputs, output, checked)
 
 
 def case_named(name):
@@ -82,7 +90,7 @@ def live(directory, ai_connection, **options):
         provider="google",
         model=MODEL,
         output=directory,
-        max_calls=10,
+        max_calls=20,
         stdout=io.StringIO(),
         **options,
     )
@@ -164,11 +172,12 @@ def test_live_uses_production_request_and_keeps_reports_private(tmp_path, ai_con
     run = SimpleNamespace(
         inputs=inputs, locale=case["locale"], workspace_id=ai_connection.workspace_id
     )
-    with patch("addons.aso.editorial.generate", return_value=response(case)) as generate:
+    with patch("addons.aso.editorial.generate", side_effect=provider(response(case))) as generate:
         editorial.analyze(run, audit(inputs)["checks"])
         production_call = generate.call_args
         live(tmp_path / "first", ai_connection, cases=[case["id"]])
-        assert generate.call_args == production_call
+        assert generate.call_args_list[1] == production_call
+        assert generate.call_args_list[2].args[3] == grounding.INSTRUCTION
     assert not AuditRun.objects.exists()
     report_file = tmp_path / "first" / "report.json"
     text = report_file.read_text()
@@ -196,12 +205,22 @@ def test_provider_error_stops_paid_calls_and_preserves_partial_results(tmp_path,
         "addons.aso.editorial.generate",
         side_effect=[
             response(case_named("clear-running")),
+            supported_review(
+                grounding.context(
+                    case_inputs(case_named("clear-running"), "google", MODEL),
+                    editorial.validate(
+                        response(case_named("clear-running")),
+                        case_inputs(case_named("clear-running"), "google", MODEL),
+                        audit(case_inputs(case_named("clear-running"), "google", MODEL)),
+                    ),
+                )
+            ),
             ProviderError("Gemini: credits unavailable.", code="billing_required"),
         ],
     ) as generate:
         with pytest.raises(CommandError, match="failures or incomplete"):
             live(tmp_path / "failed", ai_connection)
-    assert generate.call_count == 2
+    assert generate.call_count == 3
     report = json.loads((tmp_path / "failed" / "report.json").read_text())
     assert report["summary"]["evaluated"] == 1
     assert report["summary"]["errors"] == 1
@@ -233,11 +252,15 @@ def test_key_rotation_does_not_switch_credentials_mid_evaluation(tmp_path, ai_co
             live(tmp_path / "rotated", ai_connection)
     assert generate.call_count == 1
     report = json.loads((tmp_path / "rotated" / "report.json").read_text())
-    assert report["rows"][1]["error"] == "The connection changed. Start a new evaluation."
+    assert "removed or replaced" in report["rows"][0]["error"]
+    assert report["rows"][0]["stage"] == "grounding"
+    assert report["rows"][0]["output"]
 
 
 def test_replay_rejects_drift_and_html_does_not_execute_imported_copy(tmp_path, ai_connection):
-    with patch("addons.aso.editorial.generate", return_value=response(case_named("clear-running"))):
+    with patch(
+        "addons.aso.editorial.generate", side_effect=provider(response(case_named("clear-running")))
+    ):
         live(tmp_path / "original", ai_connection, cases=["clear-running"])
     file = tmp_path / "original" / "report.json"
     report = json.loads(file.read_text())
@@ -258,7 +281,9 @@ def test_replay_rejects_drift_and_html_does_not_execute_imported_copy(tmp_path, 
 def test_explicit_regrade_keeps_old_checks_and_rejects_changed_model_inputs(
     tmp_path, ai_connection
 ):
-    with patch("addons.aso.editorial.generate", return_value=response(case_named("clear-running"))):
+    with patch(
+        "addons.aso.editorial.generate", side_effect=provider(response(case_named("clear-running")))
+    ):
         live(tmp_path / "original", ai_connection, cases=["clear-running"])
     file = tmp_path / "original" / "report.json"
     original = file.read_text()

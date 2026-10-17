@@ -8,14 +8,14 @@ from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.workflows import services
 
-from . import editorial
+from . import editorial, grounding
 from .models import AuditRun
 from .rules import audit, localized_metadata
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task(soft_time_limit=180, time_limit=210)
+@shared_task(soft_time_limit=300, time_limit=330)
 def audit_listing(workflow_id):
     run = AuditRun.objects.get(workflow_id=workflow_id)
     token = services.claim(workflow_id)
@@ -103,7 +103,29 @@ def audit_listing(workflow_id):
                     f"{info['rejected_proposals']} rejected by validation.",
                     validated,
                 )
-            report = validated
+            checked = services.start_step(
+                workflow_id,
+                token,
+                "grounding",
+                "Reviewing observations and proposals against the imported text. "
+                "This is a second model call.",
+            )
+            if checked is None:
+                checked = grounding.review(run, validated)
+                # Validate completeness before checkpointing; a malformed review must be retried.
+                report = grounding.apply(checked, run.inputs, validated)
+                info = report["editorial"]["grounding"]
+                services.complete_step(
+                    workflow_id,
+                    token,
+                    "grounding",
+                    f"{info['reviewed_items']} items reviewed against the listing; "
+                    f"{info['withheld_observations']} observations and "
+                    f"{info['withheld_proposals']} proposals withheld.",
+                    checked,
+                )
+            else:
+                report = grounding.apply(checked, run.inputs, validated)
         services.start_step(workflow_id, token, "report", "Saving the audit and source references.")
         with services.execution_lock(workflow_id, token):
             run.report = report

@@ -5,17 +5,18 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError
 from django.core.serializers.json import DjangoJSONEncoder
 
-from addons.aso import editorial
+from addons.aso import editorial, grounding
 from addons.aso.evaluation.report import render
 from addons.aso.evaluation.suite import assess, case_inputs, load_suite, manifest, summarize
 from addons.aso.rules import audit
 from panda_store.ai.providers import PROVIDERS, ProviderError
-from panda_store.core.credentials import CredentialsUnavailable, decrypt
+from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.core.models import AIConnection
 
 
@@ -80,25 +81,30 @@ class Command(BaseCommand):
                 )
                 self.save(directory, document)
                 try:
-                    # Re-read revision for every call: a replaced key is never silently adopted.
-                    current = AIConnection.objects.filter(
-                        pk=connection.pk, revision=connection.revision
-                    ).first()
-                    if not current:
-                        raise ProviderError("The connection changed. Start a new evaluation.")
-                    output = editorial.generate(
-                        connection.provider,
-                        decrypt(current.encrypted_key),
-                        options["model"],
-                        editorial.INSTRUCTION,
-                        row["context"],
-                        editorial.SCHEMA,
-                        max_output_tokens=editorial.MAX_OUTPUT_TOKENS,
+                    # Both production calls re-read the frozen credential revision independently.
+                    run = SimpleNamespace(
+                        inputs={
+                            **row["inputs"],
+                            "ai": {
+                                **row["inputs"]["ai"],
+                                "connection_id": str(connection.pk),
+                                "revision": str(connection.revision),
+                            },
+                        },
+                        workspace_id=connection.workspace_id,
                     )
+                    base_report = audit(row["inputs"])
+                    output = editorial.analyze(run, base_report["checks"])
+                    row["output"] = output
+                    validated = editorial.validate(output, row["inputs"], base_report)
+                    row["grounding_context"] = grounding.context(row["inputs"], validated)
+                    row["stage"] = "grounding"
+                    self.save(directory, document)
+                    checked = grounding.review(run, validated)
                     row.update(
                         status="evaluated",
-                        output=output,
-                        assessment=assess(row["case"], row["inputs"], output),
+                        grounding_output=checked,
+                        assessment=assess(row["case"], row["inputs"], output, checked),
                     )
                     row.pop("error", None)
                 except (ProviderError, CredentialsUnavailable) as exc:
@@ -148,7 +154,7 @@ class Command(BaseCommand):
         if ids - {case["id"] for case in suite["cases"]}:
             raise CommandError("Unknown evaluation case. Run without arguments to list cases.")
         cases = [case for case in suite["cases"] if case["id"] in ids]
-        count = len(cases) * options["repeat"]
+        count = len(cases) * options["repeat"] * 2
         if not 1 <= options["repeat"] <= 5 or not count <= options["max_calls"] <= 50:
             raise CommandError(
                 "Use 1–5 repeats and a --max-calls between the planned count and 50."
@@ -185,8 +191,9 @@ class Command(BaseCommand):
                     }
                 )
         self.stdout.write(
-            f"Planned provider calls: {count}; output cap per call: "
-            f"{editorial.MAX_OUTPUT_TOKENS} tokens. No retries or fallback."
+            f"Planned provider calls: up to {count} (copy + evidence review); output caps: "
+            f"{editorial.MAX_OUTPUT_TOKENS} + {grounding.MAX_OUTPUT_TOKENS} tokens per case. "
+            "No retries or fallback."
         )
         return document, connection
 
@@ -235,7 +242,9 @@ class Command(BaseCommand):
                     )
                     row["case"] = copy.deepcopy(current_case)
                 if row["status"] == "evaluated":
-                    row["assessment"] = assess(row["case"], row["inputs"], row["output"])
+                    row["assessment"] = assess(
+                        row["case"], row["inputs"], row["output"], row.get("grounding_output")
+                    )
                     row.pop("error", None)
         except (OSError, ValueError, KeyError, TypeError):
             raise CommandError(

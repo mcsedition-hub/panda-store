@@ -40,7 +40,7 @@ workspace UUID, provider and model from that connection's current catalog:
 .venv/bin/python -u manage.py evaluate_aso \
   --live --workspace WORKSPACE_UUID \
   --provider google --model MODEL_ID \
-  --max-calls 10 --output output/aso-eval/first-run
+  --max-calls 20 --output output/aso-eval/first-run
 ```
 
 `openai`, `google` and `anthropic` use their existing encrypted connections. No key
@@ -50,9 +50,11 @@ maintainer command with server access, not a web endpoint exposed to members.
 
 Use `--case vague-subtitle --case payment-qualifications` to select cases, and
 `--repeat 3` to observe variability. The planned case count multiplied by repeats
-must fit `--max-calls` before any request starts. Up to five repeats and fifty
-calls are allowed. Each call has the production output cap (currently 12,000
-tokens); this is a token/request bound, **not a currency budget**. Provider billing
+and **two calls per case** must fit `--max-calls` before any request starts. Up to
+five repeats and fifty calls are allowed. The production caps are 12,000 tokens
+for copy review and 8,000 for evidence review. The second call is skipped if no
+candidate survives structural validation. This is a token/request bound,
+**not a currency budget**. Provider billing
 applies. There are no retries, parallel calls or provider fallbacks.
 
 A provider or credential error stops subsequent requests. Replacing or removing
@@ -67,6 +69,10 @@ inputs, actual model context, raw structured response, accepted recommendations,
 checks, resolved model, returned token usage and duration. The manifest identifies
 the dataset, prompt/schema/guidance fingerprint, knowledge version and rule version. Expectations
 and review notes are never included in the model context.
+The first response is checkpointed before evidence review. If that second call
+fails or times out, the original copy and the failed stage remain inspectable,
+but no unchecked report is treated as complete. Evidence review responses and
+usage appear separately in both JSON and HTML.
 
 Open `report.html` locally to compare imported copy, observations and proposals.
 It has no JavaScript or external resource loading and escapes model output.
@@ -78,6 +84,8 @@ maintainer decision; no report is uploaded automatically.
 An automated pass means only that this attempt met its specified expectations:
 
 - Every imported field has a structurally validated review.
+- The separate evidence reviewer has accepted every delivered observation and
+  proposal; filtered claims remain evaluation failures, not hidden successes.
 - The model produced no proposals discarded by the production validator.
 - Targeted weak fields received the expected verdict and, where required, a
   usable proposal.
@@ -103,8 +111,9 @@ date, pass/fail/not-applicable for each criterion below, and a specific example:
 | Qualifications | Are payment, privacy, account and support conditions preserved in meaning? |
 
 An assistant's inspection or another model's rating must be labeled as such; it
-does not satisfy independent human review. There is no automatic model judge in
-this first version. Expert calibration, representative consented real cases and
+does not satisfy independent human review. The production evidence reviewer is
+a separate call to the same model, and can itself make mistakes. It is not an
+independent evaluator of overall ASO quality. Expert calibration, representative consented real cases and
 a held-out set remain future work. Avoid tuning to these ten examples and then
 claiming broad quality from the same set. A single run is not a model ranking.
 No benchmark result demonstrates increased downloads or conversion.
@@ -164,6 +173,59 @@ without testing the product. These assistant-observed semantic errors pass the
 automated checks. They remain findings for independent review, not hidden by the
 10/10 structural result. These samples do not establish model superiority or
 reliable semantic accuracy.
+
+## Evidence-review regressions
+
+The seven fixed cases in `grounding_cases.json` isolate the two observed errors
+and controls: unjustified offline operation, false product verification, faithful
+account scope, explicit uncertainty, an explicitly documented offline capability,
+overstating that capability to network-dependent features, and describing a feature
+without claiming it was tested. Labels are project judgments recorded by the
+assistant, not independent expert calibration. They are never sent to the reviewer.
+
+```sh
+# Offline: list the case count. No credentials or requests.
+.venv/bin/python manage.py evaluate_aso_grounding
+
+# Explicit live check: seven bounded calls using the production reviewer.
+.venv/bin/python -u manage.py evaluate_aso_grounding \
+  --live --workspace WORKSPACE_UUID --provider google --model MODEL_ID \
+  --max-calls 7 --output output/aso-eval/evidence-regressions
+```
+
+The directory must be new. Private JSON records preserve context, verdicts,
+quoted problematic text, usage and completed/failed/unattempted cases. Provider
+errors stop the run without automatic retries. An interrupted call remains in
+progress and may already have been billed. CI tests make no paid requests.
+
+On October 17, 2026, `gemini-3.8-flash` with `aso-grounding-2026-10-17.1` and a
+fresh run with `aso-grounding-2026-10-17.2` each produced
+all seven expected verdicts: both original errors were rejected, the qualified
+positive/abstention controls accepted, and the overbroad offline claim rejected.
+This is a small regression result, not a universal hallucination guarantee.
+
+The full pipeline with writer `apple-editorial-2026-10-17.3` and reviewer `.1`
+completed ten distinct cases across two runs: nine met expectations; one exposed
+a reviewer false rejection. Its context omitted the local keyword cleanup that
+the writer correctly referenced. Reviewer `.2` now receives those same rule
+findings, excluding generated suggestions so they cannot justify themselves.
+A single new review of the exact saved response now accepts its five observations
+and meets this case's expectations. This isolates the context fix; it is not a
+fresh ten-case writing run.
+Two attempts timed out at Gemini (one during review, one during a later writing
+call); both stopped without automatic retries or publishing unchecked results.
+The saved partial/error records remain separate from completed results.
+
+A new MonTri audit was also exercised through the browser with reviewer `.2`:
+all six workflow steps completed, five field observations and one keyword proposal
+were reviewed, and the two calls' usage appeared separately. This exercises the
+real UI and worker path; it does not measure changes in installs or independently
+verify the app's features.
+
+The implementation also follows the distinction between structured output and
+semantic validation in [Google's structured output documentation](https://ai.google.dev/gemini-api/docs/generate-content/structured-output?hl=en),
+and combining deterministic checks with a separately calibrated evidence reviewer
+in [OpenAI's grounding evaluation example](https://developers.openai.com/cookbook/examples/agent_optimization/optimizing_agents_for_cost_and_quality#optional-judge-customer-answer-completeness-and-grounding).
 
 ## References
 

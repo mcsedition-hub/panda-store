@@ -11,10 +11,15 @@ from . import corpus
 from .corpus import knowledge
 from .rules import FIELDS, localized_metadata
 
-VERSION = "apple-editorial-2026-10-17.2"
+VERSION = "apple-editorial-2026-10-17.3"
 KNOWLEDGE_VERSION = corpus.VERSION
 LEGACY_VERSIONS = {"apple-editorial-2026-10-16.1", "apple-editorial-2026-10-16.2"}
-ASSESSMENT_VERSIONS = {VERSION, "apple-editorial-2026-10-17.1", "apple-editorial-2026-10-16.3"}
+ASSESSMENT_VERSIONS = {
+    VERSION,
+    "apple-editorial-2026-10-17.2",
+    "apple-editorial-2026-10-17.1",
+    "apple-editorial-2026-10-16.3",
+}
 MAX_OUTPUT_TOKENS = 12000
 FIELD_CRITERIA = {
     "name": (
@@ -43,8 +48,13 @@ Apple guidance. They are not official requirements, connected data or measured o
 Cite entries actually supporting your reasoning, not every available source.
 Apply the same grounding standard to observations and rationales as to replacements.
 Distinguish what the listing claims from independently verified product behavior. Do not infer
-unmentioned capabilities from adjacent facts: on-device storage does not establish offline
-operation. A readable brand name is not evidence of market uniqueness.
+unmentioned capabilities from adjacent facts: on-device storage, local notes and no-account
+access do not establish offline operation or absence of network dependencies. Keep those
+claims at their original scope. Say "the listing describes" or "documented in the listing",
+never "verified/tested/proven product features": reading metadata does not test the app.
+A readable brand name is not evidence of market uniqueness. Negation and scope matter:
+an optional paid backup must not become free sync, and local notes do not imply all features
+work without an account. Ground every observation, title and rationale, not just replacement copy.
 Assess EVERY field in field_criteria, even when you recommend no change. For each, return a
 specific observation about its actual content and criterion, not its character count. Use
 keep only when no concrete editorial change is warranted, improve for a justified weakness,
@@ -127,6 +137,20 @@ SCHEMA = obj(
 )
 
 
+def existing_findings(checks):
+    """Only local rule findings can be evidence; generated suggestions cannot cite themselves."""
+    return [
+        {
+            "field": check["field"],
+            "observation": check["observation"],
+            "replacement": check.get("replacement"),
+        }
+        for check in checks
+        if check["basis"] != "editorial_hypothesis"
+        and check["status"] in {"issue", "recommendation"}
+    ]
+
+
 def review_context(inputs, checks):
     """Shared by production and evaluations; benchmark expectations never enter this context."""
     return {
@@ -134,19 +158,11 @@ def review_context(inputs, checks):
         "listing": localized_metadata(inputs["metadata"], inputs["locale"]),
         "guidance": inputs["knowledge"],
         "field_criteria": inputs["field_criteria"],
-        "existing_findings": [
-            {
-                "field": check["field"],
-                "observation": check["observation"],
-                "replacement": check.get("replacement"),
-            }
-            for check in checks
-            if check["status"] in {"issue", "recommendation"}
-        ],
+        "existing_findings": existing_findings(checks),
     }
 
 
-def analyze(run, checks):
+def call(run, instruction, context, schema, *, max_output_tokens):
     choice = run.inputs["ai"]
     connection = AIConnection.objects.filter(
         pk=choice["connection_id"],
@@ -165,6 +181,16 @@ def analyze(run, checks):
         choice["provider"],
         decrypt(connection.encrypted_key),
         choice["model"],
+        instruction,
+        context,
+        schema,
+        max_output_tokens=max_output_tokens,
+    )
+
+
+def analyze(run, checks):
+    return call(
+        run,
         INSTRUCTION,
         review_context(run.inputs, checks),
         SCHEMA,

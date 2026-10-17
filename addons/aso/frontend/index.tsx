@@ -62,6 +62,13 @@ interface AuditRun {
       rejected_proposals: number;
       assessments?: Assessment[];
       reviewed_fields?: number;
+      grounding?: {
+        reviewed_items: number;
+        withheld_observations: number;
+        withheld_proposals: number;
+        resolved_model: string | null;
+        usage: { input_tokens?: number; output_tokens?: number; reasoning_tokens?: number };
+      };
     };
     ruleset: string;
     reviewed_on: string;
@@ -449,7 +456,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           </section>
           <p className="aso-scope">
             {ai
-              ? 'Apple checks + AI copy review · The selected listing text is sent to your provider.'
+              ? 'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.'
               : 'Apple metadata checks · No AI call'}
           </p>
           {error && (
@@ -532,9 +539,35 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                       {!!run.report.editorial.usage.reasoning_tokens &&
                         ` + ${run.report.editorial.usage.reasoning_tokens} reasoning tokens`}
                       {run.report.editorial.rejected_proposals > 0 &&
-                        ` · ${run.report.editorial.rejected_proposals} proposals excluded: duplicate, unsupported evidence or field limits.`}
+                        ` · ${run.report.editorial.rejected_proposals} proposals excluded by validation.`}
                     </p>
                   )}
+                  {run.report.editorial?.grounding ? (
+                    <p className="note">
+                      Evidence review · {run.report.editorial.grounding.reviewed_items} items
+                      checked
+                      {' · '}
+                      {run.report.editorial.grounding.withheld_observations}{' '}
+                      {run.report.editorial.grounding.withheld_observations === 1
+                        ? 'observation'
+                        : 'observations'}{' '}
+                      and {run.report.editorial.grounding.withheld_proposals}{' '}
+                      {run.report.editorial.grounding.withheld_proposals === 1
+                        ? 'proposal'
+                        : 'proposals'}{' '}
+                      withheld
+                      {' · '}
+                      {run.report.editorial.grounding.usage.input_tokens ?? '—'} input /{' '}
+                      {run.report.editorial.grounding.usage.output_tokens ?? '—'} output tokens
+                      {!!run.report.editorial.grounding.usage.reasoning_tokens &&
+                        ` + ${run.report.editorial.grounding.usage.reasoning_tokens} reasoning tokens`}
+                    </p>
+                  ) : run.report.editorial ? (
+                    <p className="notice">
+                      This earlier audit did not include the separate evidence review. Run a new AI
+                      audit to check its claims.
+                    </p>
+                  ) : null}
                   <h3>Content review</h3>
                   {assessments ? (
                     <>

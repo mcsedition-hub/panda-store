@@ -7,7 +7,7 @@ from importlib.resources import files
 
 from panda_store.ai.providers import ProviderError
 
-from .. import editorial
+from .. import editorial, grounding
 from ..rules import FIELDS, RULESET, audit, localized_metadata
 
 RUBRIC = {
@@ -67,6 +67,11 @@ def manifest(suite):
         ),
         "ruleset": RULESET,
         "max_output_tokens": editorial.MAX_OUTPUT_TOKENS,
+        "grounding_version": grounding.VERSION,
+        "grounding_sha256": fingerprint(
+            {"instruction": grounding.INSTRUCTION, "schema": grounding.schema([{"id": "item"}])}
+        ),
+        "grounding_max_output_tokens": grounding.MAX_OUTPUT_TOKENS,
     }
 
 
@@ -82,6 +87,8 @@ def case_inputs(case, provider, model):
             "model": model,
             "prompt_version": editorial.VERSION,
             "max_output_tokens": editorial.MAX_OUTPUT_TOKENS,
+            "grounding_version": grounding.VERSION,
+            "grounding_max_output_tokens": grounding.MAX_OUTPUT_TOKENS,
         },
         "knowledge": editorial.knowledge(),
         "knowledge_version": editorial.KNOWLEDGE_VERSION,
@@ -89,7 +96,7 @@ def case_inputs(case, provider, model):
     }
 
 
-def assess(case, inputs, output):
+def assess(case, inputs, output, grounding_output=None):
     """Check delivered content AND discarded output, so filtering cannot hide model errors."""
     checks = []
 
@@ -98,6 +105,8 @@ def assess(case, inputs, output):
 
     try:
         report = editorial.validate(output, inputs, audit(inputs))
+        if inputs["ai"].get("grounding_version"):
+            report = grounding.apply(grounding_output, inputs, report)
     except (ProviderError, KeyError, TypeError, ValueError, AttributeError):
         check(
             "response_contract", False, "The production validator could not accept this response."
@@ -105,6 +114,16 @@ def assess(case, inputs, output):
         return {"checks": checks, "passed": False, "report": None}
 
     info = report["editorial"]
+    if "grounding" in info:
+        check(
+            "supported_claims",
+            not (
+                info["grounding"]["withheld_observations"]
+                or info["grounding"]["withheld_proposals"]
+            ),
+            "Observations and proposals must pass the separate evidence review. "
+            "A model verdict is not independent product verification.",
+        )
     listing = localized_metadata(inputs["metadata"], inputs["locale"])
     proposals = [item for item in report["checks"] if item["basis"] == "editorial_hypothesis"]
     actual_fields = {item["field"] for item in proposals}

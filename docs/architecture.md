@@ -256,10 +256,13 @@ uniquement les annotations explicitement retenues pour ce store et ces champs.
 
 ### Revue éditoriale implémentée
 
-Le workflow optionnel `aso.editorial` ajoute une requête IA et une validation après
-les règles locales. `AuditRun.inputs` fige fournisseur, modèle demandé, identifiant
+Le workflow optionnel `aso.editorial` version 2 ajoute une requête de rédaction,
+une validation structurelle puis une seconde requête de contrôle des affirmations
+après les règles locales. `AuditRun.inputs` fige fournisseur, modèle demandé, identifiant
 et révision de connexion, version d’instructions, critères par champ, limite de sortie
 et annotations sourcées avec leur version.
+La version du contrôle des affirmations et son plafond de sortie sont également
+figés. L'interface annonce jusqu'à deux appels facturés avant le lancement.
 Le rapport conserve le modèle résolu et les tokens retournés. Les checkpoints de
 réponse et de validation permettent une reprise sans rappeler un modèle ayant déjà
 répondu. Une réponse perdue avant sauvegarde peut être facturée à nouveau lors d’une
@@ -288,6 +291,34 @@ peut pas être sa seule autorité. Les citations hors champ ou hors store sont
 écartées. Ce contrôle structurel ne prouve pas que le modèle interprète bien la
 source. Le serveur conserve l'annotation exacte sur les citations acceptées.
 Les versions précédentes restent validables avec leurs propres notes sauvegardées.
+
+Depuis `apple-editorial-2026-10-17.3`, `grounding.py` examine séparément les
+observations, titres, justifications et remplacements après validation structurelle.
+Le même fournisseur et modèle est appelé avec une consigne de vérification dédiée,
+le texte importé, les annotations, les résultats des règles locales et les candidats
+exacts, sans attentes du benchmark. Les propositions générées ne peuvent pas servir
+de preuves à elles-mêmes.
+Le contrôle distingue notamment stockage local, absence de compte, fonctionnement
+hors ligne, fonctionnalités décrites et comportement vérifié. Les qualifications
+de paiement, confidentialité, réseau et périmètre doivent conserver leur sens.
+
+Chaque candidat doit recevoir un verdict `supported`, `unsupported` ou `uncertain`.
+Un refus cite un passage exact du candidat ; les identifiants doivent couvrir
+exactement tous les candidats, sans doublon. Le résultat est lié au contexte par
+empreinte SHA-256. Un contrôle absent, incomplet ou détaché de son contexte échoue
+sans publier les recommandations. Une observation non étayée est remplacée par un
+message serveur et bloque aussi sa proposition ; une proposition refusée disparaît
+des changements proposés. Le motif généré par le vérificateur reste dans le
+checkpoint et n'est pas réaffiché comme une nouvelle affirmation fiable.
+
+L'étape `Check claims against listing` possède son checkpoint ; une reprise ne
+refait que les étapes inachevées. Les clés sont revérifiées avant chacun des deux
+appels, et une annulation écarte tout résultat tardif. Les tokens des deux appels
+sont distincts. Ce filtre utilise un modèle, pas une preuve indépendante : ses
+faux positifs et faux négatifs doivent être évalués. Sept cas de régression
+reproductibles comprennent les deux réponses fautives observées et des contrôles
+positifs/négatifs sur les mêmes notions. Les rapports historiques ne sont pas
+réécrits et indiquent qu'ils précèdent cette étape.
 
 L'onglet `Sources` sépare les notes de l'audit sélectionné de la bibliothèque pour
 les prochains audits. `GET /api/workspaces/{id}/aso/knowledge/` fournit cette

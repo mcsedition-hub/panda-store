@@ -25,7 +25,12 @@ l'import choisi et utilise le suivi commun en trois étapes. Les captures et l'i
 La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
 Les brouillons et la revue éditoriale OpenAI/Gemini/Claude sont implémentés, avec
 choix explicite du modèle et propositions sourcées à relire. Le projet
-dispose désormais d'un banc de dix cas synthétiques, de contrôles automatiques,
+ajoute un contrôle distinct des observations et propositions contre la fiche :
+les déductions non étayées sont retirées, et les contrôles incomplets bloquent
+l'enregistrement du rapport. Jusqu'à deux appels au modèle sont annoncés et
+leur consommation est séparée. Sept cas fixes vérifient les erreurs de raisonnement
+observées et les contre-exemples avant d'étendre ce contrôle.
+Le banc de dix cas synthétiques comprend des contrôles automatiques,
 de rapports relisibles et d'une grille de revue humaine. Les premiers critères
 restent provisoires : la calibration par des spécialistes, les cas réels consentis
 et un jeu réservé restent à faire. Voir [l'évaluation ASO](aso-evaluation.md).

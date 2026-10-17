@@ -51,6 +51,12 @@ def render(document):
                 + pre(json.dumps(row["output"], ensure_ascii=False, indent=2))
                 + "</details>"
             )
+        if row.get("grounding_output"):
+            content += (
+                "<details><summary>Evidence review and usage</summary>"
+                + pre(json.dumps(row["grounding_output"], ensure_ascii=False, indent=2))
+                + "</details>"
+            )
         context = row["context"]
         original = "".join(
             f"<h3>{esc(field)}</h3>" + pre(value) for field, value in context["listing"].items()

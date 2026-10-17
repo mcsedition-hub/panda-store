@@ -143,7 +143,7 @@ There is no provider fallback or automatic paid retry. **Rules only · No AI** k
 the original checks available without a key. All three adapters have automated
 contract tests; OpenAI and Gemini have also been exercised with live accounts.
 
-Follow the five workflow steps, then read **Content review** below the activity.
+Follow the six workflow steps, then read **Content review** below the activity.
 Each of the five fields receives an observation, including when no change is
 suggested or evidence is missing. Mechanical limits remain under **Apple checks**.
 Each AI proposal includes a replacement, rationale, quoted listing evidence and
@@ -154,11 +154,22 @@ is frozen. Replacing/removing its key requires a new audit if the AI call has no
 completed. Retry reuses a saved model response when available; a lost response can
 require a new paid request. Stopping discards a late result but cannot undo usage.
 
+New AI audits use up to **two model calls** with the selected provider/model: copy
+review, then **Check claims against listing**. The second call checks observations,
+proposal titles, rationales and replacements for unsupported inferences and altered
+qualifications. An unsupported or uncertain observation is withheld along with its
+proposal; a rejected proposal is never offered for a draft. Missing or incomplete
+evidence reviews fail the audit without publishing unchecked copy. Retry reuses
+completed writing and validation steps. Each call's token usage is shown separately.
+Older reports remain unchanged and identify the missing evidence review.
+
 Editorial proposals are hypotheses for human review. Validation rejects unknown
 sources, citations outside the field/store scope, vendor-only citations,
 non-verbatim evidence, repeated proposals, field overflows, new numbers
 and changed URLs. It does not prove feature claims, semantic relevance, translation
-quality or improved conversion. Zero AI proposals is a valid result. The current
+quality or improved conversion. The separate model review filters semantic errors,
+but is not independent app testing or a guarantee of correctness.
+Zero AI proposals is a valid result. The current
 review uses five reviewed annotations from Apple, Phiture, AppTweak and SplitMetrics.
 Apple guidance remains the primary reference; practitioner/vendor methods supplement
 it without supplying app metrics or official requirements.

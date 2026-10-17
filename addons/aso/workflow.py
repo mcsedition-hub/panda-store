@@ -1,6 +1,7 @@
 from panda_store.workflows.services import create_run
 
 VERSION = 1
+AI_VERSION = 2
 STEPS = [
     {"key": "listing", "title": "Read saved listing", "kind": "validation", "depends_on": []},
     {"key": "checks", "title": "Check Apple guidance", "kind": "rules", "depends_on": ["listing"]},
@@ -23,13 +24,19 @@ AI_STEPS = STEPS[:2] + [
         "depends_on": ["editorial"],
     },
     {
+        "key": "grounding",
+        "title": "Check claims against listing",
+        "kind": "ai",
+        "depends_on": ["validate"],
+    },
+    {
         "key": "report",
         "title": "Save recommendations",
         "kind": "storage",
-        "depends_on": ["validate"],
+        "depends_on": ["grounding"],
     },
 ]
-RUNNERS = {"aso.audit": (VERSION, execute), "aso.editorial": (VERSION, execute)}
+RUNNERS = {"aso.audit": (VERSION, execute), "aso.editorial": (AI_VERSION, execute)}
 
 
 def create_workflow(workspace, user, retry_of=None, ai=False):
@@ -38,7 +45,7 @@ def create_workflow(workspace, user, retry_of=None, ai=False):
         user=user,
         module_id="aso",
         key="aso.editorial" if ai else "aso.audit",
-        version=VERSION,
+        version=AI_VERSION if ai else VERSION,
         title="Audit store listing",
         steps=AI_STEPS if ai else STEPS,
         retry_of=retry_of,

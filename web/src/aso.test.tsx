@@ -369,3 +369,67 @@ it('does not invent field reviews for historical audits', async () => {
   await screen.findByText(/This earlier audit did not record a review for each field/);
   expect(screen.queryByText('No change suggested')).toBeNull();
 });
+
+it('distinguishes the separate evidence review from an older audit and shows its usage', async () => {
+  const reviewed = {
+    ...run,
+    ai: { provider: 'google', model: 'gemini-3.8-flash' },
+    report: {
+      ...run.report,
+      editorial: {
+        resolved_model: 'gemini-3.8-flash',
+        usage: {},
+        accepted_proposals: 0,
+        rejected_proposals: 1,
+        grounding: {
+          reviewed_items: 6,
+          withheld_observations: 1,
+          withheld_proposals: 1,
+          usage: { input_tokens: 200, output_tokens: 150, reasoning_tokens: 300 },
+        },
+        assessments: [
+          {
+            field: 'description',
+            verdict: 'unvalidated',
+            observation:
+              'This AI observation was withheld because its claims were not supported clearly enough by the imported listing.',
+            evidence: [],
+            sources: [],
+            observed: 'Imported description',
+          },
+        ],
+        reviewed_fields: 0,
+      },
+    },
+  };
+  mockData(async () => [reviewed]);
+  render(<ASO {...props} />);
+  await screen.findByText(/Evidence review · 6 items checked/);
+  expect(screen.getByText(/1 observation and 1 proposal withheld/)).toBeTruthy();
+  expect(screen.getByText(/200 input \/ 150 output tokens \+ 300 reasoning tokens/)).toBeTruthy();
+  expect(screen.getByText('Review unavailable')).toBeTruthy();
+  expect(
+    screen.queryByText(/earlier audit did not include the separate evidence review/),
+  ).toBeNull();
+});
+
+it('warns when a historical AI report predates the evidence review', async () => {
+  mockData(async () => [
+    {
+      ...run,
+      ai: { provider: 'google', model: 'gemini-3.8-flash' },
+      report: {
+        ...run.report,
+        editorial: {
+          resolved_model: 'gemini-3.8-flash',
+          usage: {},
+          accepted_proposals: 0,
+          rejected_proposals: 0,
+        },
+      },
+    },
+  ]);
+  render(<ASO {...props} />);
+  await screen.findByText(/This earlier audit did not include the separate evidence review/);
+  expect(screen.queryByText(/Evidence review ·/)).toBeNull();
+});

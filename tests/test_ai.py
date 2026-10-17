@@ -7,7 +7,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from addons.app_catalog.models import MetadataSnapshot, MobileApp
-from addons.aso import editorial
+from addons.aso import editorial, grounding
 from addons.aso.models import AuditRun
 from addons.aso.rules import RULESET, audit
 from addons.aso.tasks import audit_listing
@@ -16,6 +16,7 @@ from panda_store.core.access import activate_modules
 from panda_store.core.credentials import decrypt, encrypt
 from panda_store.core.models import AIConnection, Membership, Workspace
 from panda_store.workflows import services
+from tests.aso_support import provider
 
 KEY = "test-key-never-real-12345"
 MODELS = [{"id": "gpt-4.1-mini", "name": "GPT"}]
@@ -356,10 +357,10 @@ def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
     run = AuditRun.objects.get(pk=response.data["id"])
     assert run.inputs["ai"]["model"] == "gpt-4.1-mini"
     assert KEY not in str(run.inputs)
-    with patch("addons.aso.editorial.generate", return_value=output()) as generate:
+    with patch("addons.aso.editorial.generate", side_effect=provider(output())) as generate:
         audit_listing(str(run.workflow_id))
         audit_listing(str(run.workflow_id))
-    assert generate.call_count == 1
+    assert generate.call_count == 2
     run.refresh_from_db()
     assert run.workflow.status == "succeeded"
     assert run.report["editorial"]["accepted_proposals"] == 1
@@ -368,9 +369,12 @@ def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
     assert {item["field"] for item in run.report["editorial"]["assessments"]} == set(
         editorial.FIELDS
     )
-    assert generate.call_args.kwargs["max_output_tokens"] == editorial.MAX_OUTPUT_TOKENS
-    assert generate.call_args.args[4]["field_criteria"] == run.inputs["field_criteria"]
-    assert generate.call_args.args[4]["guidance"] == run.inputs["knowledge"]
+    assert generate.call_args_list[0].kwargs["max_output_tokens"] == editorial.MAX_OUTPUT_TOKENS
+    assert generate.call_args_list[0].args[4]["field_criteria"] == run.inputs["field_criteria"]
+    assert generate.call_args_list[0].args[4]["guidance"] == run.inputs["knowledge"]
+    assert generate.call_args_list[1].args[3] == grounding.INSTRUCTION
+    assert generate.call_args_list[1].kwargs["max_output_tokens"] == grounding.MAX_OUTPUT_TOKENS
+    assert run.report["editorial"]["grounding"]["reviewed_items"] == 6
     assert run.inputs["knowledge_version"] == editorial.KNOWLEDGE_VERSION
     assert len(run.inputs["knowledge"]) == 5
     with patch("addons.aso.editorial.knowledge", return_value=[]):
@@ -378,7 +382,7 @@ def test_editorial_audit_freezes_choice_records_usage_and_creates_draft(
     assert saved["knowledge"] == run.inputs["knowledge"]
     assert saved["knowledge_version"] == editorial.KNOWLEDGE_VERSION
     assert saved["report"] == run.report
-    assert run.workflow.steps.count() == 5
+    assert run.workflow.steps.count() == 6
     assert run.report["checks"][-1]["basis"] == "editorial_hypothesis"
     draft = api.post(
         f"/api/workspaces/{workspace.pk}/aso/apps/{listing[0].pk}/drafts/",
@@ -449,9 +453,10 @@ def test_cancel_discards_ai_output_and_retry_reuses_completed_response(
         format="json",
     )
     next_run = AuditRun.objects.get(pk=retry.data["id"])
-    with patch("addons.aso.editorial.generate") as generate:
+    with patch("addons.aso.editorial.generate", side_effect=provider(output())) as generate:
         audit_listing(str(next_run.workflow_id))
-    generate.assert_not_called()
+    assert generate.call_count == 1  # Saved writing is reused; evidence review remains to run.
+    assert generate.call_args.args[3] == grounding.INSTRUCTION
     next_run.refresh_from_db()
     assert next_run.workflow.status == "succeeded"
     assert next_run.report["editorial"]["accepted_proposals"] == 1
@@ -514,6 +519,53 @@ def review_inputs(listing):
         "ai": {"prompt_version": editorial.VERSION},
         "knowledge": editorial.knowledge(),
     }
+
+
+def test_evidence_review_failure_and_retry_reuse_the_saved_copy(
+    api, workspace, listing, connection
+):
+    response, _ = start(api, workspace, listing)
+    run = AuditRun.objects.get(pk=response.data["id"])
+    with patch(
+        "addons.aso.editorial.generate",
+        side_effect=[output(), providers.ProviderError("Provider quota reached.")],
+    ) as generate:
+        audit_listing(str(run.workflow_id))
+    assert generate.call_count == 2
+    run.refresh_from_db()
+    assert run.report is None and run.workflow.status == "failed"
+    assert run.workflow.steps.get(key="editorial").status == "succeeded"
+    retry = api.post(
+        f"/api/workspaces/{workspace.pk}/aso/runs/{run.pk}/retry/",
+        {"request_id": str(uuid.uuid4())},
+        format="json",
+    )
+    retried = AuditRun.objects.get(pk=retry.data["id"])
+    with patch("addons.aso.editorial.generate", side_effect=provider(output())) as generate:
+        audit_listing(str(retried.workflow_id))
+    assert generate.call_count == 1
+    assert generate.call_args.args[3] == grounding.INSTRUCTION
+    retried.refresh_from_db()
+    assert retried.workflow.status == "succeeded"
+    assert retried.report["editorial"]["grounding"]["reviewed_items"] == 6
+
+
+def test_cancel_during_evidence_review_discards_all_unpublished_copy(
+    api, workspace, listing, connection
+):
+    response, _ = start(api, workspace, listing)
+    run = AuditRun.objects.get(pk=response.data["id"])
+
+    def canceled(*args, **kwargs):
+        result = provider(output())(*args, **kwargs)
+        if args[3] == grounding.INSTRUCTION:
+            services.cancel(run.workflow_id)
+        return result
+
+    with patch("addons.aso.editorial.generate", side_effect=canceled):
+        audit_listing(str(run.workflow_id))
+    run.refresh_from_db()
+    assert run.workflow.status == "canceled" and run.report is None
 
 
 @pytest.mark.parametrize(

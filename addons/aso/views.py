@@ -15,11 +15,11 @@ from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows.models import WorkflowRun
 from panda_store.workflows.services import fail, recover
 
-from . import editorial
+from . import editorial, grounding
 from .models import AuditRun
 from .rules import RULESET, localized_metadata
 from .tasks import audit_listing
-from .workflow import VERSION, create_workflow
+from .workflow import AI_VERSION, VERSION, create_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +129,8 @@ def runs(request, workspace_id, app_id):
                 "revision": str(connection.revision),
                 "prompt_version": editorial.VERSION,
                 "max_output_tokens": editorial.MAX_OUTPUT_TOKENS,
+                "grounding_version": grounding.VERSION,
+                "grounding_max_output_tokens": grounding.MAX_OUTPUT_TOKENS,
             }
             inputs["knowledge"] = editorial.knowledge(platform=app.platform)
             inputs["knowledge_version"] = editorial.KNOWLEDGE_VERSION
@@ -172,11 +174,14 @@ def retry(request, workspace_id, run_id):
         if previous.status not in {WorkflowRun.Status.FAILED, WorkflowRun.Status.CANCELED}:
             raise ValidationError("Only failed or canceled audits can be retried.")
         if (
-            previous.version != VERSION
+            previous.version != (AI_VERSION if "ai" in original.inputs else VERSION)
             or original.inputs["ruleset"] != RULESET
             or (
                 "ai" in original.inputs
-                and original.inputs["ai"]["prompt_version"] != editorial.VERSION
+                and (
+                    original.inputs["ai"]["prompt_version"] != editorial.VERSION
+                    or original.inputs["ai"].get("grounding_version") != grounding.VERSION
+                )
             )
         ):
             raise ValidationError("The audit rules changed. Start a new audit.")
