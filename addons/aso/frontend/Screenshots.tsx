@@ -42,6 +42,11 @@ function deviceLabel(value: string) {
 }
 
 export default function Screenshots({ report }: { report: VisualReport }) {
+  const readable = (text?: string) =>
+    text?.replace(
+      /\bshot-\d+\b/g,
+      (id) => report.images.find((item) => item.image_id === id)?.name || id,
+    );
   return (
     <div className="aso-visual-report">
       <p className="notice">
@@ -87,14 +92,14 @@ export default function Screenshots({ report }: { report: VisualReport }) {
             <p className="note">{deviceLabel(image.display_type)}</p>
             {image.status === 'reviewed' ? (
               <>
-                <p>{image.observation}</p>
+                <p>{readable(image.observation)}</p>
                 {image.visible_text && (
                   <p className="note">Visible excerpt · “{image.visible_text}”</p>
                 )}
                 {image.recommendation && (
                   <div className="aso-proposal">
                     <strong>Suggested change</strong>
-                    <p>{image.recommendation}</p>
+                    <p>{readable(image.recommendation)}</p>
                   </div>
                 )}
                 <footer className="aso-sources">
