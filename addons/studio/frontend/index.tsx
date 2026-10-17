@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import type { Brief, Creative, ModuleProps, Run, ResearchSource } from '../../../web/src/contracts';
 import Research from './Research';
+import Scenes from './Scenes';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
 function CreativeEditor({
@@ -10,12 +11,14 @@ function CreativeEditor({
   canWrite,
   workspaceId,
   onSave,
+  onPlan,
   sources = [],
 }: {
   creative: Creative;
   canWrite: boolean;
   workspaceId: string;
   onSave: (creative: Creative) => void;
+  onPlan: () => void;
   sources?: ResearchSource[];
 }) {
   const [draft, setDraft] = useState(creative);
@@ -128,6 +131,9 @@ function CreativeEditor({
         </p>
       )}
       <div className="creative-actions">
+        <button className="button secondary" disabled={busy || dirty} onClick={onPlan}>
+          Plan scenes
+        </button>
         <button
           className="button secondary"
           onClick={() => save()}
@@ -155,8 +161,27 @@ export default function Studio({
   navigate,
   demoMode,
   previewMode,
+  registerLeaveGuard,
 }: ModuleProps) {
-  const [section, setSection] = useState<'research' | 'scripts'>('research');
+  const [section, setSection] = useState<'research' | 'scripts' | 'scenes'>('research');
+  const [sceneCreativeId, setSceneCreativeId] = useState('');
+  const scenesGuard = useRef<() => Promise<boolean>>(async () => true);
+  const registerScenesGuard = useCallback(
+    (guard: () => Promise<boolean>) => {
+      scenesGuard.current = guard;
+      const release = registerLeaveGuard?.(guard);
+      return () => {
+        scenesGuard.current = async () => true;
+        release?.();
+      };
+    },
+    [registerLeaveGuard],
+  );
+  async function openScenes(id: string) {
+    if (!(await scenesGuard.current()) || currentBase.current !== base) return;
+    setSceneCreativeId(id);
+    setSection('scenes');
+  }
   const [engine, setEngine] = useState(
     selectedApp?.is_demo || previewMode ? 'demo_templates' : 'ai',
   );
@@ -190,6 +215,7 @@ export default function Studio({
     setError('');
     setNotice('');
     setRuns([]);
+    setSceneCreativeId('');
     setRunId('');
     setBusy(false);
     setUncertain(false);
@@ -386,7 +412,67 @@ export default function Studio({
         >
           Scripts
         </button>
+        <button
+          aria-current={section === 'scenes' ? 'page' : undefined}
+          onClick={() => {
+            setSection('scenes');
+            if (!sceneCreativeId) setSceneCreativeId(run?.creatives[0]?.id ?? '');
+          }}
+        >
+          Scenes
+        </button>
       </nav>
+      <div hidden={section !== 'scenes'}>
+        {section === 'scenes' || sceneCreativeId ? (
+          <>
+            {runs.some((item) => item.creatives.length) && (
+              <label className="scene-script-picker">
+                Script
+                <select
+                  value={sceneCreativeId}
+                  onChange={(event) => openScenes(event.target.value)}
+                >
+                  <option value="" disabled>
+                    Choose a script
+                  </option>
+                  {runs
+                    .filter((item) => item.creatives.length)
+                    .map((item) => (
+                      <optgroup key={item.id} label={new Date(item.created_at).toLocaleString()}>
+                        {item.creatives.map((creative) => (
+                          <option key={creative.id} value={creative.id}>
+                            {creative.angle}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                </select>
+              </label>
+            )}
+            {sceneCreativeId ? (
+              <Scenes
+                key={`${workspace.id}:${appId}:${sceneCreativeId}`}
+                workspace={workspace}
+                selectedApp={selectedApp}
+                creativeId={sceneCreativeId}
+                currentScript={runs
+                  .flatMap((item) => item.creatives)
+                  .find((item) => item.id === sceneCreativeId)}
+                active={section === 'scenes'}
+                previewMode={previewMode}
+                registerLeaveGuard={registerScenesGuard}
+              />
+            ) : (
+              <section className="storyboard-empty">
+                <h2>No script selected</h2>
+                <button className="button secondary" onClick={() => setSection('scripts')}>
+                  Open scripts
+                </button>
+              </section>
+            )}
+          </>
+        ) : null}
+      </div>
       <div hidden={section !== 'research'}>
         <Research
           key={`${workspace.id}:${selectedApp.id}`}
@@ -766,6 +852,7 @@ export default function Studio({
                       canWrite={canWrite}
                       workspaceId={workspace.id}
                       sources={run.context?.sources}
+                      onPlan={() => openScenes(creative.id)}
                       onSave={(next) =>
                         setRuns((old) =>
                           old.map((item) =>

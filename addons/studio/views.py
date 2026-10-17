@@ -159,17 +159,22 @@ def retry_run(request, workspace_id, run_id):
 @api_view(["PATCH"])
 def edit_creative(request, workspace_id, creative_id):
     workspace = workspace_access(request.user, workspace_id, write=True, module="studio")
-    creative = get_object_or_404(Creative, pk=creative_id, run__workspace=workspace)
-    serializer = CreativeSerializer(creative, data=request.data, partial=True)
-    serializer.is_valid(raise_exception=True)
-    changed = any(
-        field in serializer.validated_data
-        and serializer.validated_data[field] != getattr(creative, field)
-        for field in ("hook", "script", "cta")
-    )
-    # An edit always needs a new, separate approval, including API clients.
-    serializer.save(**({"approved": False} if changed else {}))
-    return Response(serializer.data)
+    with transaction.atomic():
+        Workspace.objects.select_for_update().get(pk=workspace.pk)
+        workspace_access(request.user, workspace_id, write=True, module="studio")
+        creative = get_object_or_404(
+            Creative.objects.select_for_update(), pk=creative_id, run__workspace=workspace
+        )
+        serializer = CreativeSerializer(creative, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        changed = any(
+            field in serializer.validated_data
+            and serializer.validated_data[field] != getattr(creative, field)
+            for field in ("hook", "script", "cta")
+        )
+        # An edit always needs a new, separate approval, including API clients.
+        serializer.save(**({"approved": False} if changed else {}))
+        return Response(serializer.data)
 
 
 @api_view(["GET"])

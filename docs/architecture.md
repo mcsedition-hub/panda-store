@@ -750,3 +750,35 @@ Les éditions humaines ne réécrivent pas cet historique et remettent l'approba
 L'export indique le modèle, les faits confirmés, les sources et l'état de revue. Les
 scripts décrivent un tournage à réaliser : aucun média n'est produit ou publié par ce workflow.
 Le mode `demo_templates` et son ancien workflow restent disponibles séparément.
+
+
+### Scènes et visuels du Studio
+
+`Storyboard` appartient à un `Creative` et conserve le texte source et son empreinte.
+La création est idempotente par script. Le découpage reconnaît seulement les blocs explicites
+`[Scene N: …]` ; tout autre texte est conservé en un plan libre. Hook et CTA restent distincts.
+Aucune inférence de nouveaux plans, aucun appel IA ni approbation automatique. Les durées
+initiales sont réparties selon les mots, sans prétendre mesurer une voix enregistrée.
+
+Chaque plan conserve un identifiant, titre, direction, voix off, texte à l'écran, durée et
+référence facultative à un `SceneAsset`. Une révision contient l'ensemble des plans ; PATCH
+exige la version attendue et un identifiant de requête. Verrou d'espace, nouvelle vérification
+des droits et verrou du storyboard protègent les écritures. Une réponse perdue se rejoue avec
+la même requête ; un conflit conserve les retouches locales et impose un rechargement explicite.
+Les modifications du script signalent un décalage, sans réécrire le storyboard.
+
+Les visuels proviennent exclusivement d'une capture du snapshot de l'app désignée, jamais
+d'une URL libre ni des captures concurrentes. Le téléchargement et le décodage bornés sont
+partagés avec ASO dans `panda_store.core.images`, sans dépendance fonctionnelle à ce module.
+Téléchargement HTTPS sur hôtes Apple autorisés, sans redirection, 12 secondes/8 MB maximum ;
+raster fixe JPEG/PNG/WebP, 20 mégapixels maximum, dérivé JPEG de 2048 px et 1.5 MB maximum.
+Les lignes sont dédupliquées par snapshot/position, privées à l'app, et limitées à 60 par app.
+La liste des visuels ne charge pas leurs données binaires. Les miniatures non archivées viennent
+du CDN Apple sans referrer ; leur sélection archive une copie locale. L'activation Studio et
+les droits d'écriture sont revérifiés après le téléchargement avant la sauvegarde.
+
+Le preview React séquence les images en 9:16, sans recadrage, avec textes superposés et
+lecture/pause/position. Aucun son ni fichier vidéo n'est produit. L'export ZIP cible une révision
+précise, valide les empreintes des images et contient `storyboard.json`, `storyboard.md` et les
+JPEGs sélectionnés sous noms UUID fixes. Les images, exports et plans demandent une adhésion
+à l'espace et Studio activé. Les lecteurs peuvent consulter et exporter, sans modifier.

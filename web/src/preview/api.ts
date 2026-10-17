@@ -80,6 +80,14 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
     )
   ) {
     result = [];
+  } else if (
+    sampleRuns.some((sample) =>
+      sample.run.creatives.some(
+        (creative) => path === `${prefix}studio/creatives/${creative.id}/storyboard/`,
+      ),
+    )
+  ) {
+    result = { storyboard: null };
   } else if (path === `${prefix}studio/research-capabilities/`) {
     result = { browser_installed: false };
   } else {

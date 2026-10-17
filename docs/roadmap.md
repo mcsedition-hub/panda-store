@@ -10,7 +10,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple, revue IA des textes et captures, brouillons, briefs de captures et évaluations implémentés ; recherche propre à chaque audit à construire |
 | Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé et Studio à modèles locaux implémentés ; agents et branches parallèles à construire |
 | Veille | Recherche concurrentielle et navigateur avec traces consultables | Première tranche Studio implémentée : recherche chez les trois fournisseurs, ouverture/défilement bornés, texte et captures archivés, analyse puis vérification ; vidéos et navigation ouverte à construire |
-| Création IA | Trois angles à partir d'une veille relue et de faits produit confirmés, consommation, reprise et validation | Scripts IA intégrés ; montage et génération de vidéos à construire |
+| Création IA | Trois angles à partir d'une veille relue et de faits produit confirmés, consommation, reprise et validation | Scripts IA, plans éditables, captures propres à l’app, aperçu muet et export ZIP intégrés ; montage et génération de vidéos à construire |
 | Google Play | Métadonnées et rapports via mécanismes officiels disponibles | À construire |
 | Publication | Comptes sociaux, aperçu, validation, calendrier, statut d'envoi | À construire |
 | Mesure | Liens de campagne, séries temporelles, rapports et limites d'attribution | À construire |
@@ -31,8 +31,11 @@ Studio permet de retenir jusqu'à trois observations et de générer trois angle
 de cette sélection et des faits produit confirmés dans le brief. Les sources et l'adaptation
 restent visibles ; les scripts passent par une revue séparée puis une approbation humaine.
 Les exemples concurrents ne prouvent ni la viralité, ni la conversion, ni les fonctionnalités
-de l'app de l'utilisateur. La prochaine tranche porte sur le passage du script aux médias :
-assets propres à l'app, plan de scènes, prévisualisation puis montage/export vidéo.
+de l'app de l'utilisateur. Le passage aux scènes est implémenté : plans éditables versionnés,
+captures de l'app archivées, aperçu vertical muet et dossier ZIP de montage. Le découpage
+reprend les repères explicites du script sans appel IA supplémentaire ; les autres formats
+restent un plan libre. La prochaine tranche porte sur l'import de médias de tournage,
+la voix et le montage/export vidéo.
 
 Le module ASO est disponible et activable. Le premier audit contrôle les longueurs,
 le budget de mots-clés et les répétitions exactes, avec sources Apple datées,

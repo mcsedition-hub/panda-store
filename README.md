@@ -14,7 +14,7 @@ English is the default product language. [Lire le README en français](README.fr
 
 **Alpha 0.1.0 — local development.** Connect an Apple account and import iOS
 store listings, or explore with fictional apps. Research → select observations →
-write a brief → generate three AI script drafts → edit → approve → export.
+write a brief → generate three AI script drafts → edit → approve → plan scenes → export.
 Local templates remain available in demo mode. Google Play and publishing are not implemented yet.
 
 ## What works
@@ -37,6 +37,7 @@ Local templates remain available in demo mode. Google Play and publishing are no
 - Three AI script directions from selected research and author-confirmed product facts,
   with source references, an automated review and separate human approval.
 - Generation history, script editing, separate approval and Markdown exports.
+- Editable storyboards, real app screenshots, a timed vertical preview and versioned ZIP packages.
 - Live workflow steps and activity, stop requests, and retries that keep completed steps.
 - An example extension using the same conventions as the built-in modules.
 
@@ -174,6 +175,31 @@ automatically rechecked. The Markdown export includes the sources and the confir
 These are editable scripts and shooting directions, not generated video files. Target duration is
 an estimate. No social account is connected or post published. AI generation works with demo mode
 disabled; **Demo templates · No AI** remains a separate optional local mode.
+
+## Plan scenes and prepare an editing package
+
+Open **Scripts → Plan scenes**, or **Studio → Scenes**, and choose a saved script.
+**Create storyboard** keeps explicit scene labels and separates the opening and call to action.
+Other script formats are preserved in one editable shot. This step makes no model call and does
+not approve the script. Adjust shot order, direction, voiceover, on-screen text and duration.
+
+Select an image in **App visuals** to archive and attach one of the connected app's own store
+screenshots. Supported imports currently come from Apple's image CDN; competitor research
+captures are not offered as production assets. Images retain their aspect ratio in the 9:16
+preview. They are store-image derivatives, potentially with marketing text, not raw screen
+recordings. **Play preview** sequences stills silently; timings are editable estimates.
+
+Save a storyboard before recording. Each save creates a revision; competing edits return a
+conflict without overwriting local work. Navigation saves pending edits and stops if saving fails.
+A script change is flagged without replacing the shot plan. **Export package** downloads the
+selected saved revision with `storyboard.json`, a Markdown shot list and the selected JPEGs.
+**Save & export** saves the current edits first. The last 100 versions are selectable in the UI;
+older saved versions remain available through the versioned export API.
+
+Studio works with ASO disabled. Its private app asset library stores at most 60 images per app,
+1.5 MB each, in the database; include them in backups. Up to 20 shots and ten minutes per plan
+are supported. Apply migrations and restart the API and worker when upgrading. User uploads,
+screen recordings, voice synthesis, generated media and MP4 rendering remain to be built.
 
 ## Audit an App Store listing
 

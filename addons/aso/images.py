@@ -3,16 +3,13 @@
 import asyncio
 import base64
 import hashlib
-import io
-import re
-import warnings
-from urllib.parse import urlsplit
 
 import httpx
 from django.utils import timezone
-from PIL import Image, ImageOps, UnidentifiedImageError
 
 from panda_store.ai.providers import ProviderError
+from panda_store.core import images as safe_images
+from panda_store.core.images import allowed_url as allowed_url
 from panda_store.workflows import services
 
 from .models import ScreenshotEvidence
@@ -22,37 +19,12 @@ MAX_DOWNLOAD = 8_000_000
 MAX_STORED = 1_500_000
 
 
-def allowed_url(url):
-    try:
-        parsed = urlsplit(url)
-        return (
-            parsed.scheme == "https"
-            and re.fullmatch(r"is\d+-ssl\.mzstatic\.com", parsed.hostname or "") is not None
-            and parsed.port in {None, 443}
-            and parsed.username is None
-            and parsed.password is None
-            and not parsed.fragment
-        )
-    except (ValueError, TypeError):
-        return False
-
-
 async def download(url):
-    if not allowed_url(url):
-        raise ValueError("The imported image is not on a supported Apple image host.")
-    async with asyncio.timeout(12):
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(10, connect=5), follow_redirects=False
-        ) as client:
-            async with client.stream("GET", url) as response:
-                if response.status_code != 200:
-                    raise ValueError("Apple could not provide this image. Refresh the import.")
-                data = bytearray()
-                async for chunk in response.aiter_bytes():
-                    data.extend(chunk)
-                    if len(data) > MAX_DOWNLOAD:
-                        raise ValueError("The image exceeds the download size limit.")
-                return bytes(data)
+    return await safe_images.download(url, max_download=MAX_DOWNLOAD)
+
+
+def normalize(data):
+    return safe_images.normalize(data, max_stored=MAX_STORED)
 
 
 async def download_batch(items):
@@ -73,42 +45,6 @@ async def download_batch(items):
         [(None, "The image download time budget was reached.")] * (len(items) - len(results))
     )
     return results
-
-
-def normalize(data):
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(data)) as source:
-                if (
-                    source.format not in {"PNG", "JPEG", "WEBP"}
-                    or getattr(source, "n_frames", 1) != 1
-                    or source.width * source.height > 20_000_000
-                ):
-                    raise ValueError("The image format or dimensions are unsupported.")
-                source.load()
-                image = ImageOps.exif_transpose(source).convert("RGB")
-                original = {"width": image.width, "height": image.height}
-                image.thumbnail((2048, 2048))
-                output = io.BytesIO()
-                image.save(output, format="JPEG", quality=90, optimize=True)
-                body = output.getvalue()
-                if len(body) > MAX_STORED:
-                    raise ValueError("The prepared image exceeds the analysis size limit.")
-                return body, {
-                    "width": image.width,
-                    "height": image.height,
-                    "downloaded_dimensions": original,
-                    "mime_type": "image/jpeg",
-                    "sha256": hashlib.sha256(body).hexdigest(),
-                }
-    except (
-        UnidentifiedImageError,
-        OSError,
-        Image.DecompressionBombError,
-        Image.DecompressionBombWarning,
-    ):
-        raise ValueError("The imported file could not be read safely as an image.") from None
 
 
 def capture(run, token):

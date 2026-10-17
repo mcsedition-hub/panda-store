@@ -15,6 +15,9 @@
     "scripts.demo_generate",
     "scripts.ai_generate",
     "scripts.edit",
-    "scripts.export"
+    "scripts.export",
+    "scenes.edit",
+    "scenes.import_assets",
+    "scenes.export"
   ]
 }

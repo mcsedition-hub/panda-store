@@ -37,6 +37,7 @@ facultative. Studio relie désormais la veille à trois scripts IA. Google Play 
 - Trois scripts IA à partir des observations choisies et des faits produit confirmés,
   avec sources, revue automatique et validation humaine séparée.
 - Historique des générations, édition, validation séparée et export Markdown.
+- Storyboards éditables, captures réelles de l’app, aperçu vertical et export ZIP versionné.
 - Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
 - Module d'exemple utilisant les mêmes conventions que les modules intégrés.
 
@@ -58,6 +59,12 @@ Un rejet bloque l'enregistrement des scripts et affiche les raisons ; un timeout
 reprendre les étapes inachevées. Les scripts restent à relire, éditer et approuver séparément.
 Il s'agit de textes et de plans de tournage, pas de fichiers vidéo ni de publications.
 Voir le [parcours de création](README.md#create-scripts-from-research).
+
+**Studio → Scenes** transforme le script sauvegardé en plans éditables et permet d’associer
+les captures de l’app. L’aperçu fait défiler les images, sans son ; les durées restent à ajuster
+au tournage. Chaque sauvegarde conserve une version et l’export ZIP fournit les plans, textes,
+durées et images sélectionnées. L’import de vidéos, la voix et le rendu MP4 restent à construire.
+Voir le [parcours des scènes](README.md#plan-scenes-and-prepare-an-editing-package).
 
 Activer **ASO** dans **Modules**, choisir l'app et la langue, puis **Run audit**.
 Le bilan utilise l'import enregistré et conserve ses sources, leur date de revue

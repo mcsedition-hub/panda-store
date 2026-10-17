@@ -73,6 +73,48 @@ class Creative(models.Model):
         constraints = [models.UniqueConstraint(fields=["run", "variant"], name="unique_variant")]
 
 
+class SceneAsset(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    app = models.ForeignKey(MobileApp, on_delete=models.CASCADE, related_name="scene_assets")
+    source_key = models.CharField(max_length=64)
+    metadata = models.JSONField()
+    data = models.BinaryField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["app", "source_key"], name="unique_scene_asset_source")
+        ]
+
+
+class Storyboard(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    creative = models.OneToOneField(Creative, on_delete=models.CASCADE, related_name="storyboard")
+    source = models.JSONField()
+    scenes = models.JSONField()
+    version = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class StoryboardRevision(models.Model):
+    board = models.ForeignKey(Storyboard, on_delete=models.CASCADE, related_name="revisions")
+    version = models.PositiveIntegerField()
+    scenes = models.JSONField()
+    request_id = models.UUIDField(default=uuid.uuid4)
+    operation = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-version"]
+        constraints = [
+            models.UniqueConstraint(fields=["board", "version"], name="unique_storyboard_version"),
+            models.UniqueConstraint(
+                fields=["board", "request_id"], name="unique_storyboard_request"
+            ),
+        ]
+
+
 class ResearchRun(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
