@@ -74,7 +74,9 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
     result = { message: 'This example uses the same module contract as every built-in tool.' };
   } else if (
     apps.some((app) =>
-      ['runs/', 'drafts/'].some((suffix) => path === `${prefix}aso/apps/${app.id}/${suffix}`),
+      ['runs/', 'drafts/', 'screenshot-briefs/'].some(
+        (suffix) => path === `${prefix}aso/apps/${app.id}/${suffix}`,
+      ),
     )
   ) {
     result = [];

@@ -96,7 +96,7 @@ Earlier generations remain available without retroactively invented activity.
 and uses its Redis/Celery services instead. A queued workflow with no worker fails
 after five minutes when inspected; an interrupted worker's lease expires after
 45 seconds. Live clients and the local worker detect expired leases. The current
-UI follows sequential Studio and ASO steps; AI agents, parallel scheduling and a visual
+UI follows sequential Studio and ASO steps; autonomous browser agents, parallel scheduling and a visual
 workflow editor are still planned.
 
 ## Audit an App Store listing
@@ -115,7 +115,7 @@ flagged for review. Missing fields are not treated as empty store fields.
 
 Use **Add to draft** on a proposal to create a draft with only that change, or
 **Drafts → New draft** to start from an imported language. Edit beside the frozen
-reference, or switch the comparison to the latest import. Drafts autosave and keep
+reference, or switch the comparison to the latest import. Listing drafts autosave and keep
 named copies and immutable revisions. Restore creates a new revision; it does not
 change Apple or erase history. Concurrent edits return a conflict, keeping the
 local text available to copy before reloading. Navigation waits for pending saves.
@@ -127,6 +127,23 @@ and **Export changes** support manual application; exports pin the saved revisio
 then compares modified fields without overwriting the draft. If Connections is
 disabled or the app has no connector, **Compare latest import** only reads the
 saved snapshot. Matching values do not establish publication or download impact.
+
+Retained screenshot recommendations have a **Create brief** action. Find these under
+**Drafts → Draft type → Screenshot briefs**. The brief keeps the audited image,
+observation, source notes and imported listing, and starts with the suggested change.
+Specify the screen to capture, an optional caption and an optional test hypothesis.
+**Save brief** records a revision; navigating within Panda Store saves pending edits
+before leaving and blocks navigation if saving fails. A browser close with unsaved
+changes shows its native warning.
+
+**Duplicate** starts a separate draft. **Revision history** lets you read previous
+content and restore it as a new draft. **Mark ready for design** requires a saved
+change, a screen description and explicit confirmation that product claims were
+checked against the app. Editing resets readiness. This status does not mean a
+screenshot has been generated, a store experiment has run or Apple has approved it.
+**Export brief** downloads a ZIP for the selected saved revision containing
+`brief.md`, `brief.json` and the archived `reference.jpg` when available. Creation,
+editing and export make no AI calls and never publish to a store.
 
 ### Choose an AI model
 

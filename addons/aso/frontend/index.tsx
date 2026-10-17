@@ -9,7 +9,8 @@ import type { DraftSeed } from './draftTypes';
 import { modelSuggestions } from './modelSuggestions';
 import { notify } from '../../../web/src/notifications/store';
 import Sources, { fieldNames, SourceReference, type Guidance, type Source } from './Sources';
-import Screenshots, { type VisualReport } from './Screenshots';
+import Screenshots, { type VisualReport, type VisualImage } from './Screenshots';
+import ScreenshotBriefs, { type ScreenshotBrief } from './ScreenshotBriefs';
 
 type CheckStatus = 'issue' | 'recommendation' | 'review' | 'unavailable' | 'passed';
 interface Check {
@@ -230,6 +231,9 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const { app, workspace, previewMode, navigate, registerLeaveGuard } = props;
   const [tab, setTab] = useState<'overview' | 'drafts' | 'sources'>('overview');
   const [draftSeed, setDraftSeed] = useState<DraftSeed | null>(null);
+  const [draftKind, setDraftKind] = useState<'listing' | 'screenshots'>('listing');
+  const [screenshotBrief, setScreenshotBrief] = useState<ScreenshotBrief | null>(null);
+  const briefRequest = useRef<{ key: string; id: string } | null>(null);
   const draftGuard = useRef<(() => Promise<boolean>) | null>(null);
   const registerDraftGuard = useCallback(
     (guard: () => Promise<boolean>) => {
@@ -245,6 +249,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   async function switchTab(next: 'overview' | 'drafts' | 'sources') {
     if (draftGuard.current && !(await draftGuard.current())) return;
     setDraftSeed(null);
+    setScreenshotBrief(null);
     setTab(next);
   }
   const metadata = app.metadata;
@@ -354,7 +359,40 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       check_id: check.id,
       name: check.basis === 'editorial_hypothesis' ? check.title : 'Keyword cleanup',
     });
+    setDraftKind('listing');
     setTab('drafts');
+  }
+  async function createScreenshotBrief(image: VisualImage) {
+    if (!run || !canWrite || busy) return;
+    const key = `${run.id}:${image.image_id}`;
+    if (briefRequest.current?.key !== key) briefRequest.current = { key, id: crypto.randomUUID() };
+    setBusy(true);
+    setError('');
+    try {
+      const next = await api<ScreenshotBrief>(
+        moduleUrl(workspace.id, 'aso', `apps/${app.id}/screenshot-briefs/`),
+        {
+          method: 'POST',
+          feedback: { success: 'Screenshot brief created.' },
+          body: JSON.stringify({
+            request_id: briefRequest.current.id,
+            audit_id: run.id,
+            image_id: image.image_id,
+            name: `${app.name} — ${image.name || 'Screenshot update'}`.slice(0, 120),
+          }),
+        },
+      );
+      if (alive.current) {
+        briefRequest.current = null;
+        setScreenshotBrief(next);
+        setDraftKind('screenshots');
+        setTab('drafts');
+      }
+    } catch (err) {
+      if (alive.current) setError((err as Error).message);
+    } finally {
+      if (alive.current) setBusy(false);
+    }
   }
   if (app.platform !== 'ios')
     return (
@@ -394,13 +432,40 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         </button>
       </nav>
       {tab === 'drafts' ? (
-        <Drafts
-          {...props}
-          app={app}
-          locale={locale}
-          seed={draftSeed}
-          registerLeaveGuard={registerDraftGuard}
-        />
+        <>
+          <label className="compact-label aso-draft-kind">
+            Draft type
+            <select
+              value={draftKind}
+              onChange={async (event) => {
+                const next = event.target.value as 'listing' | 'screenshots';
+                if (draftGuard.current && !(await draftGuard.current())) return;
+                setDraftSeed(null);
+                setScreenshotBrief(null);
+                setDraftKind(next);
+              }}
+            >
+              <option value="listing">Listing text</option>
+              <option value="screenshots">Screenshot briefs</option>
+            </select>
+          </label>
+          {draftKind === 'screenshots' ? (
+            <ScreenshotBriefs
+              {...props}
+              app={app}
+              initial={screenshotBrief}
+              registerLeaveGuard={registerDraftGuard}
+            />
+          ) : (
+            <Drafts
+              {...props}
+              app={app}
+              locale={locale}
+              seed={draftSeed}
+              registerLeaveGuard={registerDraftGuard}
+            />
+          )}
+        </>
       ) : tab === 'sources' ? (
         <Sources
           key={run?.id || 'current'}
@@ -566,7 +631,10 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                     </span>
                   </div>
                   {run.report.visual ? (
-                    <Screenshots report={run.report.visual} />
+                    <Screenshots
+                      report={run.report.visual}
+                      onCreateBrief={canWrite && !busy ? createScreenshotBrief : undefined}
+                    />
                   ) : (
                     <>
                       {run.report.editorial && (

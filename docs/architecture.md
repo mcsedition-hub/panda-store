@@ -613,3 +613,41 @@ Ni l'ordre importé ni le nom du fichier ne prouvent l'ordre de la galerie en li
 Les observations publiques restent des notes de recherche manuelle ; aucune copie
 des images des trois références n'est téléchargée et aucun navigateur autonome
 n'intervient dans ce workflow. Il n'édite ni ne publie les captures.
+
+### Briefs de captures
+
+Une recommandation visuelle conservée (`reviewed`, `improve`, texte non vide) peut
+créer un `ScreenshotBrief` depuis l'audit terminé de la même app. Les constats
+écartés, images indisponibles et évaluations sans changement ne peuvent pas créer
+un brief. Aucune requête IA ni tâche facturée ne se déclenche : le serveur reprend
+le constat existant, remplace ses identifiants d'image par les noms de fichier,
+et conserve une copie de la fiche et des sources utilisées. Le brief appartient
+au module ASO ; Studio peut être désactivé sans affecter ce parcours.
+
+Le contenu éditable comprend le changement, l'écran ou état à capturer, un éventuel
+texte de surimpression et une hypothèse de test. La référence `ScreenshotEvidence`
+est partagée sans recopier ses octets. La suppression de l'audit source met cette
+référence à NULL ; le brief et ses notes survivent, et l'interface indique l'image
+manquante. Une nouvelle importation ou un audit ne modifient pas un brief existant.
+
+`ScreenshotBriefRevision` enregistre contenu, statut, auteur, date et opération.
+Création et modification utilisent des identifiants idempotents. Le verrou de
+workspace et le numéro de version empêchent d'écraser une autre session. Une
+réponse perdue se relit avec le même identifiant ; une ancienne opération après
+une modification ultérieure renvoie un conflit. Dupliquer crée un brouillon
+indépendant. Restaurer ajoute une révision et remet le statut en brouillon.
+
+Le passage à `ready` exige le changement et l'écran renseignés, et une confirmation
+explicite des affirmations produit par un membre autorisé. Il n'est pas combinable
+avec une modification du contenu dans la même requête. Toute modification réelle
+réinitialise ce statut. La révision conserve l'auteur et la confirmation ; il ne
+s'agit ni d'une vérification du fonctionnement de l'app par Panda Store ni d'une
+approbation du store. Les lecteurs peuvent consulter et exporter ; seuls owners
+et editors peuvent créer, modifier ou marquer prêt. Désactiver ASO ferme ces API.
+
+L'export ZIP prend une révision précise et des noms de fichiers fixes (`brief.md`,
+`brief.json`, `reference.jpg`). Il inclut la référence privée du workspace et les
+limites des sources ; il ne contacte aucun store et ne télécharge pas une nouvelle
+image. Aucun fichier arbitraire du système n'est ajouté. L'UI sauvegarde avant
+export, duplication et navigation, garde les modifications locales lors d'un
+conflit et réutilise une requête dont le résultat était incertain.

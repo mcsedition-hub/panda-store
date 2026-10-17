@@ -1,6 +1,6 @@
 import { SourceReference, type Source } from './Sources';
 
-interface VisualImage {
+export interface VisualImage {
   image_id: string;
   position: number;
   name: string;
@@ -41,7 +41,13 @@ function deviceLabel(value: string) {
     : value.replace(/^APP_/, '').replaceAll('_', ' ');
 }
 
-export default function Screenshots({ report }: { report: VisualReport }) {
+export default function Screenshots({
+  report,
+  onCreateBrief,
+}: {
+  report: VisualReport;
+  onCreateBrief?: (image: VisualImage) => void;
+}) {
   const readable = (text?: string) =>
     text?.replace(
       /\bshot-\d+\b/g,
@@ -100,6 +106,11 @@ export default function Screenshots({ report }: { report: VisualReport }) {
                   <div className="aso-proposal">
                     <strong>Suggested change</strong>
                     <p>{readable(image.recommendation)}</p>
+                    {onCreateBrief && image.verdict === 'improve' && (
+                      <button className="button secondary" onClick={() => onCreateBrief(image)}>
+                        Create brief
+                      </button>
+                    )}
                   </div>
                 )}
                 <footer className="aso-sources">

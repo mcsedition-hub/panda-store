@@ -8,5 +8,5 @@
   "family": "lichen",
   "icon": "audit-aso",
   "description": "Review App Store listings with sourced checks, AI recommendations and drafts.",
-  "capabilities": ["aso.audit", "aso.editorial", "aso.drafts"]
+  "capabilities": ["aso.audit", "aso.editorial", "aso.visual", "aso.drafts", "aso.screenshot_briefs"]
 }

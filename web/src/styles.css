@@ -1705,6 +1705,78 @@ strong {
   padding: 26px 0;
   border-top: 1px solid var(--line);
 }
+.aso-draft-kind {
+  max-width: 260px;
+  margin: 0 0 24px;
+}
+.screenshot-brief-columns {
+  display: grid;
+  grid-template-columns: minmax(210px, 300px) minmax(0, 1fr);
+  gap: 40px;
+  margin: 28px 0;
+  align-items: start;
+}
+.screenshot-brief-reference {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+.screenshot-brief-reference img {
+  display: block;
+  width: 100%;
+  max-height: 460px;
+  object-fit: contain;
+}
+.screenshot-brief-reference h3 {
+  margin: 0 0 16px;
+}
+.screenshot-brief-reference details {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.screenshot-brief-reference p,
+.screenshot-brief-history p {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.screenshot-brief-form {
+  display: grid;
+  gap: 22px;
+}
+.screenshot-brief-ready {
+  display: grid;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+}
+.screenshot-brief-ready .checkbox-label {
+  display: flex;
+  flex-direction: row;
+  align-items: start;
+  gap: 10px;
+  line-height: 1.5;
+}
+.screenshot-brief-ready input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.screenshot-brief-ready .button {
+  justify-self: start;
+}
+.screenshot-brief-history > details {
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
+@media (max-width: 800px) {
+  .screenshot-brief-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
 .aso-visual-image {
   padding: 14px;
   background: var(--paper);
