@@ -120,6 +120,10 @@ For local development, install Chromium in the same Python environment as the wo
 Restart the workflow worker after updating backend code. The Docker image includes Chromium;
 Compose runs its non-root worker with the bundled Playwright seccomp profile and shared memory.
 Chromium's sandbox must be supported by the host. A launch check runs before paid discovery.
+On Ubuntu, the installed Chromium executable may need an AppArmor profile allowing `userns`,
+as described in the [Ubuntu documentation](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/).
+CI loads a profile for that exact executable; it does not disable Chromium's sandbox or change
+system-wide namespace restrictions.
 
 Research uses up to three model calls: web discovery, analysis, and an independent review against
 the same saved evidence. Provider search fees are additional. OpenAI/Claude searches are bounded

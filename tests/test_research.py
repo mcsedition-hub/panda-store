@@ -489,6 +489,10 @@ def test_real_browser_renders_scrolls_and_resolves_provider_redirects():
 
     if not tasks.browser_ready():
         pytest.skip("Install Chromium to run the browser integration test.")
+    # Expose launch diagnostics in CI before capture() turns failures into a safe UI message.
+    with research_browser.sync_playwright() as playwright:
+        browser = research_browser.launch(playwright, playwright.chromium.executable_path)
+        browser.close()
     requests = []
 
     def fetch(_self, url, **kwargs):
