@@ -41,7 +41,8 @@ descriptives, pas des permissions appliquées automatiquement.
 
 `availability` vaut `available` par défaut. La valeur `planned` présente un module
 à venir au catalogue et interdit son activation, y compris comme dépendance.
-Un module requis ne peut pas être prévu. ASO utilise ce statut pendant sa conception.
+Un module requis ne peut pas être prévu. ASO est désormais disponible ; un nouveau
+module sans fonctionnalités exécutables peut utiliser ce statut pendant sa conception.
 
 ## Installation et activation
 

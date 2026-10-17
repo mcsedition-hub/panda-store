@@ -18,8 +18,8 @@ Il n'y a pas de format XML de vues : les vues métier sont des composants React.
 
 Le manifeste distingue `availability: available` (valeur par défaut) de `planned`.
 Un module prévu apparaît au catalogue mais ne peut être activé, même par appel API
-ou comme dépendance. ASO est actuellement dans cet état ; aucun audit ou agent ASO
-ne s'exécute encore. Les états Enabled/Disabled décrivent l'activation par espace.
+ou comme dépendance. ASO est disponible avec ses contrôles déterministes Apple.
+Les états Enabled/Disabled décrivent l'activation par espace.
 
 La désactivation retire les accès métier sans supprimer les données importées.
 Ainsi, désactiver Connections conserve les fiches dans My apps mais bloque leurs
@@ -173,10 +173,20 @@ les outils concernés les auront réellement produits.
 
 ## Conception de l'agent ASO spécialisé
 
-Cette section décrit le contrat à implémenter. Le module est prévu au catalogue,
-et [le catalogue de sources](../addons/aso/knowledge/sources.json) est une première
-sélection relue, avec usages et limites. Ce n'est pas encore un corpus indexé,
-un agent entraîné ou un moteur de recommandations opérationnel.
+Le module disponible réalise les contrôles locaux de métadonnées Apple, avec
+historique par langue et suivi du workflow commun. `AuditRun` conserve l'import,
+la version des règles et le rapport ; aucune requête réseau ou IA n'intervient.
+Chaque contrôle conserve ses références et leur date de revue. Le champ
+`available_fields` des nouveaux imports distingue une absence de donnée d'une
+valeur vide. Les imports antérieurs utilisent uniquement les champs présents.
+Une langue absente ne bénéficie jamais d'un repli implicite sur la langue principale.
+La reprise garde l'import original ; changer les règles impose de changer leur
+version et celle du workflow. Un rapport sauvegardé n'est pas recalculé à la lecture.
+
+La suite de cette section décrit l'agent à implémenter. Le
+[catalogue de sources](../addons/aso/knowledge/sources.json) est une sélection relue,
+avec usages et limites ; les contrôles actuels utilisent uniquement les sources Apple.
+Ce n'est pas encore un corpus indexé ou un agent IA.
 
 ### Connaissances et preuves
 

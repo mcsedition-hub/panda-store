@@ -25,14 +25,25 @@ et la publication ne sont pas encore implémentés.
 - Catalogue de deux apps fictives, import persistant et historique des métadonnées.
 - Connexions App Store Connect par espace, textes localisés, icônes, captures dans
   la langue principale et actualisation manuelle des métadonnées.
+- Audit ASO Apple par langue : limites sourcées, répétitions exactes de mots-clés,
+  nettoyage copiable et données non évaluables signalées.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
 - Historique des générations, édition, validation séparée et export Markdown.
 - Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
 - Module d'exemple utilisant les mêmes conventions que les modules intégrés.
 
-Les visuels Audit ASO, Veille, Publication, Mesure et Agents font partie de
+Les visuels Veille, Publication, Mesure et Agents font partie de
 l'identité graphique ; leurs fonctionnalités ne sont pas encore implémentées.
 Voir la [feuille de route](docs/roadmap.md).
+
+Activer **ASO** dans **Modules**, choisir l'app et la langue, puis **Run audit**.
+Le bilan utilise l'import enregistré et conserve ses sources, leur date de revue
+et son journal d'exécution. **Run again** utilise le dernier import ; une reprise
+garde les données originales et les contrôles déjà terminés. Copier une proposition
+ne modifie rien chez Apple. La divergence entre les limites Apple de mots-clés en
+octets et en caractères est signalée. Aucun score de croissance n'est calculé.
+L'audit fonctionne sans clé IA ; analyse éditoriale IA, concurrence, mesure,
+brouillons éditables et audit Google Play restent à construire.
 
 ## Démarrer en local
 

@@ -25,12 +25,14 @@ publishing are not implemented yet.
 - Two fictional apps, persistent imports and a history of metadata snapshots.
 - App Store Connect API keys per workspace, app selection, localized listings,
   icons, primary-language screenshots and manual metadata refresh.
+- ASO audits of imported Apple metadata: sourced field limits, exact keyword
+  repetition, copyable cleanup proposals and explicit coverage gaps, per language.
 - Editable briefs and three script variants built from local writing templates.
 - Generation history, script editing, separate approval and Markdown exports.
 - Live workflow steps and activity, stop requests, and retries that keep completed steps.
 - An example extension using the same conventions as the built-in modules.
 
-The ASO Audit, Research, Publishing, Analytics and Agents illustrations are part
+The Research, Publishing, Analytics and Agents illustrations are part
 of the visual identity. Their features are not implemented yet.
 See the [roadmap](docs/roadmap.md).
 
@@ -90,8 +92,27 @@ Earlier generations remain available without retroactively invented activity.
 and uses its Redis/Celery services instead. A queued workflow with no worker fails
 after five minutes when inspected; an interrupted worker's lease expires after
 45 seconds. Live clients and the local worker detect expired leases. The current
-UI follows sequential Studio steps; AI agents, parallel scheduling and a visual
+UI follows sequential Studio and ASO steps; AI agents, parallel scheduling and a visual
 workflow editor are still planned.
+
+## Audit an App Store listing
+
+Enable **ASO** in **Modules**, choose an imported app and language, then select
+**Run audit**. Audits use the selected saved import, not a live store refresh.
+Each result retains its inputs, sources and review date, with a persistent activity
+log. **Run again** checks the latest imported snapshot; retrying an interrupted
+audit keeps its original inputs and completed checks.
+
+The initial rules check name, subtitle, description and promotional-text lengths,
+the keyword budget, exact keyword repetition and comma spacing. A proposed cleanup
+can be copied for review and manual application in App Store Connect. Apple's
+conflicting byte/character keyword limits are disclosed; non-ASCII overflow is
+flagged for review. Missing fields are not treated as empty store fields.
+
+No AI key is required. This is a bounded metadata audit, not a complete compliance
+review: visual quality, relevance, competitors, search demand and download impact
+remain unassessed. Google Play audits, editorial AI, editable drafts and publishing
+are not implemented. Passed checks are not an ASO score or a promise of growth.
 
 ## Connect an Apple account
 

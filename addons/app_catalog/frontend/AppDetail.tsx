@@ -56,6 +56,17 @@ export default function AppDetail({
           {app.is_demo && <span className="pill">Demo</span>}
         </div>
         <div className="action-group">
+          {availableModules?.includes('aso') && (
+            <button
+              className="button secondary"
+              onClick={() => {
+                selectApp(app);
+                navigate('aso');
+              }}
+            >
+              Open ASO
+            </button>
+          )}
           {app.sync_provider === 'apple_store' && (
             <button
               className="button secondary"

@@ -242,6 +242,17 @@ class AppleClient:
                     "support_url": text.get("supportUrl") or "",
                     "marketing_url": text.get("marketingUrl") or "",
                     "privacy_policy_url": name.get("privacyPolicyUrl") or "",
+                    "available_fields": [
+                        field
+                        for field, attrs, apple_field in (
+                            ("name", name, "name"),
+                            ("subtitle", name, "subtitle"),
+                            ("description", text, "description"),
+                            ("keywords", text, "keywords"),
+                            ("promotional_text", text, "promotionalText"),
+                        )
+                        if apple_field in attrs and (field != "name" or bool(name.get("name")))
+                    ],
                 }
             )
         primary = attributes.get("primaryLocale", "")

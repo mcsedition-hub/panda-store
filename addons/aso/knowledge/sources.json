@@ -4,6 +4,16 @@
   "reviewed_on": "2026-10-16",
   "sources": [
     {
+      "id": "apple-version-information",
+      "publisher": "Apple",
+      "title": "Platform version information",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information/",
+      "kind": "official_reference",
+      "stores": ["app_store"],
+      "topics": ["metadata", "field_limits"],
+      "use": "Description and promotional text limits. Keyword budget conflicts with the marketing/search guide: this reference says 100 bytes, the guide says 100 characters. Report both and require review for non-ASCII overflow."
+    },
+    {
       "id": "apple-product-page",
       "publisher": "Apple",
       "title": "Creating your product page",

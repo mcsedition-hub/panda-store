@@ -343,7 +343,7 @@ export default function App() {
           <div className="topbar-right">
             {session.demo_mode && (
               <span className="demo-tag">
-                {session.preview_mode ? 'Visual preview' : 'Demo mode'}
+                {session.preview_mode ? 'Visual preview' : 'Demo apps available'}
               </span>
             )}
             <span className="user-name">{session.user.username}</span>

@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "core": ">=0.1,<0.2",
   "depends": {"app_catalog": ">=0.1,<0.2"},
-  "availability": "planned",
+  "availability": "available",
   "family": "lichen",
   "icon": "audit-aso",
-  "description": "Store listing audits, keyword research and experiments.",
-  "capabilities": []
+  "description": "Audit imported App Store metadata against Apple's published guidance.",
+  "capabilities": ["aso.audit"]
 }

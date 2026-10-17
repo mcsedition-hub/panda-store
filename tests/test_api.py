@@ -65,7 +65,15 @@ def test_module_activation_enforces_roles_and_dependencies(api, workspace):
     assert api.post(endpoint).status_code == 403
 
 
-def test_planned_module_is_listed_but_cannot_be_enabled(api, workspace):
+def test_planned_module_is_listed_but_cannot_be_enabled(api, workspace, monkeypatch):
+    from dataclasses import replace
+
+    from panda_store.core.registry import get_registry
+
+    registry = get_registry()
+    monkeypatch.setitem(
+        registry.modules, "aso", replace(registry.modules["aso"], availability="planned")
+    )
     planned = next(item for item in api.get(url(workspace, "modules/")).data if item["id"] == "aso")
     assert planned["availability"] == "planned" and not planned["enabled"]
     before = set(workspace.modules.values_list("module_id", flat=True))

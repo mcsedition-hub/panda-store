@@ -43,6 +43,28 @@ def resource(id, **attributes):
     return {"id": id, "attributes": attributes}
 
 
+def test_import_tracks_missing_localized_fields_without_auditing_fallback_names(
+    apple_api, credentials
+):
+    from addons.aso.rules import localized_metadata
+
+    routes = apple_api[0]
+    del routes["/v1/appInfos/info-live/appInfoLocalizations"]["data"][1]["attributes"]["name"]
+    routes["/v1/appStoreVersions/live/appStoreVersionLocalizations"]["data"][0]["attributes"][
+        "promotionalText"
+    ] = None
+    with AppleClient(
+        **{key: value for key, value in credentials.items() if key != "name"}
+    ) as client:
+        metadata = client.get_metadata("123")
+    french = localized_metadata(metadata, "fr-FR")
+    english = localized_metadata(metadata, "en-US")
+    assert "name" not in french  # Display fallback must not become localized audit evidence.
+    assert french["description"] == "Votre journal de course."
+    assert english["promotional_text"] == ""  # Explicitly unset differs from not imported.
+    assert "promotional_text" not in french
+
+
 @pytest.fixture
 def apple_api(monkeypatch):
     app = resource("123", name="Running", bundleId="org.example.running", primaryLocale="en-US")

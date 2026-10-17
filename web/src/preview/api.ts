@@ -57,6 +57,8 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
     result = { connections: [], credentials_ready: true };
   } else if (path === `${prefix}example/hello/`) {
     result = { message: 'This example uses the same module contract as every built-in tool.' };
+  } else if (apps.some((app) => path === `${prefix}aso/apps/${app.id}/runs/`)) {
+    result = [];
   } else {
     const sample = sampleRuns.find((item) =>
       path.startsWith(`${prefix}studio/apps/${item.app_id}/`),

@@ -7,7 +7,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
-| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Visible au catalogue comme prévu ; sources sélectionnées et agent spécifié, audit à construire |
+| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple par langue, propositions copiables, historique et workflow implémentés ; agent IA à construire |
 | Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé et Studio à modèles locaux implémentés ; agents et branches parallèles à construire |
 | Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
@@ -18,7 +18,14 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 
 ## Prochaine tranche
 
-Le module ASO est déclaré `planned` : il est visible mais non activable. Sa
+Le module ASO est disponible et activable. Le premier audit contrôle les longueurs,
+le budget de mots-clés et les répétitions exactes, avec sources Apple datées,
+propositions de nettoyage copiables et limites de couverture explicites. Il conserve
+l'import choisi et utilise le suivi commun en trois étapes. Les captures, la qualité
+éditoriale et l'impact sur les téléchargements ne sont pas évalués automatiquement.
+La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
+La prochaine tranche porte sur les brouillons et l'analyse éditoriale avec un
+fournisseur IA choisi par l'utilisateur. Sa
 [conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
 spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
 observations, propositions et résultats. La première sélection inclut Apple,
@@ -45,11 +52,12 @@ modification de fiche ni publication automatique n'est encore implémentée.
 
 ### Parcours ASO et brouillons
 
-Direction d'interface retenue, à implémenter : l'utilisateur ouvre son app,
-choisit le store et la langue, puis lance `Run audit`. Le contexte de l'app,
+Parcours initial livré : l'utilisateur ouvre son app,
+choisit la langue App Store, puis lance `Run audit`. Le contexte de l'app,
 la langue et la date de dernière synchronisation restent visibles. Les résultats
 présentent chaque problème avec le contenu actuel, une proposition concrète,
-sa justification et ses sources. `Add to draft` ajoute uniquement la proposition
+sa justification et ses sources. Les brouillons décrits ci-dessous restent à construire.
+`Add to draft` ajoutera uniquement la proposition
 choisie à un brouillon ; l'utilisateur peut la modifier ou l'ignorer.
 
 L'espace ASO propose `Overview`, `Drafts` et `Activity`. Le premier audit est
@@ -110,7 +118,7 @@ des workflows pourra venir ensuite, sur la même définition versionnée.
 Références : [graphe GitHub Actions](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-the-visualization-graph)
 (capture officielle examinée) et
 [historique des exécutions n8n](https://docs.n8n.io/build/understand-workflows/understand-executions/view-executions-for-a-single-workflow).
-Le socle commun est maintenant implémenté dans Studio : trois étapes réelles,
+Le socle commun est maintenant implémenté dans Studio et ASO : trois étapes réelles,
 journal SSE avec reconnexion et polling de secours, arrêt coopératif et reprise
 des étapes inachevées avec les entrées originales. Les résultats terminés sont
 réutilisés et la trace précédente est conservée. Le worker local utilise la base ;

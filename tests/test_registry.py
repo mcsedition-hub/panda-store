@@ -60,7 +60,11 @@ def test_manifest_rejects_invalid_types_and_paths(field, value):
 def test_planned_module_cannot_be_required():
     from dataclasses import asdict
 
-    manifest = {**asdict(get_registry().modules["aso"]), "required": True}
+    manifest = {
+        **asdict(get_registry().modules["aso"]),
+        "required": True,
+        "availability": "planned",
+    }
     manifest["capabilities"] = []
     with pytest.raises(ImproperlyConfigured, match="required module must be available"):
         Module.parse(manifest, "addons.aso")
