@@ -6,7 +6,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | Étape | Résultat attendu | État |
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
-| App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Implémenté et testé avec API simulée ; validation sur compte Apple réel à faire |
+| App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
 | Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | À construire |
 | Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
@@ -17,14 +17,7 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 
 ## Prochaine tranche
 
-Vérifier le connecteur Apple avec le compte du propriétaire d'une app réelle :
-permissions, sélection, langues, captures et actualisation. Les clés par espace,
-le chiffrement, le remplacement, la déconnexion locale et les erreurs sont implémentés.
-La révocation chez Apple reste une action à effectuer dans App Store Connect.
-Les imports sont synchrones et limités ; prévoir des tâches pour les catalogues
-volumineux et la synchronisation planifiée.
-
-Ensuite, auditer la fiche ASO avant de générer des scripts. Pour chaque store et
+Auditer la fiche ASO avant de générer des scripts. Pour chaque store et
 langue, distinguer les contraintes officielles vérifiables des recommandations
 éditoriales : noms, sous-titres ou descriptions courtes, descriptions, mots-clés
 quand disponibles, catégories et visuels. Chaque constat doit conserver le champ
@@ -48,6 +41,13 @@ structurées, un budget par génération et des évaluations sur un jeu de brief
 Utiliser l'instantané de métadonnées audité comme contexte des scripts et conserver
 sa référence pour savoir sur quelle version ils reposent. Le fournisseur démo doit
 rester disponible pour les tests sans clé payante.
+
+Le connecteur Apple a été vérifié sur un compte réel avec une clé d'équipe
+App Manager : catalogue, langues, icône, catégorie, captures et actualisation sans
+doublon. Les clés individuelles restent à valider sur compte réel. Les imports
+sont synchrones et limités ; prévoir des tâches pour les catalogues volumineux et
+la synchronisation planifiée. La révocation des clés reste une action à effectuer
+dans App Store Connect.
 
 ## Choix des fournisseurs et modèles IA
 

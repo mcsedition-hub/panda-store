@@ -94,8 +94,10 @@ detail. Text is imported for all available languages, screenshots for the app's
 primary language. Imports are synchronous and bounded to 60 requests / a 20-second
 operation budget (individual network reads may finish later). Large listings may
 reach this limit; background imports and scheduled refresh are not implemented.
-The connector is covered by simulated Apple API tests; validation against a real
-developer account remains to be completed before release.
+Catalog listing, iOS import (localized text, icon, category and primary-language
+screenshots), and refresh without duplicate snapshots have been verified against
+a real developer account with an App Manager team key. Automated tests cover
+individual keys; live validation of those keys remains to be completed.
 
 `scripts/bootstrap.py` generates `PANDA_CREDENTIAL_KEYS` for new installations.
 To update an existing alpha, back up its database and environment, then run:

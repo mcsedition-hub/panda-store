@@ -205,7 +205,7 @@ class AppleClient:
         )
         infos = [
             item
-            for item in self.all(app_path + "/appInfos")
+            for item in self.all(app_path + "/appInfos", {"include": "primaryCategory"})
             if state(item) != "REPLACED_WITH_NEW_INFO"
         ]
         info = next((item for item in infos if state(item) == state(version)), None)

@@ -1,5 +1,6 @@
 import json
 import uuid
+from copy import deepcopy
 from unittest.mock import patch
 
 import httpx
@@ -131,6 +132,12 @@ def apple_api(monkeypatch):
         assert request.method == "GET"
         assert request.url.host == "api.appstoreconnect.apple.com"
         response = routes[request.url.path]
+        # Apple omits category linkage unless the relationship is explicitly included.
+        if request.url.path.endswith("/appInfos") and not isinstance(response, httpx.Response):
+            response = deepcopy(response)
+            if "primaryCategory" not in request.url.params.get("include", "").split(","):
+                for item in response["data"]:
+                    item.get("relationships", {}).get("primaryCategory", {}).pop("data", None)
         return (
             response if isinstance(response, httpx.Response) else httpx.Response(200, json=response)
         )
@@ -180,6 +187,8 @@ def test_connection_import_sync_and_disconnect(
     app = MobileApp.objects.get()
     data = response.data["metadata"]["data"]
     assert data["version"] == "1.0" and data["subtitle"] == "Go running"
+    assert data["category_id"] == "HEALTH_AND_FITNESS"
+    assert data["category"] == "Health And Fitness"
     assert data["localizations"][1]["description"] == "Votre journal de course."
     assert data["icon_url"].endswith("256x256.png")
     assert data["screenshots"][0]["url"].endswith("450x900.png")

@@ -79,8 +79,10 @@ le type et l'identifiant de la clé, son fichier `.p8` et l'Issuer ID pour une c
 d'équipe. Ces identifiants sont enregistrés chiffrés par espace, jamais dans le
 `.env`. Le propriétaire gère les clés ; les éditeurs peuvent importer et actualiser.
 Le connecteur ne fait que des lectures. Il privilégie la version iOS publiée, sinon
-la version brouillon la plus récente. Les appels Apple sont testés avec des réponses
-simulées ; une validation sur compte réel reste nécessaire avant release.
+la version brouillon la plus récente. La sélection, l'import iOS (textes localisés,
+icône, catégorie et captures de la langue principale) et l'actualisation sans
+doublon sont validés sur un compte réel avec une clé d'équipe App Manager. Les clés
+individuelles sont couvertes par des tests simulés ; leur validation réelle reste à faire.
 
 Sur une ancienne installation, sauvegarder la base et le `.env`, puis lancer
 `python scripts/bootstrap.py --add-credential-key`, appliquer les migrations et
