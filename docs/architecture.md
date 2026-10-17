@@ -133,7 +133,10 @@ respectivement un état paginé et un flux SSE authentifié. Elles vérifient es
 appartenance et activation du module. Le flux réévalue les accès à chaque lot,
 accepte `Last-Event-ID` et conserve des événements ordonnés en base. Il dure au plus
 25 secondes ; EventSource se reconnecte, avec polling de secours côté React.
-Uvicorn/ASGI et Nginx sans buffering sont configurés pour Compose ; le serveur
+Uvicorn/ASGI et Nginx sans buffering sont configurés pour Compose. Le backend
+utilise `CONN_MAX_AGE=0` et les threads de heartbeat ferment leurs connexions à
+la sortie. Ce réglage suit les [recommandations Django pour ASGI](https://docs.djangoproject.com/en/5.2/topics/async/#queries-the-orm).
+Le serveur
 WSGI de développement reste compatible avec un flux synchrone borné. Une coupure
 du flux est signalée séparément de l'échec de la tâche.
 

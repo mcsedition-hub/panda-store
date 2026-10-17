@@ -6,7 +6,8 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
-from django.db import close_old_connections, connection
+from asgiref.sync import sync_to_async
+from django.db import close_old_connections, connection, connections
 from django.test import AsyncClient, Client
 from django.utils import timezone
 
@@ -203,11 +204,14 @@ def test_asgi_stream_returns_events(owner, workspace, imported, api):
     client.force_login(owner)
 
     async def read():
-        response = await client.get(
-            endpoint(run, "events/"), headers={"Accept": "text/event-stream"}
-        )
-        assert response.status_code == 200 and response.is_async
-        return b"".join([chunk async for chunk in response.streaming_content])
+        try:
+            response = await client.get(
+                endpoint(run, "events/"), headers={"Accept": "text/event-stream"}
+            )
+            assert response.status_code == 200 and response.is_async
+            return b"".join([chunk async for chunk in response.streaming_content])
+        finally:
+            await sync_to_async(connections.close_all)()
 
     assert b'"status": "succeeded"' in asyncio.run(read())
 
@@ -228,7 +232,7 @@ def test_parallel_deliveries_only_execute_once(api, workspace, imported, setting
         try:
             generate_scripts(str(run.pk))
         finally:
-            close_old_connections()
+            connections.close_all()
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda _: deliver(), range(2)))

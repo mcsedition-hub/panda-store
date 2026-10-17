@@ -74,7 +74,8 @@ TEMPLATES = [
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'panda.sqlite3'}",
-        conn_max_age=60,
+        # ASGI requests must not retain thread-bound persistent connections.
+        conn_max_age=0,
     )
 }
 AUTH_USER_MODEL = "core.User"

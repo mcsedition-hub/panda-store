@@ -2,7 +2,7 @@ import logging
 import threading
 
 from celery import shared_task
-from django.db import close_old_connections, transaction
+from django.db import close_old_connections, connections, transaction
 from django.utils import timezone
 
 from panda_store.workflows import services
@@ -49,7 +49,7 @@ def generate_scripts(run_id):
         except Exception:
             logger.exception("Workflow heartbeat failed for %s", run.workflow_id)
         finally:
-            close_old_connections()
+            connections.close_all()
 
     heartbeat = threading.Thread(target=keep_alive, daemon=True)
     heartbeat.start()
