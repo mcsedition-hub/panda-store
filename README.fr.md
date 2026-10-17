@@ -14,8 +14,8 @@ Code source accessible et auto-hébergeable, sous [Elastic License 2.0](LICENSE)
 
 **Alpha 0.1.0 — développement local.** Connecter un compte Apple pour importer
 des fiches iOS, ou utiliser les apps fictives : import → brief → trois scripts
-issus de modèles → retouche → validation → export. Google Play, la génération IA
-et la publication ne sont pas encore implémentés.
+issus de modèles → retouche → validation → export. L’ASO inclut une revue IA
+facultative. Google Play, les scripts IA et la publication restent à construire.
 
 ## Ce qui fonctionne
 
@@ -27,6 +27,8 @@ et la publication ne sont pas encore implémentés.
   la langue principale et actualisation manuelle des métadonnées.
 - Audit ASO Apple par langue : limites sourcées, répétitions exactes de mots-clés,
   nettoyage copiable et données non évaluables signalées.
+- Connexions OpenAI, Gemini et Claude chiffrées par espace, catalogue de modèles
+  actualisable et revue éditoriale ASO facultative.
 - Brouillons ASO : sauvegarde automatique, comparaison, duplication, révisions,
   restauration, revue séparée et export des modifications.
 - Brief éditable, trois variantes produites par des modèles de rédaction locaux.
@@ -40,12 +42,29 @@ Voir la [feuille de route](docs/roadmap.md).
 
 Activer **ASO** dans **Modules**, choisir l'app et la langue, puis **Run audit**.
 Le bilan utilise l'import enregistré et conserve ses sources, leur date de revue
-et son journal d'exécution. **Run again** utilise le dernier import ; une reprise
+et son journal d'exécution. Un nouvel audit utilise le dernier import ; une reprise
 garde les données originales et les contrôles déjà terminés. Copier une proposition
 ne modifie rien chez Apple. La divergence entre les limites Apple de mots-clés en
 octets et en caractères est signalée. Aucun score de croissance n'est calculé.
-L'audit fonctionne sans clé IA ; analyse éditoriale IA, concurrence, mesure et
-audit Google Play restent à construire.
+Dans **ASO → Audit → AI settings**, le propriétaire connecte ses propres clés
+OpenAI, Gemini ou Claude. Elles sont chiffrées dans la base locale, avec la clé
+d’installation `PANDA_CREDENTIAL_KEYS`, et ne sont jamais renvoyées au navigateur.
+**Refresh models** actualise les modèles de ce compte. Choisir **AI provider**,
+**Model** et **Language**, puis **Run audit**. Le texte importé de cette langue est
+envoyé au fournisseur choisi, avec sa facturation. **Rules only · No AI** reste gratuit
+et local. Aucun changement implicite de fournisseur ni nouvelle tentative payante automatique.
+
+Les étapes s’affichent en direct ; **Recommendations** présente ensuite les
+propositions, justifications, extraits de la fiche et sources Apple. Le modèle exact
+et les tokens sont enregistrés. **Add to draft** prépare un brouillon à relire.
+Les références inconnues, extraits inventés, doublons et dépassements de champs sont
+écartés. Cela ne prouve pas la justesse sémantique ou un gain de conversion : les
+propositions IA restent des hypothèses à vérifier. Zéro proposition est un résultat valide.
+OpenAI et Gemini ont été testés réellement ; Claude est couvert par les tests de contrat.
+
+La recherche concurrentielle, l’analyse d’images, la demande de recherche, la mesure
+et l’audit Google Play restent à construire. Le modèle utilise des annotations Apple
+sélectionnées, sans navigation web ni corpus indexé pour cette première intégration.
 
 **Add to draft** crée un brouillon depuis la seule proposition choisie.
 **Drafts → New draft** part d'une langue importée. La référence reste figée ;

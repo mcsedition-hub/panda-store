@@ -56,3 +56,29 @@ class ModuleActivation(models.Model):
                 name="unique_workspace_module",
             )
         ]
+
+
+class AIConnection(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        Workspace, on_delete=models.CASCADE, related_name="ai_connections"
+    )
+    provider = models.CharField(
+        max_length=20,
+        choices=[
+            ("openai", "OpenAI"),
+            ("google", "Google Gemini"),
+            ("anthropic", "Anthropic Claude"),
+        ],
+    )
+    encrypted_key = models.TextField()
+    revision = models.UUIDField(default=uuid.uuid4, editable=False)
+    model_catalog = models.JSONField(default=list)
+    checked_at = models.DateTimeField(null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "provider"], name="unique_workspace_ai_provider"
+            )
+        ]

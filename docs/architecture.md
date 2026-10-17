@@ -79,7 +79,7 @@ Le suivi et le worker local détectent les baux expirés ; la reprise est explic
 Les trois scripts proviennent de modèles de rédaction déterministes.
 Ils sont éditables et exportables. Une modification invalide leur approbation,
 même si un client envoie une approbation dans la même requête. Il n'existe encore
-ni fournisseur IA, ni agent navigateur, ni publication automatique.
+ni appel IA dans Studio, ni agent navigateur, ni publication automatique.
 
 ## Évolutions prévues
 
@@ -88,13 +88,20 @@ distinctes des appréciations éditoriales assistées par IA ; chacune conserve 
 source officielle et sa date. Les scripts référencent l'instantané audité de la
 fiche, afin que les corrections et les générations restent traçables.
 
-Les adaptateurs IA devront proposer OpenAI, Anthropic (Claude) et Google (Gemini)
-derrière un contrat commun, tout en déclarant leurs capacités propres. L'espace
-configure ses clés et son modèle par défaut ; l'utilisateur peut choisir un autre
-fournisseur et modèle pour une tâche. Le catalogue reste configurable et actualisable,
-avec filtrage des modèles incompatibles. Chaque exécution enregistre le fournisseur,
-le modèle exact, la consommation et les erreurs. Aucun basculement implicite vers
-un autre fournisseur n'est autorisé. Ces adaptateurs ne sont pas encore implémentés.
+Le socle `panda_store.ai` propose OpenAI (Responses + JSON Schema), Google Gemini
+(generateContent + JSON Schema) et Anthropic Claude (outil de réponse structuré).
+`AIConnection` conserve la clé chiffrée et un catalogue par fournisseur/espace.
+Seul le propriétaire peut connecter, remplacer, actualiser ou retirer une connexion.
+Les membres lisent uniquement l’état et le catalogue. Les modèles textuels sont filtrés
+par famille ; leur disponibilité effective est confirmée à l’appel, sans repli automatique.
+Les endpoints et hôtes sont fixes ; délais et taille des réponses sont bornés. Les erreurs
+sont traduites en messages contrôlés sans réponse fournisseur brute ni clé.
+
+La validation réseau des clés précède la transaction de sauvegarde. Un verrou sur
+l’espace et une révision attendue empêchent de ressusciter une connexion supprimée
+ou d’écraser un remplacement concurrent. Les clés d’environnement ne deviennent pas
+implicitement accessibles à tous les espaces. L’interface ASO choisit explicitement
+le modèle pour chaque analyse ; il n’existe pas encore de préférence de modèle durable.
 
 Les futurs agents devront conserver les sources et dates de leurs observations,
 les actions effectuées et les coûts. Les connecteurs de stores et réseaux
@@ -175,7 +182,7 @@ les outils concernés les auront réellement produits.
 
 Le module disponible réalise les contrôles locaux de métadonnées Apple, avec
 historique par langue et suivi du workflow commun. `AuditRun` conserve l'import,
-la version des règles et le rapport ; aucune requête réseau ou IA n'intervient.
+la version des règles et le rapport ; les contrôles déterministes restent locaux.
 Chaque contrôle conserve ses références et leur date de revue. Le champ
 `available_fields` des nouveaux imports distingue une absence de donnée d'une
 valeur vide. Les imports antérieurs utilisent uniquement les champs présents.
@@ -187,6 +194,32 @@ La suite de cette section décrit l'agent à implémenter. Le
 [catalogue de sources](../addons/aso/knowledge/sources.json) est une sélection relue,
 avec usages et limites ; les contrôles actuels utilisent uniquement les sources Apple.
 Ce n'est pas encore un corpus indexé ou un agent IA.
+
+### Revue éditoriale implémentée
+
+Le workflow optionnel `aso.editorial` ajoute une requête IA et une validation après
+les règles locales. `AuditRun.inputs` fige fournisseur, modèle demandé, identifiant
+et révision de connexion, version d’instructions et annotations Apple sourcées.
+Le rapport conserve le modèle résolu et les tokens retournés. Les checkpoints de
+réponse et de validation permettent une reprise sans rappeler un modèle ayant déjà
+répondu. Une réponse perdue avant sauvegarde peut être facturée à nouveau lors d’une
+reprise explicite ; aucune garantie d’exactly-once sur l’API tierce n’est annoncée.
+Le heartbeat maintient le bail pendant le réseau. Annuler écarte les résultats tardifs
+mais n’annule pas une facture déjà engagée. Retirer/remplacer la clé avant l’appel
+fait échouer cette tentative, sans basculer vers une autre clé ou un autre fournisseur.
+
+La validation impose langue disponible, champs supportés, citations présentes dans
+l’import, références autorisées, limites de texte, absence de doublons, nouveaux
+nombres ou changements d’URLs. Elle ne prouve pas la fidélité des promesses, la bonne
+interprétation des sources ou la valeur commerciale : toutes les propositions IA
+sont marquées hypothèses à relire. Elles peuvent alimenter un brouillon, jamais
+écrire chez Apple. Les règles, l’activité et le rapport historique restent distincts.
+Le corpus actuel est constitué d’annotations originales sur deux guides Apple ;
+les blogs sélectionnés, la recherche, le graphe et les images restent hors de ce parcours.
+
+Références d’implémentation : [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
+[Gemini generateContent](https://ai.google.dev/api/generate-content),
+[Claude Messages](https://platform.claude.com/docs/en/api/messages/create).
 
 ### Brouillons implémentés
 

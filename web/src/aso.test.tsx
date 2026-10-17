@@ -32,6 +32,7 @@ const props: ModuleProps = {
 };
 const check = {
   id: 'keywords.cleanup',
+  field: 'keywords',
   title: 'Keyword repetition and separators',
   status: 'recommendation',
   basis: 'recommendation',
@@ -59,17 +60,22 @@ const run = {
   created_at: '2026-10-16T12:01:00Z',
   report: { checks: [check], counts: { recommendation: 1 } },
 };
+function mockData(handler: (path: string, options?: RequestInit) => Promise<unknown>) {
+  mockApi.mockImplementation(async (path, options) =>
+    path.endsWith('/ai/') ? { providers: [], credentials_ready: true } : handler(path, options),
+  );
+}
 beforeEach(() => {
   mockApi.mockReset();
 });
 afterEach(cleanup);
 
 it('sends the chosen locale and exact snapshot, and shows a sourced copyable proposal', async () => {
-  mockApi.mockImplementation(async (_path, options) => (options?.method === 'POST' ? run : []));
+  mockData(async (_path, options) => (options?.method === 'POST' ? run : []));
   render(<ASO {...props} />);
   await screen.findByText('Review your store listing');
   fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'fr-CA' } });
-  mockApi.mockImplementation(async (_path, options) =>
+  mockData(async (_path, options) =>
     options?.method === 'POST' ? { ...run, locale: 'fr-CA' } : [],
   );
   fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
@@ -88,7 +94,7 @@ it('sends the chosen locale and exact snapshot, and shows a sourced copyable pro
 });
 
 it('keeps languages separate and marks audits of older imports', async () => {
-  mockApi.mockResolvedValue([{ ...run, snapshot_id: 'older' }]);
+  mockData(async () => [{ ...run, snapshot_id: 'older' }]);
   render(<ASO {...props} />);
   await screen.findByText(/This audit uses an earlier import/);
   fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'fr-CA' } });
@@ -97,7 +103,7 @@ it('keeps languages separate and marks audits of older imports', async () => {
 });
 
 it('prevents viewer actions and unsupported store audits', async () => {
-  mockApi.mockResolvedValue([]);
+  mockData(async () => []);
   const view = render(<ASO {...props} workspace={{ ...props.workspace, role: 'viewer' }} />);
   await screen.findByText('Review your store listing');
   expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
@@ -110,7 +116,7 @@ it('prevents viewer actions and unsupported store audits', async () => {
 
 it('does not leak a late audit response after changing workspace', async () => {
   let resolvePost: (value: unknown) => void = () => {};
-  mockApi.mockImplementation(async (_path, options) =>
+  mockData(async (_path, options) =>
     options?.method === 'POST'
       ? new Promise((resolve) => {
           resolvePost = resolve;
@@ -127,10 +133,65 @@ it('does not leak a late audit response after changing workspace', async () => {
 });
 
 it('blocks new runs if audit history cannot be loaded', async () => {
-  mockApi.mockRejectedValue(new Error('Access unavailable'));
+  mockData(async () => {
+    throw new Error('Access unavailable');
+  });
   render(<ASO {...props} />);
   await screen.findByRole('alert');
   expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
     true,
   );
+});
+
+it('requires an explicit model and sends it with the AI audit; labels AI proposals distinctly', async () => {
+  const aiRun = {
+    ...run,
+    ai: { provider: 'openai', model: 'gpt-4.1-mini' },
+    report: {
+      ...run.report,
+      checks: [
+        {
+          ...check,
+          field: 'subtitle',
+          basis: 'editorial_hypothesis',
+          replacement: 'Sort photos your way',
+        },
+      ],
+    },
+  };
+  mockApi.mockImplementation(async (path, options) =>
+    path.endsWith('/ai/')
+      ? {
+          providers: [
+            {
+              id: 'openai',
+              name: 'OpenAI',
+              connected: true,
+              revision: 'rev',
+              models: [{ id: 'gpt-4.1-mini', name: 'Mini' }],
+            },
+          ],
+          credentials_ready: true,
+        }
+      : options?.method === 'POST'
+        ? aiRun
+        : [],
+  );
+  render(<ASO {...props} />);
+  await screen.findByLabelText('Model');
+  expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
+    true,
+  );
+  fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'gpt-4.1-mini' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
+  await screen.findByText('AI proposal · Review');
+  const post = mockApi.mock.calls.find(([, options]) => options?.method === 'POST')!;
+  expect(JSON.parse(post[1]!.body as string)).toMatchObject({
+    provider: 'openai',
+    model: 'gpt-4.1-mini',
+    locale: 'en-US',
+  });
+  expect(screen.getByRole('heading', { name: 'Recommendations' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Add to draft' })).toBeTruthy();
+  expect(screen.getByLabelText('Proposed text')).toBeTruthy();
 });

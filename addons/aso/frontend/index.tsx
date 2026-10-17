@@ -3,6 +3,7 @@ import { api, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 import type { WorkflowStatus } from '../../../web/src/workflows/types';
+import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import Drafts from './Drafts';
 import type { DraftSeed } from './draftTypes';
 
@@ -17,6 +18,7 @@ interface Check {
   action: string;
   observed?: string | null;
   replacement?: string | null;
+  evidence?: { field: string; quote: string }[];
   sources: { id: string; title: string; publisher: string; url: string; reviewed_on: string }[];
 }
 interface AuditRun {
@@ -29,7 +31,16 @@ interface AuditRun {
   captured_at: string;
   source: string;
   is_demo: boolean;
+  ai?: { provider: string; model: string } | null;
   report: {
+    editorial?: {
+      provider: string;
+      model: string;
+      resolved_model: string;
+      usage: { input_tokens?: number; output_tokens?: number; reasoning_tokens?: number };
+      accepted_proposals: number;
+      rejected_proposals: number;
+    };
     ruleset: string;
     reviewed_on: string;
     checks: Check[];
@@ -55,6 +66,7 @@ const date = (value: string) =>
 
 function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
   const [copyState, setCopyState] = useState('');
+  const isAI = check.basis === 'editorial_hypothesis';
   return (
     <details
       className={`aso-finding aso-${check.status}`}
@@ -62,7 +74,7 @@ function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
     >
       <summary>
         <span className="aso-finding-title">{check.title}</span>
-        <span className="pill">{labels[check.status]}</span>
+        <span className="pill">{isAI ? 'AI proposal · Review' : labels[check.status]}</span>
       </summary>
       <div className="aso-finding-body">
         <p className="aso-observation">{check.observation}</p>
@@ -76,7 +88,7 @@ function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
         {check.replacement && (
           <div className="aso-proposal">
             <label>
-              Proposed keywords
+              {check.field === 'keywords' ? 'Proposed keywords' : 'Proposed text'}
               <textarea rows={3} readOnly value={check.replacement} />
             </label>
             <div className="action-group">
@@ -106,13 +118,26 @@ function Finding({ check, onAdd }: { check: Check; onAdd?: () => void }) {
             </div>
           </div>
         )}
+        {check.evidence && (
+          <details className="aso-evidence">
+            <summary>Evidence from your listing</summary>
+            {check.evidence.map((item, i) => (
+              <blockquote key={i}>
+                <small>{item.field}</small>
+                <p>{item.quote}</p>
+              </blockquote>
+            ))}
+          </details>
+        )}
         <footer className="aso-sources">
           <span>
-            {check.basis === 'requirement'
-              ? 'Official requirement'
-              : check.basis === 'measurement'
-                ? 'Measurement guidance'
-                : 'Official recommendation'}
+            {isAI
+              ? 'Editorial hypothesis · Apple guidance'
+              : check.basis === 'requirement'
+                ? 'Official requirement'
+                : check.basis === 'measurement'
+                  ? 'Measurement guidance'
+                  : 'Official recommendation'}
           </span>
           {check.sources.map((source) => (
             <a key={source.id} href={source.url} target="_blank" rel="noreferrer">
@@ -156,6 +181,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const [locale, setLocale] = useState(
     locales.includes(metadata?.data.locale || '') ? metadata!.data.locale : locales[0] || '',
   );
+  const [ai, setAI] = useState<AIChoice>(null);
+  const [aiLoading, setAILoading] = useState(true);
   const [runs, setRuns] = useState<AuditRun[]>([]);
   const [runId, setRunId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -211,7 +238,9 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     if (!metadata || (retry && !run)) return;
     setBusy(true);
     setError('');
-    const key = retry ? `retry:${run.id}` : `${metadata.id}:${locale}`;
+    const key = retry
+      ? `retry:${run.id}`
+      : `${metadata.id}:${locale}:${ai?.provider || 'rules'}:${ai?.model || ''}`;
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
     try {
       const next = await api<AuditRun>(
@@ -220,7 +249,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           method: 'POST',
           body: JSON.stringify({
             request_id: request.current.id,
-            ...(!retry && { snapshot_id: metadata.id, locale }),
+            ...(!retry && { snapshot_id: metadata.id, locale, ...(ai || {}) }),
           }),
         },
       );
@@ -251,7 +280,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           aria-current={tab === 'overview' ? 'page' : undefined}
           onClick={() => void switchTab('overview')}
         >
-          Overview
+          Audit
         </button>
         <button
           aria-current={tab === 'drafts' ? 'page' : undefined}
@@ -270,6 +299,15 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         />
       ) : (
         <>
+          <AIOptions
+            workspaceId={workspace.id}
+            owner={workspace.role === 'owner' && !previewMode}
+            disabled={!canWrite || busy || working}
+            onChange={(choice, loading) => {
+              setAI(choice);
+              setAILoading(loading);
+            }}
+          />
           <section className="aso-toolbar" aria-label="Audit settings">
             <label className="compact-label">
               Language
@@ -293,20 +331,26 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
             <button
               className="button primary"
               disabled={
-                !canWrite || !locale || !metadata || busy || working || loading || loadFailed
+                !canWrite ||
+                !locale ||
+                !metadata ||
+                busy ||
+                working ||
+                loading ||
+                loadFailed ||
+                aiLoading ||
+                (!!ai && !ai.model)
               }
               onClick={() => start()}
             >
-              {busy
-                ? 'Starting…'
-                : working
-                  ? 'Audit in progress…'
-                  : run
-                    ? 'Run again'
-                    : 'Run audit'}
+              {busy ? 'Starting…' : working ? 'Audit in progress…' : 'Run audit'}
             </button>
           </section>
-          <p className="aso-scope">App Store metadata checks · Apple sources · No AI key needed</p>
+          <p className="aso-scope">
+            {ai
+              ? 'Apple checks + AI copy review · The selected listing text is sent to your provider.'
+              : 'Apple metadata checks · No AI call'}
+          </p>
           {error && (
             <p className="error" role="alert">
               {error}
@@ -320,7 +364,10 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
             <section className="aso-empty">
               <img src="/modules/audit-aso.webp" alt="" />
               <h2>Review your store listing</h2>
-              <p>Check field limits and repeated keywords in the imported language.</p>
+              <p>
+                Choose a model for editorial recommendations, or run Apple metadata checks without
+                AI.
+              </p>
               {!metadata && (
                 <button className="button secondary" onClick={() => navigate('app_catalog')}>
                   Open My apps
@@ -330,7 +377,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           ) : (
             <>
               <div className="aso-history">
-                <h2>Audit</h2>
+                <h2>Audit activity</h2>
                 <label className="compact-label">
                   History
                   <select
@@ -341,7 +388,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                     {history.map((item) => (
                       <option key={item.id} value={item.id}>
                         {date(item.created_at)} ·{' '}
-                        {item.status === 'succeeded' ? 'Completed' : item.status}
+                        {item.status === 'succeeded' ? 'Completed' : item.status} ·{' '}
+                        {item.ai?.model || 'Rules only'}
                       </option>
                     ))}
                   </select>
@@ -369,11 +417,23 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
               {run.report && (
                 <section className="aso-report" aria-label="Audit findings">
                   <div className="aso-report-heading">
-                    <h2>Findings</h2>
+                    <h2>Recommendations</h2>
                     <span className="note">
                       {run.locale} · Imported {date(run.captured_at)}
                     </span>
                   </div>
+                  {run.report.editorial && (
+                    <p className="notice">
+                      {run.report.editorial.resolved_model} ·{' '}
+                      {run.report.editorial.accepted_proposals} AI proposals ·{' '}
+                      {run.report.editorial.usage.input_tokens ?? '—'} input /{' '}
+                      {run.report.editorial.usage.output_tokens ?? '—'} output tokens
+                      {!!run.report.editorial.usage.reasoning_tokens &&
+                        ` + ${run.report.editorial.usage.reasoning_tokens} reasoning tokens`}
+                      {run.report.editorial.rejected_proposals > 0 &&
+                        ` · ${run.report.editorial.rejected_proposals} proposals excluded: duplicate, unsupported evidence or field limits.`}
+                    </p>
+                  )}
                   {actionable.length ? (
                     actionable.map((check) => (
                       <Finding
@@ -385,7 +445,10 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                                 setDraftSeed({
                                   audit_id: run.id,
                                   check_id: check.id,
-                                  name: 'Keyword cleanup',
+                                  name:
+                                    check.basis === 'editorial_hypothesis'
+                                      ? check.title
+                                      : 'Keyword cleanup',
                                 });
                                 setTab('drafts');
                               }
@@ -409,8 +472,10 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                     </details>
                   )}
                   <p className="aso-report-footnote">
-                    No changes have been sent to Apple. Editorial AI, competitor research and
-                    performance measurement are not included in this audit.
+                    No changes have been sent to Apple.{' '}
+                    {run.ai ? 'AI proposals require review. ' : 'Editorial AI was not used. '}
+                    Competitor research, screenshot analysis and download measurement are not
+                    included.
                   </p>
                 </section>
               )}

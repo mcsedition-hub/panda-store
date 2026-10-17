@@ -55,6 +55,8 @@ export async function previewApi<T>(path: string, options: RequestInit = {}): Pr
     result = { mode: 'demo', apps: demoCatalog };
   } else if (path === `${prefix}apple_store/connections/`) {
     result = { connections: [], credentials_ready: true };
+  } else if (path === `${prefix}ai/`) {
+    result = { providers: [], credentials_ready: false };
   } else if (path === `${prefix}example/hello/`) {
     result = { message: 'This example uses the same module contract as every built-in tool.' };
   } else if (

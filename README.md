@@ -14,8 +14,8 @@ English is the default product language. [Lire le README en français](README.fr
 
 **Alpha 0.1.0 — local development.** Connect an Apple account and import iOS
 store listings, or explore with fictional apps. Write a brief → create three
-template scripts → edit → approve → export. AI generation, Google Play and
-publishing are not implemented yet.
+template scripts → edit → approve → export. ASO includes optional AI copy review.
+AI script generation, Google Play and publishing are not implemented yet.
 
 ## What works
 
@@ -27,6 +27,8 @@ publishing are not implemented yet.
   icons, primary-language screenshots and manual metadata refresh.
 - ASO audits of imported Apple metadata: sourced field limits, exact keyword
   repetition, copyable cleanup proposals and explicit coverage gaps, per language.
+- OpenAI, Google Gemini and Anthropic Claude connections, encrypted per workspace,
+  with provider model discovery and optional ASO editorial recommendations.
 - Listing drafts with autosave, comparison, named variants, revision history,
   manual review, text exports and comparison with refreshed Apple metadata.
 - Editable briefs and three script variants built from local writing templates.
@@ -102,7 +104,7 @@ workflow editor are still planned.
 Enable **ASO** in **Modules**, choose an imported app and language, then select
 **Run audit**. Audits use the selected saved import, not a live store refresh.
 Each result retains its inputs, sources and review date, with a persistent activity
-log. **Run again** checks the latest imported snapshot; retrying an interrupted
+log. Running a new audit checks the latest imported snapshot; retrying an interrupted
 audit keeps its original inputs and completed checks.
 
 The initial rules check name, subtitle, description and promotional-text lengths,
@@ -126,10 +128,37 @@ then compares modified fields without overwriting the draft. If Connections is
 disabled or the app has no connector, **Compare latest import** only reads the
 saved snapshot. Matching values do not establish publication or download impact.
 
-No AI key is required. This is a bounded metadata audit, not a complete compliance
-review: visual quality, relevance, competitors, search demand and download impact
-remain unassessed. Google Play audits, editorial AI and publishing
-are not implemented. Passed checks are not an ASO score or a promise of growth.
+### Choose an AI model
+
+Open **ASO → Audit → AI settings**. A workspace owner can connect OpenAI, Google
+Gemini or Anthropic Claude with their own API key. Keys are encrypted in this
+installation's database using `PANDA_CREDENTIAL_KEYS`, never returned to the browser
+or shared between workspaces. **Refresh models** reloads the provider's catalogue;
+text model families are filtered for this integration. Model access, quotas and
+endpoint compatibility are still subject to the provider; failures are explicit.
+
+Select **AI provider**, **Model** and **Language**, then **Run audit**. The selected
+language's imported text is sent to that provider, using its account and billing.
+There is no provider fallback or automatic paid retry. **Rules only · No AI** keeps
+the original checks available without a key. All three adapters have automated
+contract tests; OpenAI and Gemini have also been exercised with live accounts.
+
+Follow the five workflow steps, then read **Recommendations** below the activity.
+Each AI proposal includes a replacement, rationale, quoted listing evidence and
+curated Apple references. **Add to draft** starts a separate editable draft.
+The report records the requested/resolved model and token usage, not an estimated
+price. Sources and instructions are versioned; the selected connection revision
+is frozen. Replacing/removing its key requires a new audit if the AI call has not
+completed. Retry reuses a saved model response when available; a lost response can
+require a new paid request. Stopping discards a late result but cannot undo usage.
+
+Editorial proposals are hypotheses for human review. Validation rejects unknown
+sources, non-verbatim evidence, repeated proposals, field overflows, new numbers
+and changed URLs. It does not prove feature claims, semantic relevance, translation
+quality or improved conversion. Zero AI proposals is a valid result. The current
+review uses curated Apple annotations, not live web research or an indexed corpus.
+Visual analysis, competitors, search demand, download measurement, Google Play
+audits and publishing are not implemented. No score or growth guarantee is produced.
 
 ## Connect an Apple account
 

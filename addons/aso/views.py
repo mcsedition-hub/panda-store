@@ -9,11 +9,13 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
+from panda_store.ai.providers import PROVIDERS
 from panda_store.core.access import workspace_access
-from panda_store.core.models import Workspace
+from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows.models import WorkflowRun
 from panda_store.workflows.services import fail, recover
 
+from . import editorial
 from .models import AuditRun
 from .rules import RULESET, localized_metadata
 from .tasks import audit_listing
@@ -26,6 +28,13 @@ class AuditRequest(serializers.Serializer):
     request_id = serializers.UUIDField()
     locale = serializers.CharField(max_length=35)
     snapshot_id = serializers.UUIDField()
+    provider = serializers.ChoiceField(choices=list(PROVIDERS), required=False)
+    model = serializers.CharField(max_length=120, required=False)
+
+    def validate(self, attrs):
+        if ("provider" in attrs) != ("model" in attrs):
+            raise ValidationError("Choose both a provider and a model, or use rules only.")
+        return attrs
 
 
 class RetryRequest(serializers.Serializer):
@@ -45,6 +54,9 @@ def serialize(run):
         "source": run.inputs["source"],
         "is_demo": run.inputs["is_demo"],
         "report": run.report,
+        "ai": {key: run.inputs["ai"][key] for key in ("provider", "model")}
+        if "ai" in run.inputs
+        else None,
     }
 
 
@@ -94,13 +106,29 @@ def runs(request, workspace_id, app_id):
     with transaction.atomic():
         Workspace.objects.select_for_update().get(pk=workspace.pk)
         workspace_access(request.user, workspace_id, write=True, module="aso")
+        if "provider" in values:
+            connection = AIConnection.objects.filter(
+                workspace=workspace, provider=values["provider"]
+            ).first()
+            if not connection:
+                raise ValidationError("Connect this provider in AI settings first.")
+            if values["model"] not in [item["id"] for item in connection.model_catalog]:
+                raise ValidationError("Choose an available model or refresh models in AI settings.")
+            inputs["ai"] = {
+                "provider": connection.provider,
+                "model": values["model"],
+                "connection_id": str(connection.pk),
+                "revision": str(connection.revision),
+                "prompt_version": editorial.VERSION,
+            }
+            inputs["knowledge"] = editorial.knowledge()
         run = AuditRun.objects.filter(workspace=workspace, request_id=values["request_id"]).first()
         created = run is None
         if run:
             if run.app_id != app.pk or run.inputs != inputs:
                 return Response({"error": "This request ID has already been used."}, status=409)
         else:
-            workflow = create_workflow(workspace, request.user)
+            workflow = create_workflow(workspace, request.user, ai="ai" in inputs)
             run = AuditRun.objects.create(
                 workspace=workspace,
                 app=app,
@@ -132,12 +160,21 @@ def retry(request, workspace_id, run_id):
             return Response(serialize(existing))
         if previous.status not in {WorkflowRun.Status.FAILED, WorkflowRun.Status.CANCELED}:
             raise ValidationError("Only failed or canceled audits can be retried.")
-        if previous.version != VERSION or original.inputs["ruleset"] != RULESET:
+        if (
+            previous.version != VERSION
+            or original.inputs["ruleset"] != RULESET
+            or (
+                "ai" in original.inputs
+                and original.inputs["ai"]["prompt_version"] != editorial.VERSION
+            )
+        ):
             raise ValidationError("The audit rules changed. Start a new audit.")
         request_id = data.validated_data["request_id"]
         if AuditRun.objects.filter(workspace=workspace, request_id=request_id).exists():
             return Response({"error": "This request ID has already been used."}, status=409)
-        workflow = create_workflow(workspace, request.user, retry_of=previous)
+        workflow = create_workflow(
+            workspace, request.user, retry_of=previous, ai="ai" in original.inputs
+        )
         run = AuditRun.objects.create(
             workspace=workspace,
             app=original.app,

@@ -7,6 +7,6 @@
   "availability": "available",
   "family": "lichen",
   "icon": "audit-aso",
-  "description": "Audit imported App Store metadata against Apple's published guidance.",
-  "capabilities": ["aso.audit"]
+  "description": "Review App Store listings with sourced checks, AI recommendations and drafts.",
+  "capabilities": ["aso.audit", "aso.editorial", "aso.drafts"]
 }

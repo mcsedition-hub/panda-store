@@ -1,24 +1,41 @@
 import logging
+import threading
 
 from celery import shared_task
+from django.db import close_old_connections, connections
 
+from panda_store.ai.providers import ProviderError
+from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.workflows import services
 
+from . import editorial
 from .models import AuditRun
 from .rules import audit, localized_metadata
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(soft_time_limit=180, time_limit=210)
 def audit_listing(workflow_id):
     run = AuditRun.objects.get(workflow_id=workflow_id)
     token = services.claim(workflow_id)
     if token is None:
         return
+    stopped = threading.Event()
+
+    def keep_alive():
+        try:
+            while not stopped.wait(10):
+                close_old_connections()
+                if not services.heartbeat(workflow_id, token):
+                    return
+        finally:
+            connections.close_all()
+
+    heartbeat = threading.Thread(target=keep_alive, daemon=True)
+    if "ai" in run.inputs:
+        heartbeat.start()
     try:
-        # These bounded local checks do not call providers or perform network I/O.
-        # Renew between steps; every write remains fenced by the workflow lease.
         saved = services.start_step(
             workflow_id, token, "listing", "Reading the saved localization."
         )
@@ -47,6 +64,41 @@ def audit_listing(workflow_id):
                 report,
             )
         services.heartbeat(workflow_id, token)
+        if "ai" in run.inputs:
+            choice = run.inputs["ai"]
+            output = services.start_step(
+                workflow_id,
+                token,
+                "editorial",
+                f"Reviewing {run.locale} text with {choice['provider']} / {choice['model']}.",
+            )
+            if output is None:
+                output = editorial.analyze(run, report["checks"])
+                services.complete_step(
+                    workflow_id,
+                    token,
+                    "editorial",
+                    "Model response received. Checking evidence and field constraints.",
+                    output,
+                )
+            validated = services.start_step(
+                workflow_id,
+                token,
+                "validate",
+                "Checking quoted evidence, source IDs and proposed field lengths.",
+            )
+            if validated is None:
+                validated = editorial.validate(output, run.inputs, report)
+                info = validated["editorial"]
+                services.complete_step(
+                    workflow_id,
+                    token,
+                    "validate",
+                    f"{info['accepted_proposals']} proposals retained for human review; "
+                    f"{info['rejected_proposals']} rejected by validation.",
+                    validated,
+                )
+            report = validated
         services.start_step(workflow_id, token, "report", "Saving the audit and source references.")
         with services.execution_lock(workflow_id, token):
             run.report = report
@@ -55,6 +107,13 @@ def audit_listing(workflow_id):
             services.succeed(workflow_id, token, "Audit complete. Your store listing is unchanged.")
     except services.ExecutionStopped:
         services.fail(workflow_id, "The worker lease expired. Retry the unfinished steps.", token)
+    except (ProviderError, CredentialsUnavailable) as exc:
+        services.fail(workflow_id, str(exc), token)
     except Exception:
         logger.exception("ASO audit failed for %s", run.pk)
         services.fail(workflow_id, "The audit failed. Retry the unfinished steps.", token)
+
+    finally:
+        stopped.set()
+        if heartbeat.is_alive():
+            heartbeat.join(timeout=2)

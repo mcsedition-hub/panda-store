@@ -21,11 +21,11 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 Le module ASO est disponible et activable. Le premier audit contrôle les longueurs,
 le budget de mots-clés et les répétitions exactes, avec sources Apple datées,
 propositions de nettoyage copiables et limites de couverture explicites. Il conserve
-l'import choisi et utilise le suivi commun en trois étapes. Les captures, la qualité
-éditoriale et l'impact sur les téléchargements ne sont pas évalués automatiquement.
+l'import choisi et utilise le suivi commun en trois étapes. Les captures et l'impact sur les téléchargements ne sont pas évalués automatiquement.
 La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
-Les brouillons sont maintenant implémentés. La prochaine tranche porte sur
-l'analyse éditoriale avec un fournisseur IA choisi par l'utilisateur. Sa
+Les brouillons et la revue éditoriale OpenAI/Gemini/Claude sont implémentés, avec
+choix explicite du modèle et propositions sourcées à relire. La prochaine tranche
+porte sur les évaluations de qualité et les outils de recherche. La
 [conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
 spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
 observations, propositions et résultats. La première sélection inclut Apple,
@@ -60,7 +60,7 @@ sa justification et ses sources. `Add to draft` crée un brouillon contenant uni
 la proposition choisie ; l'utilisateur peut la modifier ensuite. `New draft` permet
 aussi de partir de la langue importée choisie sans proposition automatique.
 
-L'espace ASO propose `Overview` et `Drafts`, avec l'activité intégrée à l'audit. Le premier audit est
+L'espace ASO propose `Audit` et `Drafts`, avec l'activité intégrée à l'audit. Le premier audit est
 l'action principale de l'écran vide. Un brouillon suffit pour commencer ;
 `Duplicate` permet de préparer une variante nommée, avec sauvegarde automatique
 et historique consultable. L'éditeur compare l'import de référence ou le dernier import et le brouillon,
