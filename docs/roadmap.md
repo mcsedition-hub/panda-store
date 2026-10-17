@@ -7,8 +7,8 @@ ni des dates promises. Chaque étape doit livrer une boucle utilisable et testé
 | --- | --- | --- |
 | Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Implémenté et testé avec API simulée ; validation sur compte Apple réel à faire |
-| Création IA | Générations sourcées, 3 angles, suivi coût/durée, reprise et validation | À construire |
 | Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | À construire |
+| Création IA | Générations sourcées à partir d'une fiche auditée, 3 angles, suivi coût/durée, reprise et validation | À construire après l'audit ASO |
 | Veille | Recherche concurrentielle et agent navigateur avec traces consultables | À construire |
 | Google Play | Métadonnées et rapports via mécanismes officiels disponibles | À construire |
 | Publication | Comptes sociaux, aperçu, validation, calendrier, statut d'envoi | À construire |
@@ -24,9 +24,46 @@ La révocation chez Apple reste une action à effectuer dans App Store Connect.
 Les imports sont synchrones et limités ; prévoir des tâches pour les catalogues
 volumineux et la synchronisation planifiée.
 
-Ensuite, ajouter un fournisseur IA remplaçable au Studio, des sorties structurées,
-un budget par génération et des évaluations sur un jeu de briefs. Le fournisseur
-démo doit rester disponible pour les tests sans clé payante.
+Ensuite, auditer la fiche ASO avant de générer des scripts. Pour chaque store et
+langue, distinguer les contraintes officielles vérifiables des recommandations
+éditoriales : noms, sous-titres ou descriptions courtes, descriptions, mots-clés
+quand disponibles, catégories et visuels. Chaque constat doit conserver le champ
+observé, la règle ou recommandation, son lien officiel, la date de vérification
+et une correction proposée. Signaler les données manquantes ou non vérifiables.
+Les premières sources sont les recommandations Apple sur la
+[fiche produit](https://developer.apple.com/app-store/product-page/) et la
+[recherche App Store](https://developer.apple.com/app-store/search/), ainsi que la
+[configuration des fiches Google Play](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en).
+Ne pas présenter une conformité de métadonnées comme une garantie de classement
+ou de téléchargements. Les critères Apple et Google restent distincts ; un audit
+Google complet dépendra de l'import Google Play.
+
+L'utilisateur relit les propositions avant toute application. Le connecteur Apple
+actuel reste en lecture seule : les corrections sont copiables et à appliquer dans
+App Store Connect, puis un nouvel import permet de vérifier les changements. Aucune
+modification de fiche ni publication automatique n'est encore implémentée.
+
+Après ce bilan ASO, ajouter un fournisseur IA remplaçable au Studio, des sorties
+structurées, un budget par génération et des évaluations sur un jeu de briefs.
+Utiliser l'instantané de métadonnées audité comme contexte des scripts et conserver
+sa référence pour savoir sur quelle version ils reposent. Le fournisseur démo doit
+rester disponible pour les tests sans clé payante.
+
+## Choix des fournisseurs et modèles IA
+
+L'utilisateur doit pouvoir choisir OpenAI, Anthropic (Claude) ou Google (Gemini),
+puis un modèle disponible chez ce fournisseur. Cette exigence s'applique aux
+analyses ASO assistées par IA, au Studio et aux futurs agents. Le catalogue doit
+être configurable et actualisable ; aucun modèle ni compte du développeur de
+Panda Store ne doit être imposé dans une installation indépendante.
+
+Chaque espace configure ses propres clés depuis l'interface, avec stockage chiffré
+côté serveur. Un modèle par défaut peut être défini pour l'espace, puis remplacé
+pour une tâche. Le choix doit tenir compte des capacités nécessaires (texte,
+images, outils) et du budget. Si le modèle est indisponible ou incompatible,
+afficher une erreur explicite ; ne pas envoyer les données à un autre fournisseur
+sans choix de l'utilisateur. Conserver le fournisseur, l'identifiant exact du
+modèle et la consommation dans chaque exécution pour permettre sa vérification.
 
 ## Conditions de réussite
 

@@ -69,6 +69,19 @@ ni fournisseur IA, ni agent navigateur, ni publication automatique.
 
 ## Évolutions prévues
 
+L'audit ASO précède la création de scripts. Ses règles vérifiables par code restent
+distinctes des appréciations éditoriales assistées par IA ; chacune conserve sa
+source officielle et sa date. Les scripts référencent l'instantané audité de la
+fiche, afin que les corrections et les générations restent traçables.
+
+Les adaptateurs IA devront proposer OpenAI, Anthropic (Claude) et Google (Gemini)
+derrière un contrat commun, tout en déclarant leurs capacités propres. L'espace
+configure ses clés et son modèle par défaut ; l'utilisateur peut choisir un autre
+fournisseur et modèle pour une tâche. Le catalogue reste configurable et actualisable,
+avec filtrage des modèles incompatibles. Chaque exécution enregistre le fournisseur,
+le modèle exact, la consommation et les erreurs. Aucun basculement implicite vers
+un autre fournisseur n'est autorisé. Ces adaptateurs ne sont pas encore implémentés.
+
 Les futurs agents devront conserver les sources et dates de leurs observations,
 les actions effectuées et les coûts. Les connecteurs de stores et réseaux
 sociaux auront des interfaces séparées. La veille et la génération peuvent
