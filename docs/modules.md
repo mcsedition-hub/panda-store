@@ -4,6 +4,14 @@ Le contrat de modules est expérimental pendant la série 0.1. Le dossier
 [`addons/example`](../addons/example) montre un module minimal complet.
 Il est installé mais désactivé par défaut. Activez-le depuis « Les modules ».
 
+La première version publique comprend deux modules métier : **ASO** et **SMM**.
+Le catalogue, les connexions Apple et IA et les workflows fournissent leur socle ;
+le module d'exemple illustre le contrat d'extension. La priorité est de finaliser
+ces deux parcours avant de retenir un troisième module métier.
+Les connexions de comptes sociaux pour publier et programmer sont réservées à la
+future offre cloud. Le connecteur navigateur de recherche reste dans SMM communautaire.
+Voir le [périmètre et les critères de sortie](roadmap.md).
+
 ## Structure
 
 ```text
@@ -89,7 +97,7 @@ automatiquement une place dans l'offre cloud officielle.
 ## Suivi des workflows
 
 Le socle `panda_store.workflows` est disponible pour les modules installés.
-Studio fournit le premier exemple dans `addons/studio/workflow.py` et `tasks.py` :
+SMM fournit le premier exemple dans `addons/studio/workflow.py` et `tasks.py` :
 création versionnée, étapes ordonnées et dépendances, actions effectivement
 exécutées et résultats sauvegardés. Le worker local attend un dictionnaire
 `RUNNERS = {workflow_key: (version, execute)}` dans le fichier `workflow.py` du

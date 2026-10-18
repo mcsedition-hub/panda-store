@@ -115,3 +115,22 @@ def create_workflow(run, retry_of=None):
     run.workflow = workflow
     run.save(update_fields=["workflow"])
     return workflow
+
+
+def video_execute(run_id):
+    from .models import VideoRender
+    from .render_tasks import render_video
+
+    render_video(str(VideoRender.objects.get(workflow_id=run_id).pk))
+
+
+RUNNERS["studio.video"] = (1, video_execute)
+
+
+def social_execute(run_id):
+    from .social_tasks import research
+
+    research(str(run_id))
+
+
+RUNNERS["studio.social"] = (1, social_execute)

@@ -27,17 +27,21 @@ export default function WorkflowPanel({
   canWrite,
   onStatus,
   onRetry,
+  showError = true,
 }: {
   workspaceId: string;
   workflowId: string;
   canWrite: boolean;
   onStatus: (status: WorkflowStatus) => void;
   onRetry: () => Promise<void>;
+  showError?: boolean;
 }) {
   const [data, setData] = useState<WorkflowSnapshot | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [connection, setConnection] = useState('Connecting…');
   const [error, setError] = useState('');
+  const [connectionError, setConnectionError] = useState('');
+  const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(Date.now());
   const callback = useRef(onStatus);
@@ -58,9 +62,11 @@ export default function WorkflowPanel({
     setData(null);
     setSelected(null);
     setError('');
+    setConnectionError('');
     setConnection('Connecting…');
     function accept(next: WorkflowSnapshot) {
       if (!active || blocked || next.cursor < position) return;
+      setConnectionError('');
       position = next.cursor;
       setData((old) => ({
         ...next,
@@ -99,9 +105,10 @@ export default function WorkflowPanel({
           finished = true;
           source?.close();
           setData(null);
-          setError((err as Error).message);
+          setConnectionError((err as Error).message);
           setConnection('Unavailable');
         } else {
+          setConnectionError((err as Error).message);
           setConnection('Reconnecting…');
           timer = setTimeout(poll, 3000);
         }
@@ -150,7 +157,7 @@ export default function WorkflowPanel({
       clearTimeout(timer);
       source?.close();
     };
-  }, [base]);
+  }, [base, reload]);
 
   const pending = data && !terminal(data.status);
   useEffect(() => {
@@ -187,7 +194,13 @@ export default function WorkflowPanel({
         <div>
           <h3>{data?.title ?? 'Workflow'}</h3>
           <p className="workflow-meta">
-            <span role="status">{data ? labels[data.status] : 'Loading activity…'}</span>
+            <span role="status">
+              {data
+                ? labels[data.status]
+                : connectionError
+                  ? 'Activity unavailable'
+                  : 'Loading activity…'}
+            </span>
             {data?.started_at && <span>{duration(data.started_at, data.completed_at, now)}</span>}
             <span>{connection}</span>
           </p>
@@ -248,11 +261,33 @@ export default function WorkflowPanel({
           {error}
         </p>
       )}
-      {data?.error && (
+      {connectionError && (
+        <div>
+          <p className="error" role="alert">
+            {connectionError}
+          </p>
+          <p className="note">
+            Activity updates are unavailable. The task may still be running on the server. Reload
+            its status before starting another task.
+          </p>
+          <button className="button secondary" onClick={() => setReload((value) => value + 1)}>
+            Retry loading activity
+          </button>
+        </div>
+      )}
+      {showError && data?.error && (
         <p className="error" role="alert">
           {data.error}
         </p>
       )}
+      {data &&
+        ['failed', 'canceled'].includes(data.status) &&
+        data.steps.some((item) => item.kind === 'ai') && (
+          <p className="note">
+            Retry keeps the original app, model and AI connection. After replacing an API key or
+            choosing another model, start a new task in this module. Saved results remain available.
+          </p>
+        )}
       {data && (
         <details
           className="workflow-journal"

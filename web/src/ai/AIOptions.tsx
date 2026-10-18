@@ -47,6 +47,8 @@ export default function AIOptions({
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [reload, setReload] = useState(0);
   const [notice, setNotice] = useState('');
   const alive = useRef(true);
   const callback = useRef(onChange);
@@ -71,6 +73,11 @@ export default function AIOptions({
   useEffect(() => {
     let active = true;
     alive.current = true;
+    setLoading(true);
+    setLoadError('');
+    setError('');
+    setProvider('');
+    setModel('');
     callback.current(null, true);
     api<Catalog>(endpoint)
       .then((next) => {
@@ -85,7 +92,7 @@ export default function AIOptions({
       })
       .catch((err) => {
         if (active) {
-          setError(err.message);
+          setLoadError(err.message);
           callback.current(null, false);
         }
       })
@@ -96,7 +103,7 @@ export default function AIOptions({
       active = false;
       alive.current = false;
     };
-  }, [endpoint]);
+  }, [endpoint, reload]);
 
   function choose(nextProvider: string, nextModel = '') {
     if (nextProvider !== provider) setShowOtherModels(false);
@@ -149,7 +156,7 @@ export default function AIOptions({
           AI provider
           <select
             value={provider}
-            disabled={disabled || loading || busy}
+            disabled={disabled || loading || busy || !!loadError}
             onChange={(e) => choose(e.target.value)}
           >
             <option value="">{emptyLabel}</option>
@@ -244,6 +251,16 @@ export default function AIOptions({
           {error}
         </p>
       )}
+      {loadError && (
+        <div>
+          <p className="error" role="alert">
+            AI connections could not be loaded. {loadError}
+          </p>
+          <button className="button secondary" onClick={() => setReload((value) => value + 1)}>
+            Retry loading AI connections
+          </button>
+        </div>
+      )}
       {editing && (
         <div className="ai-settings">
           <h3>Workspace AI connections</h3>
@@ -251,96 +268,112 @@ export default function AIOptions({
             Keys are stored encrypted on your server. Analyses use your provider account and
             billing.
           </p>
-          <div className="ai-provider-status">
-            {Object.entries(names).map(([id, name]) => (
-              <span key={id}>
-                {name}{' '}
-                <strong>
-                  {catalog.providers.find((item) => item.id === id)?.connected
-                    ? 'Connected'
-                    : 'Not connected'}
-                </strong>
-              </span>
-            ))}
-          </div>
-          {owner ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void update('PUT');
-              }}
-            >
-              <label>
-                Provider
-                <select
-                  value={target}
-                  disabled={busy}
-                  onChange={(e) => {
-                    setTarget(e.target.value);
-                    setKey('');
-                    setNotice('');
+          {!loading && !loadError && (
+            <>
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => setReload((value) => value + 1)}
+              >
+                Reload AI connections
+              </button>
+              <div className="ai-provider-status">
+                {Object.entries(names).map(([id, name]) => (
+                  <span key={id}>
+                    {name}{' '}
+                    <strong>
+                      {catalog.providers.find((item) => item.id === id)?.connected
+                        ? 'Connected'
+                        : 'Not connected'}
+                    </strong>
+                  </span>
+                ))}
+              </div>
+              {owner ? (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void update('PUT');
                   }}
                 >
-                  {Object.entries(names).map(([id, name]) => (
-                    <option key={id} value={id}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                API key
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={key}
-                  disabled={busy || !catalog.credentials_ready}
-                  onChange={(e) => setKey(e.target.value)}
-                  placeholder={
-                    connection?.connected
-                      ? 'Enter a new key to replace the saved one'
-                      : 'Paste your API key'
-                  }
-                />
-              </label>
-              {!catalog.credentials_ready && (
-                <p className="error">
-                  Credential storage is unavailable. Ask the administrator to configure
-                  PANDA_CREDENTIAL_KEYS.
-                </p>
+                  <label>
+                    Provider
+                    <select
+                      value={target}
+                      disabled={busy}
+                      onChange={(e) => {
+                        setTarget(e.target.value);
+                        setKey('');
+                        setNotice('');
+                        setError('');
+                      }}
+                    >
+                      {Object.entries(names).map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    API key
+                    <input
+                      type="password"
+                      autoComplete="off"
+                      value={key}
+                      disabled={busy || !catalog.credentials_ready}
+                      onChange={(e) => setKey(e.target.value)}
+                      placeholder={
+                        connection?.connected
+                          ? 'Enter a new key to replace the saved one'
+                          : 'Paste your API key'
+                      }
+                    />
+                  </label>
+                  {!catalog.credentials_ready && (
+                    <p className="error">
+                      Credential storage is unavailable. Ask the administrator to configure
+                      PANDA_CREDENTIAL_KEYS.
+                    </p>
+                  )}
+                  <div className="action-group">
+                    <button
+                      className="button primary"
+                      disabled={busy || key.trim().length < 10 || !catalog.credentials_ready}
+                    >
+                      {busy
+                        ? 'Checking…'
+                        : connection?.connected
+                          ? 'Replace key'
+                          : 'Connect provider'}
+                    </button>
+                    {connection?.connected && (
+                      <>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={busy}
+                          onClick={() => void update('POST')}
+                        >
+                          Refresh models
+                        </button>
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() => void update('DELETE')}
+                        >
+                          Disconnect provider
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {notice && <p role="status">{notice}</p>}
+                </form>
+              ) : (
+                <p>Ask the workspace owner to connect or update a provider.</p>
               )}
-              <div className="action-group">
-                <button
-                  className="button primary"
-                  disabled={busy || key.trim().length < 10 || !catalog.credentials_ready}
-                >
-                  {busy ? 'Checking…' : connection?.connected ? 'Replace key' : 'Connect provider'}
-                </button>
-                {connection?.connected && (
-                  <>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={busy}
-                      onClick={() => void update('POST')}
-                    >
-                      Refresh models
-                    </button>
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={busy}
-                      onClick={() => void update('DELETE')}
-                    >
-                      Disconnect provider
-                    </button>
-                  </>
-                )}
-              </div>
-              {notice && <p role="status">{notice}</p>}
-            </form>
-          ) : (
-            <p>Ask the workspace owner to connect or update a provider.</p>
+            </>
           )}
         </div>
       )}

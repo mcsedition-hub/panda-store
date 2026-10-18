@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Scenes, { type Storyboard } from '../../addons/studio/frontend/Scenes';
 import { api, ApiError, download } from './api';
@@ -54,6 +54,8 @@ const library = {
   ],
 };
 function defaults(path: string, options?: { method?: string; body?: BodyInit | null }) {
+  if (path.endsWith('renders/')) return [];
+  if (path.endsWith('media-capabilities/')) return { available: true };
   if (path.endsWith('scene-assets/')) return library;
   if (path.endsWith('storyboard/')) return { storyboard: structuredClone(board) };
   if (options?.method === 'PATCH') {
@@ -210,4 +212,49 @@ it('supports viewer preview and export but prevents editing', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Export package' }));
   await waitFor(() => expect(download).toHaveBeenCalled());
   expect(mockApi.mock.calls.some(([, options]) => options?.method)).toBe(false);
+});
+
+it('uploads a voiceover as multipart and saves its assignment to the selected shot', async () => {
+  mockApi.mockImplementation(async (path, options) =>
+    path.endsWith('/media/')
+      ? { id: 'voice', name: 'voice.wav', kind: 'audio', duration: 3, url: '/api/voice/' }
+      : defaults(path, options),
+  );
+  render(<Scenes {...props} />);
+  const input = await screen.findByLabelText(/Upload media/);
+  const file = new File(['sound'], 'voice.wav', { type: 'audio/wav' });
+  fireEvent.change(input, { target: { files: [file] } });
+  await screen.findByText('voice.wav · 3.0s');
+  const uploaded = mockApi.mock.calls.find(([path]) => path.endsWith('/media/'));
+  expect(uploaded![1]!.body).toBeInstanceOf(FormData);
+  expect((uploaded![1]!.body as FormData).get('file')).toBe(file);
+  fireEvent.click(screen.getByRole('button', { name: 'Save storyboard' }));
+  await screen.findByText(/Saved · v2/);
+  const body = JSON.parse(
+    mockApi.mock.calls.find(([, options]) => options?.method === 'PATCH')![1]!.body as string,
+  );
+  expect(body.scenes[0].audio_asset_id).toBe('voice');
+  expect(body.scenes[1].audio_asset_id).toBeUndefined();
+});
+
+it('keeps an uploaded voiceover when an older library request finishes later', async () => {
+  let finishLibrary!: (value: typeof library) => void;
+  mockApi.mockImplementation(async (path, options) => {
+    if (path.endsWith('/scene-assets/'))
+      return new Promise((resolve) => {
+        finishLibrary = resolve;
+      });
+    if (path.endsWith('/media/'))
+      return { id: 'voice', name: 'voice.wav', kind: 'audio', duration: 3, url: '/api/voice/' };
+    return defaults(path, options);
+  });
+  render(<Scenes {...props} />);
+  const input = await screen.findByLabelText(/Upload media/);
+  fireEvent.change(input, { target: { files: [new File(['sound'], 'voice.wav')] } });
+  await screen.findByText('voice.wav · 3.0s');
+  await act(async () => finishLibrary(library));
+  expect(screen.getByText('voice.wav · 3.0s')).toBeTruthy();
+  expect((screen.getByLabelText('Voiceover recording') as HTMLSelectElement).value).toBe('voice');
+  fireEvent.click(screen.getByRole('button', { name: 'Save storyboard' }));
+  await screen.findByText(/Saved · v2/);
 });

@@ -3,6 +3,7 @@ import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import type { Brief, Creative, ModuleProps, Run, ResearchSource } from '../../../web/src/contracts';
 import Research from './Research';
+import SocialResearch from './SocialResearch';
 import Scenes from './Scenes';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
@@ -65,6 +66,9 @@ function CreativeEditor({
         </span>
       </div>
       <h3>{creative.angle}</h3>
+      {creative.provenance?.content_format && (
+        <p className="note">Format: {creative.provenance.content_format.replaceAll('_', ' ')}</p>
+      )}
       {creative.provenance?.adaptation && (
         <details className="script-provenance">
           <summary>Research adaptation</summary>
@@ -131,9 +135,11 @@ function CreativeEditor({
         </p>
       )}
       <div className="creative-actions">
-        <button className="button secondary" disabled={busy || dirty} onClick={onPlan}>
-          Plan scenes
-        </button>
+        {!['carousel', 'text'].includes(creative.provenance?.content_format || '') && (
+          <button className="button secondary" disabled={busy || dirty} onClick={onPlan}>
+            Plan scenes
+          </button>
+        )}
         <button
           className="button secondary"
           onClick={() => save()}
@@ -364,13 +370,15 @@ export default function Studio({
     return (
       <>
         <div className="page-heading">
-          <h1>Studio</h1>
+          <h1>SMM</h1>
+          <p>Social Media Marketing</p>
         </div>
         <section className="catalog-empty">
           <img src="/modules/studio.webp" alt="" />
-          <h2>No app selected</h2>
-          <button className="button primary" onClick={() => navigate('apple_store')}>
-            Import an app
+          <h2>Choose an app to research</h2>
+          <p>Open an imported app or try a demo app to explore SMM.</p>
+          <button className="button primary" onClick={() => navigate('app_catalog')}>
+            Open My apps
           </button>
         </section>
       </>
@@ -379,7 +387,8 @@ export default function Studio({
     <>
       <div className="page-heading heading-split">
         <div>
-          <h1>Studio</h1>
+          <h1>SMM</h1>
+          <p>Social Media Marketing</p>
         </div>
         <label className="compact-label">
           App
@@ -399,7 +408,7 @@ export default function Studio({
           </select>
         </label>
       </div>
-      <nav className="aso-tabs" aria-label="Studio sections">
+      <nav className="aso-tabs" aria-label="SMM sections">
         <button
           aria-current={section === 'research' ? 'page' : undefined}
           onClick={() => setSection('research')}
@@ -474,14 +483,33 @@ export default function Studio({
         ) : null}
       </div>
       <div hidden={section !== 'research'}>
-        <Research
-          key={`${workspace.id}:${selectedApp.id}`}
+        <SocialResearch
+          key={`social:${workspace.id}:${selectedApp.id}`}
           workspace={workspace}
           app={selectedApp}
-          previewMode={previewMode}
-          onUseInBrief={useResearch}
-          briefBusy={busy || loading || loadFailed || uncertain}
+          initialBrief={brief}
+          onGenerated={(next) => {
+            setRuns((old) => [next, ...old.filter((item) => item.id !== next.id)]);
+            setRunId(next.id);
+            setEngine('ai');
+            setSection('scripts');
+          }}
         />
+        <details className="smm-legacy">
+          <summary>Public-page research (legacy)</summary>
+          <p className="note">
+            Earlier research reports remain available here. This path does not qualify social
+            virality.
+          </p>
+          <Research
+            key={`${workspace.id}:${selectedApp.id}`}
+            workspace={workspace}
+            app={selectedApp}
+            previewMode={previewMode}
+            onUseInBrief={useResearch}
+            briefBusy={busy || loading || loadFailed || uncertain}
+          />
+        </details>
       </div>
       <div hidden={section !== 'scripts'}>
         {engine === 'demo_templates' && (
@@ -504,211 +532,236 @@ export default function Studio({
           <p>We could not load the brief. Reopen this module to try again.</p>
         ) : (
           <>
-            <section className="brief-panel">
-              <div className="brief-intro">
-                <h2>Brief</h2>
-                <p>{selectedApp.metadata?.data.subtitle}</p>
-                <div className="feature-tags">
-                  {selectedApp.metadata?.data.features.map((feature) => (
-                    <span key={feature}>{feature}</span>
-                  ))}
-                </div>
-                <h3>Research selected</h3>
-                {brief.research_sources?.length ? (
-                  brief.research_sources.map((source) => (
+            {run?.context?.mode === 'smm' ? (
+              <section className="brief-panel">
+                <div className="brief-intro">
+                  <h2>App context used</h2>
+                  <p>{run.context.brief.audience}</p>
+                  <p className="pre-wrap">{run.context.brief.product_facts}</p>
+                  <h3>Three selected social references</h3>
+                  {run.context.sources.map((source) => (
                     <article className="brief-source" key={source.page_id}>
                       <a href={source.url} target="_blank" rel="noreferrer">
                         {source.title} ↗
                       </a>
-                      <p>{source.finding.structure}</p>
                     </article>
-                  ))
-                ) : (
-                  <p className="note">Select observations in Research to prepare AI scripts.</p>
-                )}
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => setSection('research')}
-                >
-                  Choose research
-                </button>
-              </div>
-              <div className="brief-form">
-                <label>
-                  Audience
-                  <textarea
-                    name="audience"
-                    rows={2}
-                    maxLength={500}
-                    value={brief.audience}
-                    onChange={(e) => editBrief({ ...brief, audience: e.target.value })}
-                    disabled={!canWrite || busy || uncertain}
-                  />
-                </label>
-                <div className="brief-fields">
-                  <label>
-                    Goal
-                    <input
-                      name="goal"
-                      required
-                      maxLength={500}
-                      value={brief.goal}
-                      onChange={(e) => editBrief({ ...brief, goal: e.target.value })}
-                      disabled={!canWrite || busy || uncertain}
-                    />
-                  </label>
-                  <label>
-                    Tone
-                    <input
-                      name="tone"
-                      required
-                      maxLength={80}
-                      value={brief.tone}
-                      onChange={(e) => editBrief({ ...brief, tone: e.target.value })}
-                      disabled={!canWrite || busy || uncertain}
-                    />
-                  </label>
-                </div>
-                {demoMode && (
-                  <label>
-                    Generation mode
-                    <select
-                      value={engine}
-                      disabled={!canWrite || busy || pending || uncertain}
-                      onChange={(e) => setEngine(e.target.value)}
-                    >
-                      <option value="ai">AI from research</option>
-                      <option value="demo_templates">Demo templates · No AI</option>
-                    </select>
-                  </label>
-                )}
-                {engine === 'ai' && (
-                  <>
-                    <label>
-                      Product facts
-                      <textarea
-                        rows={5}
-                        maxLength={4000}
-                        value={brief.product_facts || ''}
-                        placeholder="Features and claims you can confirm about your app"
-                        disabled={!canWrite || busy || uncertain}
-                        onChange={(e) => editBrief({ ...brief, product_facts: e.target.value })}
-                      />
-                    </label>
-                    {!brief.product_facts && selectedApp.metadata?.data.description && (
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={!canWrite || busy || uncertain}
-                        onClick={() =>
-                          editBrief({
-                            ...brief,
-                            product_facts: selectedApp.metadata!.data.description.slice(0, 4000),
-                          })
-                        }
-                      >
-                        Use imported description
-                      </button>
-                    )}
-                    <div className="brief-fields">
-                      <label>
-                        Script language
-                        <input
-                          maxLength={40}
-                          value={brief.language || 'English'}
-                          disabled={!canWrite || busy || uncertain}
-                          onChange={(e) => editBrief({ ...brief, language: e.target.value })}
-                        />
-                      </label>
-                      <label>
-                        Target duration
-                        <select
-                          value={brief.duration_seconds || 30}
-                          disabled={!canWrite || busy || uncertain}
-                          onChange={(e) =>
-                            editBrief({ ...brief, duration_seconds: Number(e.target.value) })
-                          }
-                        >
-                          {[15, 30, 45, 60].map((n) => (
-                            <option key={n} value={n}>
-                              {n} seconds
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    <AIOptions
-                      key={`${workspace.id}:${appId}`}
-                      workspaceId={workspace.id}
-                      owner={workspace.role === 'owner'}
-                      disabled={!canWrite || busy || pending || uncertain}
-                      emptyLabel="Choose a provider"
-                      onChange={(next, loading) => {
-                        setChoice(next);
-                        setAiLoading(loading);
-                      }}
-                    />
-                    <label className="research-select">
-                      <input
-                        type="checkbox"
-                        checked={factsConfirmed}
-                        disabled={!canWrite || busy || uncertain}
-                        onChange={(e) => setFactsConfirmed(e.target.checked)}
-                      />
-                      I checked these product facts for this app.
-                    </label>
-                    <p className="note">
-                      Two model calls: writing and review. Scripts need your approval before use.
-                    </p>
-                  </>
-                )}
-                <div className="brief-actions">
-                  <button
-                    type="button"
-                    className="button primary"
-                    onClick={() => void submit(true)}
-                    disabled={
-                      !canWrite ||
-                      busy ||
-                      pending ||
-                      (engine === 'demo_templates'
-                        ? !demoMode
-                        : !selectedApp.metadata ||
-                          !brief.research ||
-                          !brief.research_page_ids?.length ||
-                          (brief.product_facts || '').trim().length < 10 ||
-                          !brief.audience.trim() ||
-                          !brief.goal.trim() ||
-                          !brief.tone.trim() ||
-                          !(brief.language || '').trim() ||
-                          !factsConfirmed ||
-                          !choice?.model ||
-                          aiLoading)
-                    }
-                  >
-                    {busy || pending
-                      ? 'Creating scripts…'
-                      : uncertain
-                        ? 'Retry same request'
-                        : 'Create scripts'}
+                  ))}
+                  <p className="note">
+                    Each adaptation uses its corresponding reference and format. This session keeps
+                    the app facts and sources used when it was created.
+                  </p>
+                  <button className="button secondary" onClick={() => setSection('research')}>
+                    Back to social research
                   </button>
+                </div>
+              </section>
+            ) : (
+              <section className="brief-panel">
+                <div className="brief-intro">
+                  <h2>Brief</h2>
+                  <p>{selectedApp.metadata?.data.subtitle}</p>
+                  <div className="feature-tags">
+                    {selectedApp.metadata?.data.features.map((feature) => (
+                      <span key={feature}>{feature}</span>
+                    ))}
+                  </div>
+                  <h3>Research selected</h3>
+                  {brief.research_sources?.length ? (
+                    brief.research_sources.map((source) => (
+                      <article className="brief-source" key={source.page_id}>
+                        <a href={source.url} target="_blank" rel="noreferrer">
+                          {source.title} ↗
+                        </a>
+                        <p>{source.finding.structure}</p>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="note">Select observations in Research to prepare AI scripts.</p>
+                  )}
                   <button
                     type="button"
                     className="text-button"
-                    disabled={!canWrite || busy || uncertain}
-                    onClick={() => submit(false)}
+                    onClick={() => setSection('research')}
                   >
-                    Save brief
+                    Choose research
                   </button>
                 </div>
-                {notice && (
-                  <p className="saved" role="status">
-                    {notice}
-                  </p>
-                )}
-              </div>
-            </section>
+                <div className="brief-form">
+                  <label>
+                    Audience
+                    <textarea
+                      name="audience"
+                      rows={2}
+                      maxLength={500}
+                      value={brief.audience}
+                      onChange={(e) => editBrief({ ...brief, audience: e.target.value })}
+                      disabled={!canWrite || busy || uncertain}
+                    />
+                  </label>
+                  <div className="brief-fields">
+                    <label>
+                      Goal
+                      <input
+                        name="goal"
+                        required
+                        maxLength={500}
+                        value={brief.goal}
+                        onChange={(e) => editBrief({ ...brief, goal: e.target.value })}
+                        disabled={!canWrite || busy || uncertain}
+                      />
+                    </label>
+                    <label>
+                      Tone
+                      <input
+                        name="tone"
+                        required
+                        maxLength={80}
+                        value={brief.tone}
+                        onChange={(e) => editBrief({ ...brief, tone: e.target.value })}
+                        disabled={!canWrite || busy || uncertain}
+                      />
+                    </label>
+                  </div>
+                  {demoMode && (
+                    <label>
+                      Generation mode
+                      <select
+                        value={engine}
+                        disabled={!canWrite || busy || pending || uncertain}
+                        onChange={(e) => setEngine(e.target.value)}
+                      >
+                        <option value="ai">AI from research</option>
+                        <option value="demo_templates">Demo templates · No AI</option>
+                      </select>
+                    </label>
+                  )}
+                  {engine === 'ai' && (
+                    <>
+                      <label>
+                        Product facts
+                        <textarea
+                          rows={5}
+                          maxLength={4000}
+                          value={brief.product_facts || ''}
+                          placeholder="Features and claims you can confirm about your app"
+                          disabled={!canWrite || busy || uncertain}
+                          onChange={(e) => editBrief({ ...brief, product_facts: e.target.value })}
+                        />
+                      </label>
+                      {!brief.product_facts && selectedApp.metadata?.data.description && (
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={!canWrite || busy || uncertain}
+                          onClick={() =>
+                            editBrief({
+                              ...brief,
+                              product_facts: selectedApp.metadata!.data.description.slice(0, 4000),
+                            })
+                          }
+                        >
+                          Use imported description
+                        </button>
+                      )}
+                      <div className="brief-fields">
+                        <label>
+                          Script language
+                          <input
+                            maxLength={40}
+                            value={brief.language || 'English'}
+                            disabled={!canWrite || busy || uncertain}
+                            onChange={(e) => editBrief({ ...brief, language: e.target.value })}
+                          />
+                        </label>
+                        <label>
+                          Target duration
+                          <select
+                            value={brief.duration_seconds || 30}
+                            disabled={!canWrite || busy || uncertain}
+                            onChange={(e) =>
+                              editBrief({ ...brief, duration_seconds: Number(e.target.value) })
+                            }
+                          >
+                            {[15, 30, 45, 60].map((n) => (
+                              <option key={n} value={n}>
+                                {n} seconds
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <AIOptions
+                        key={`${workspace.id}:${appId}`}
+                        workspaceId={workspace.id}
+                        owner={workspace.role === 'owner'}
+                        disabled={!canWrite || busy || pending || uncertain}
+                        emptyLabel="Choose a provider"
+                        onChange={(next, loading) => {
+                          setChoice(next);
+                          setAiLoading(loading);
+                        }}
+                      />
+                      <label className="research-select">
+                        <input
+                          type="checkbox"
+                          checked={factsConfirmed}
+                          disabled={!canWrite || busy || uncertain}
+                          onChange={(e) => setFactsConfirmed(e.target.checked)}
+                        />
+                        I checked these product facts for this app.
+                      </label>
+                      <p className="note">
+                        Two model calls: writing and review. Scripts need your approval before use.
+                      </p>
+                    </>
+                  )}
+                  <div className="brief-actions">
+                    <button
+                      type="button"
+                      className="button primary"
+                      onClick={() => void submit(true)}
+                      disabled={
+                        !canWrite ||
+                        busy ||
+                        pending ||
+                        (engine === 'demo_templates'
+                          ? !demoMode
+                          : !selectedApp.metadata ||
+                            !brief.research ||
+                            !brief.research_page_ids?.length ||
+                            (brief.product_facts || '').trim().length < 10 ||
+                            !brief.audience.trim() ||
+                            !brief.goal.trim() ||
+                            !brief.tone.trim() ||
+                            !(brief.language || '').trim() ||
+                            !factsConfirmed ||
+                            !choice?.model ||
+                            aiLoading)
+                      }
+                    >
+                      {busy || pending
+                        ? 'Creating scripts…'
+                        : uncertain
+                          ? 'Retry same request'
+                          : 'Create scripts'}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={!canWrite || busy || uncertain}
+                      onClick={() => submit(false)}
+                    >
+                      Save brief
+                    </button>
+                  </div>
+                  {notice && (
+                    <p className="saved" role="status">
+                      {notice}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
             <section className="results">
               <div className="results-heading">
                 <div>
@@ -805,8 +858,14 @@ export default function Studio({
                       Variant {check.variant}: {check.reason}
                     </p>
                   ))}
+                  {run.review.corrections?.map((correction) => (
+                    <p className="note" key={correction.at}>
+                      {new Date(correction.at).toLocaleString()} · {correction.reason}
+                    </p>
+                  ))}
                   <p className="note">
-                    This review does not replace checking the script against your app.
+                    The automated review describes the generated version. Edited drafts still need
+                    review against your app.
                   </p>
                 </details>
               )}

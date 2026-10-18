@@ -27,10 +27,11 @@ def source_key(snapshot_id, position):
 
 
 def representation(asset):
+    frame = "file" if asset.metadata.get("kind") in {"video", "audio"} else "image"
     return {
         "id": str(asset.pk),
         **asset.metadata,
-        "url": f"/api/workspaces/{asset.app.workspace_id}/studio/scene-assets/{asset.pk}/image/",
+        "url": f"/api/workspaces/{asset.app.workspace_id}/studio/scene-assets/{asset.pk}/{frame}/",
     }
 
 
@@ -91,12 +92,14 @@ def assets(request, workspace_id, app_id):
         existing = app.scene_assets.defer("data").filter(source_key=key).first()
         if existing:
             return Response(representation(existing))
-        if app.scene_assets.count() >= MAX_ASSETS:
-            raise ValidationError("This app's library has reached its 60-image limit.")
+        from .media_views import library_room
+
+        library_room(app, len(data))
         asset = SceneAsset.objects.create(
             app=app,
             source_key=key,
             data=data,
+            byte_size=len(data),
             metadata={
                 **info,
                 "kind": "store_screenshot",
@@ -115,6 +118,10 @@ def assets(request, workspace_id, app_id):
 def image(request, workspace_id, asset_id):
     workspace = workspace_access(request.user, workspace_id, module="studio")
     asset = get_object_or_404(SceneAsset, pk=asset_id, app__workspace=workspace)
+    if asset.metadata.get("kind") in {"video", "audio"}:
+        from django.http import Http404
+
+        raise Http404
     response = HttpResponse(bytes(asset.data), content_type="image/jpeg")
     response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"

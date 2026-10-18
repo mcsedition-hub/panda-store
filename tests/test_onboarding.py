@@ -63,6 +63,7 @@ def test_setup_saves_local_owner_and_workspace_and_opens_session(setup_client, d
     assert set(installation.workspace.modules.values_list("module_id", flat=True)) == {
         "app_catalog",
         "apple_store",
+        "aso",
         "studio",
     }
     assert setup_client.get("/api/workspaces/").json()[0]["name"] == details["organization_name"]

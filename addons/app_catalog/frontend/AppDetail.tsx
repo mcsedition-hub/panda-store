@@ -96,7 +96,7 @@ export default function AppDetail({
                 navigate('studio');
               }}
             >
-              Open Studio
+              Open SMM
             </button>
           )}
         </div>

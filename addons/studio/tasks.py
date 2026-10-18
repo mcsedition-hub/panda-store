@@ -109,4 +109,4 @@ def generate_scripts(run_id):
 
 # Celery discovers this conventional module; register the Studio tasks split into
 # separate files as well. Keep this after the shared helpers used by those modules.
-from . import creative_tasks, research_tasks  # noqa: E402, F401
+from . import creative_tasks, render_tasks, research_tasks, social_tasks  # noqa: E402, F401

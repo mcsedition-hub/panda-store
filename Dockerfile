@@ -3,6 +3,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/panda-browsers
 WORKDIR /app
 COPY requirements.txt ./
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir -r requirements.txt
 RUN python -m playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 10001 panda && mkdir /app/staticfiles && chown panda:panda /app/staticfiles

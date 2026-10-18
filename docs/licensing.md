@@ -1,45 +1,21 @@
-# Licence et modèle économique
+# Licence
 
-Panda Store est distribué sous **Elastic License 2.0 (ELv2)**. Le texte complet
-de [LICENSE](../LICENSE) prévaut sur cette explication.
+Panda Store est distribué sous GNU Lesser General Public License, version 3
+(LGPLv3). Le fichier [LICENSE](../LICENSE) contient son texte complet ainsi que
+celui de la GPLv3 qu'elle incorpore.
 
-L'objectif est de laisser chacun consulter le code, l'utiliser en interne,
-l'auto-héberger et le modifier, tout en protégeant l'offre cloud officielle.
-ELv2 interdit de fournir le logiciel à des tiers comme service hébergé ou géré
-lorsque ce service donne accès à un ensemble substantiel de ses fonctionnalités.
-Cette restriction concerne aussi les versions modifiées soumises à cette licence.
+Cette licence permet d'utiliser, modifier et redistribuer le logiciel, y compris
+pour une activité commerciale ou un service hébergé, en respectant ses conditions.
+La redistribution de modifications du code couvert doit notamment conserver
+les droits et l'accès au code source prévus par la licence.
 
-**ELv2 n'interdit pas tout usage commercial.** L'usage interne en entreprise,
-la modification et la redistribution restent possibles sous ses conditions.
-L'installation chez un client et le conseil ne sont pas interdits par principe.
-La licence ne garantit pas qu'aucun concurrent ne puisse créer un autre produit.
+Les contributions à l'édition communautaire sont proposées sous la même licence.
+Leurs auteurs conservent leurs droits. Les composants tiers gardent leurs propres
+licences et notices, recensées dans [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
-Nous employons donc « code source accessible » ou « source available », et
-« auto-hébergeable ». Nous ne présentons pas cette édition comme un logiciel
-open source au sens de l'OSI : une licence open source permet l'usage commercial,
-ce qui ne correspond pas à cette restriction d'hébergement.
+Une édition cloud avec des fonctions supplémentaires est prévue. Ce choix de
+produit ne restreint pas les droits accordés sur l'édition communautaire.
+Le nom et les logos ne permettent pas de se présenter comme l'offre officielle.
 
-Le nom et les logos ne constituent pas une autorisation de se présenter comme
-l'offre officielle. Aucun dépôt de marque n'est affirmé ici.
-Les composants tiers conservent leurs propres licences, voir
-[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
-
-## Contributions et cloud officiel
-
-Avant d'intégrer du code externe, il faut un accord de contribution adapté qui
-permette notamment son exploitation dans le cloud officiel. Une contribution
-sous ELv2 seule ne doit pas être interprétée comme une dérogation automatique à
-la restriction de service hébergé. Aucun transfert de droits n'est présumé.
-
-Pendant cette alpha, les rapports de bugs et propositions sont ouverts ; la
-fusion de contributions de code externes attend la mise en place de cet accord.
-Les auteurs restent libres de développer des modules indépendants en respectant
-les licences applicables. Leur intégration dans le cloud fera l'objet d'un
-examen distinct. Le nom de l'entité exploitante et l'accord devront être fixés
-avant l'ouverture des contributions de code et le lancement commercial.
-
-## Références
-
-- [Texte officiel ELv2](https://www.elastic.co/licensing/elastic-license)
-- [FAQ et exemples d'usages](https://www.elastic.co/licensing/elastic-license/faq)
-- [Définition de l'open source](https://opensource.org/osd)
+Le choix de licence suit celui de la [version communautaire d'Odoo](https://github.com/odoo/odoo/blob/20.0/LICENSE).
+Panda Store conserve son propre code et son identité.

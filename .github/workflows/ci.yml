@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12", cache: pip}
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - run: pip install -r requirements-dev.txt
       - run: python -m playwright install --with-deps chromium
       - name: Allow this Chromium executable to create its sandbox
@@ -51,6 +52,7 @@ jobs:
         working-directory: web
       - run: npm test
         working-directory: web
+      - run: node --test tests/browser_extension.test.mjs
       - run: npm run format:check
         working-directory: web
       - run: npm run build

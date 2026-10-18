@@ -91,6 +91,7 @@ class RunSerializer(serializers.ModelSerializer):
         if obj.provider == "demo_templates":
             return None
         return {
+            "mode": obj.inputs.get("mode", "legacy"),
             "snapshot_id": obj.inputs["snapshot_id"],
             "brief": obj.inputs["brief"],
             "research_id": obj.inputs["research_id"],

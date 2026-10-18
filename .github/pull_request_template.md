@@ -10,4 +10,4 @@ Indiquer les tests réalisés et les limites non vérifiées.
 
 Préciser les migrations, permissions ou accès externes modifiés, si applicable.
 
-Pour du code externe, la fusion attend l'accord de contribution décrit dans CONTRIBUTING.md.
+Les contributions suivent la licence et les consignes de CONTRIBUTING.md.

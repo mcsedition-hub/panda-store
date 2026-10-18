@@ -302,12 +302,14 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     };
   }, [base]);
 
-  async function refresh() {
+  async function refresh(reloading = false) {
+    if (reloading) setLoading(true);
     try {
       const next = await api<AuditRun[]>(base);
       if (alive.current) {
         setRuns(next);
         setError('');
+        setLoadFailed(false);
       }
     } catch (err) {
       if (alive.current) {
@@ -315,6 +317,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         setRuns([]);
         setLoadFailed(true);
       }
+    } finally {
+      if (alive.current && reloading) setLoading(false);
     }
   }
   async function start(retry = false) {
@@ -566,7 +570,15 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           {loading ? (
             <p role="status">Loading audits…</p>
           ) : loadFailed ? (
-            <p>Reopen ASO to load your audits again.</p>
+            <div>
+              <p>
+                Audit history could not be loaded. Check the saved audits before starting another
+                one.
+              </p>
+              <button className="button secondary" onClick={() => void refresh(true)}>
+                Retry loading audits
+              </button>
+            </div>
           ) : !run ? (
             <section className="aso-empty">
               <img src="/modules/audit-aso.webp" alt="" />

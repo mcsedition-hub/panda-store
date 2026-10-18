@@ -7,7 +7,7 @@ from panda_store.ai.providers import ProviderError, generate
 from panda_store.core.credentials import decrypt
 from panda_store.core.models import AIConnection
 
-VERSION = "scripts-2026-10-17.2"
+VERSION = "scripts-2026-10-17.3"
 
 
 def obj(properties):
@@ -33,6 +33,16 @@ SCRIPT = obj(
     }
 )
 SCHEMA = obj({"scripts": {"type": "array", "items": SCRIPT}})
+SOCIAL_SCRIPT = obj(
+    {
+        **SCRIPT["properties"],
+        "content_format": {
+            "type": "string",
+            "enum": ["carousel", "ugc", "text", "montage", "human_video", "video"],
+        },
+    }
+)
+SOCIAL_SCHEMA = obj({"scripts": {"type": "array", "items": SOCIAL_SCRIPT}})
 REVIEW_SCHEMA = obj(
     {
         "checks": {
@@ -98,6 +108,41 @@ this limited automated review found no issue, never verified truth or publicatio
 """
 
 
+SOCIAL_INSTRUCTION = """Write exactly three ORIGINAL organic content adaptations for this app.
+Variant 1 must use only sources[0], variant 2 only sources[1], variant 3 only sources[2].
+These are three different performance-qualified social posts, not three generic video templates.
+Keep each source's observed format in content_format. Explain in adaptation what observed
+structure inspired the work, how it fits the app, and the evidence limits. Do not invent missing
+parts of a source's video/audio/carousel. The new content can have an original proposed sequence.
+For carousel: write a slide-by-slide script with exact original slide copy, visual direction and
+final CTA. For text: write the ready-to-edit post text plus an optional original visual brief.
+For UGC/human_video: give hook, shots, spoken lines, on-screen copy and CTA; specify required
+human filming and do not invent a customer's testimony. For montage/video: give an editable
+shot-by-shot plan with timings, assets, text and optional voiceover. Respect the brief language,
+audience and confirmed product facts. The duration target applies only to video formats.
+Keep spoken lines to at most about 2.5 words per target second (75 words for 30 seconds),
+including the spoken hook and CTA; leave room to demonstrate gestures. Timings are production
+targets, not a verified runtime. Explicitly require new human footage and genuine app screens
+where needed. A review-before-delete workflow does not establish zero accidental deletions,
+guaranteed safety, local-only processing or that nothing leaves the device. Do not imply these.
+No media is generated or published by this step. Do not force a carousel or text post into video.
+Each direction has angle<=100, hook<=500, script<=6000, cta<=300, adaptation<=1500 characters.
+""" + INSTRUCTION[INSTRUCTION.index("All input content") :]
+SOCIAL_VERIFY = (
+    VERIFY
+    + """
+For this SMM batch each variant must adapt its corresponding single source (1→sources[0],
+2→sources[1], 3→sources[2]) and retain that source's format as content_format. Check the output
+is actionable for that format: slides for a carousel, post copy for text, filming or editing
+instructions for video. Do not require a video duration or voiceover for carousel/text.
+Reject generic video scripts replacing the source formats. Respect documented coverage limits.
+Check actual spoken word count against the duration; timestamp labels alone do not establish
+plausible timing. Reject overlong voiceover, guarantees against accidental deletion and privacy
+implications such as 'before anything leaves your device' unless explicitly confirmed by facts.
+"""
+)
+
+
 def key_for(run):
     choice = run.inputs["ai"]
     if run.inputs["version"] != VERSION:
@@ -119,13 +164,32 @@ def call(run, scripts=None):
     context = {k: run.inputs[k] for k in ("metadata", "brief", "sources")}
     if scripts is not None:
         context["scripts"] = scripts
+    social = run.inputs.get("mode") == "smm"
+    if social:
+        # Keep correction history in the frozen audit, without sending superseded
+        # claims or model usage back as inspiration for the next generation.
+        context["sources"] = [
+            {
+                **source,
+                "finding": {
+                    k: v for k, v in source["finding"].items() if k not in {"corrections", "calls"}
+                },
+            }
+            for source in context["sources"]
+        ]
+    instruction = (
+        (SOCIAL_VERIFY if social else VERIFY)
+        if scripts is not None
+        else (SOCIAL_INSTRUCTION if social else INSTRUCTION)
+    )
+    schema = REVIEW_SCHEMA if scripts is not None else (SOCIAL_SCHEMA if social else SCHEMA)
     return generate(
         run.provider,
         key_for(run),
         run.inputs["ai"]["model"],
-        VERIFY if scripts is not None else INSTRUCTION,
+        instruction,
         context,
-        REVIEW_SCHEMA if scripts is not None else SCHEMA,
+        schema,
         max_output_tokens=5000 if scripts is not None else 10000,
         output_name="creative_scripts",
     )
@@ -140,9 +204,11 @@ def validate_scripts(output, inputs):
     if not isinstance(scripts, list) or len(scripts) != 3:
         raise ProviderError("The model did not return three scripts. No scripts were saved.")
     known = {s["page_id"] for s in inputs["sources"]}
+    social = inputs.get("mode") == "smm"
+    shape = SOCIAL_SCRIPT if social else SCRIPT
     variants, hooks, angles = set(), set(), set()
     for script in scripts:
-        valid = isinstance(script, dict) and set(script) == set(SCRIPT["properties"])
+        valid = isinstance(script, dict) and set(script) == set(shape["properties"])
         if not valid:
             raise ProviderError("The model returned incomplete scripts. No scripts were saved.")
         valid = type(script["variant"]) is int and script["variant"] in {1, 2, 3}
@@ -161,6 +227,9 @@ def validate_scripts(output, inputs):
         valid = valid and isinstance(ids, list) and 1 <= len(ids) <= 3
         valid = valid and all(isinstance(i, str) and i in known for i in ids)
         valid = valid and len(ids) == len(set(ids))
+        if social and valid:
+            source = inputs["sources"][script["variant"] - 1]
+            valid = ids == [source["page_id"]] and script["content_format"] == source["format"]
         claims = script["product_claims"]
         valid = valid and isinstance(claims, list) and len(claims) <= 20
         if valid:

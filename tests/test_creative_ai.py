@@ -26,6 +26,7 @@ def test_celery_discovers_all_studio_tasks_without_loading_urls():
             "from panda_store.celery import app; app.autodiscover_tasks(force=True); "
             "assert {'addons.studio.tasks.generate_scripts', "
             "'addons.studio.creative_tasks.generate_ai_scripts', "
+            "'addons.studio.render_tasks.render_video', "
             "'addons.studio.research_tasks.research'} <= set(app.tasks)",
         ],
         env={**os.environ, "DJANGO_SETTINGS_MODULE": "panda_store.settings_test"},

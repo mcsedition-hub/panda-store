@@ -79,6 +79,7 @@ export interface ModuleProps {
 }
 export interface Creative {
   provenance?: {
+    content_format?: string;
     source_page_ids: string[];
     adaptation: string;
     product_claims: { claim: string; fact_quote: string }[];
@@ -94,6 +95,7 @@ export interface Creative {
 }
 export interface Run {
   context?: {
+    mode?: 'smm' | 'legacy';
     snapshot_id: string;
     brief: Brief;
     research_id: string;
@@ -103,6 +105,7 @@ export interface Run {
   } | null;
   review?: {
     rejected?: boolean;
+    corrections?: { at: string; reason: string }[];
     checks?: { variant: number; supported: boolean; reason: string }[];
     calls?: {
       step: string;

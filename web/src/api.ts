@@ -39,7 +39,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     const response = await fetch(path, {
       ...request,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, ...options.headers },
+      headers: {
+        ...(request.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+        'X-CSRFToken': csrfToken,
+        ...options.headers,
+      },
     });
     if (!response.ok) {
       const data = await response.json().catch(() => null);

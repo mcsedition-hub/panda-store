@@ -106,6 +106,11 @@ CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1_048_576
+FILE_UPLOAD_HANDLERS = [
+    "panda_store.core.uploads.BoundedUploadHandler",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
 
 PANDA_DEMO_MODE = env_bool("PANDA_DEMO_MODE")
 PANDA_WORKFLOW_DISPATCH = os.getenv("PANDA_WORKFLOW_DISPATCH", "database")

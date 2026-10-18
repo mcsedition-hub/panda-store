@@ -3,6 +3,7 @@
 import hashlib
 import io
 import json
+import math
 import re
 import uuid
 import zipfile
@@ -88,6 +89,15 @@ class SceneInput(serializers.Serializer):
     caption = serializers.CharField(max_length=500, allow_blank=True, trim_whitespace=False)
     duration = serializers.IntegerField(min_value=1, max_value=120)
     asset_id = serializers.UUIDField(allow_null=True)
+    audio_asset_id = serializers.UUIDField(allow_null=True, required=False, default=None)
+    video_start = serializers.FloatField(min_value=0, max_value=120, default=0)
+    audio_start = serializers.FloatField(min_value=0, max_value=120, default=0)
+    original_audio = serializers.BooleanField(default=False)
+
+    def validate(self, attrs):
+        if not all(math.isfinite(attrs[key]) for key in ("video_start", "audio_start")):
+            raise ValidationError("Recording start times must be finite numbers.")
+        return attrs
 
 
 class EditInput(serializers.Serializer):
@@ -105,6 +115,7 @@ class EditInput(serializers.Serializer):
                 **row,
                 "id": str(row["id"]),
                 "asset_id": str(row["asset_id"]) if row["asset_id"] else None,
+                "audio_asset_id": str(row["audio_asset_id"]) if row["audio_asset_id"] else None,
             }
             for row in value
         ]
@@ -189,15 +200,28 @@ def detail(request, workspace_id, board_id):
             return Response(representation(board))
         if values["version"] != board.version:
             raise Conflict()
-        asset_ids = {row["asset_id"] for row in values["scenes"] if row["asset_id"]}
-        owned = {
-            str(pk)
-            for pk in SceneAsset.objects.filter(
-                app_id=board.creative.run.app_id, pk__in=asset_ids
-            ).values_list("pk", flat=True)
+        asset_ids = {
+            row.get(key)
+            for row in values["scenes"]
+            for key in ("asset_id", "audio_asset_id")
+            if row.get(key)
         }
-        if asset_ids != owned:
-            raise ValidationError("Choose visuals from this app's asset library.")
+        owned = {
+            str(a.pk): a
+            for a in SceneAsset.objects.filter(
+                app_id=board.creative.run.app_id, pk__in=asset_ids
+            ).defer("data")
+        }
+        if asset_ids != set(owned):
+            raise ValidationError("Choose media from this app's asset library.")
+        for row in values["scenes"]:
+            if row["asset_id"] and owned[row["asset_id"]].metadata.get("kind") == "audio":
+                raise ValidationError("Choose an image or video as the visual.")
+            if (
+                row["audio_asset_id"]
+                and owned[row["audio_asset_id"]].metadata.get("kind") != "audio"
+            ):
+                raise ValidationError("Choose an audio file for the voiceover.")
         board.scenes = values["scenes"]
         board.version += 1
         board.save(update_fields=["scenes", "version", "updated_at"])
@@ -224,10 +248,18 @@ def export(request, workspace_id, board_id):
     except (ValueError, TypeError):
         raise ValidationError("Choose a saved version.") from None
     revision = get_object_or_404(StoryboardRevision, board=board, version=version)
-    asset_ids = {row["asset_id"] for row in revision.scenes if row["asset_id"]}
+    from .media import asset_suffix
+
+    asset_ids = {
+        row.get(key)
+        for row in revision.scenes
+        for key in ("asset_id", "audio_asset_id")
+        if row.get(key)
+    }
     assets = list(SceneAsset.objects.filter(app_id=board.creative.run.app_id, pk__in=asset_ids))
     if len(assets) != len(asset_ids):
         raise ValidationError("A referenced visual is unavailable. Save a revised storyboard.")
+    files = {str(a.pk): f"assets/{a.pk}.{asset_suffix(a)}" for a in assets}
     manifest = {
         "format": "panda-store-storyboard-v1",
         "version": version,
@@ -235,10 +267,14 @@ def export(request, workspace_id, board_id):
         "source": board.source,
         "canvas": {"width": 1080, "height": 1920, "fit": "contain"},
         "scenes": revision.scenes,
-        "assets": [{"id": str(a.pk), "file": f"assets/{a.pk}.jpg", **a.metadata} for a in assets],
+        "assets": [
+            {"id": str(a.pk), "file": f"assets/{a.pk}.{asset_suffix(a)}", **a.metadata}
+            for a in assets
+        ],
         "notes": (
-            "Still-image shot plan. Recordings, voiceover and final video must be produced "
-            "separately. Imported store images are derivatives and may contain marketing text."
+            "Editing package with selected media. "
+            "Voiceover text is a script, not synthesized speech. "
+            "Imported store images are derivatives and may contain marketing text."
         ),
     }
     lines = [f"# {manifest['app']} — storyboard", f"Version {version}", "", manifest["notes"], ""]
@@ -250,9 +286,12 @@ def export(request, workspace_id, board_id):
                 f"Visual: {row['visual'] or 'To prepare'}",
                 f"Voiceover: {row['voiceover']}",
                 f"On-screen text: {row['caption']}",
-                f"Asset: assets/{row['asset_id']}.jpg"
+                f"Asset: {files[row['asset_id']]}"
                 if row["asset_id"]
                 else "Asset: to select or record",
+                f"Voiceover file: {files.get(row.get('audio_asset_id'), 'None')}",
+                f"Clip starts at {row.get('video_start', 0)}s; "
+                f"audio starts at {row.get('audio_start', 0)}s.",
                 "",
             ]
         )
@@ -265,7 +304,7 @@ def export(request, workspace_id, board_id):
             data = bytes(asset.data)
             if hashlib.sha256(data).hexdigest() != asset.metadata["sha256"]:
                 raise ValidationError("A saved visual could not be verified. Import it again.")
-            archive.writestr(f"assets/{asset.pk}.jpg", data)
+            archive.writestr(f"assets/{asset.pk}.{asset_suffix(asset)}", data)
     response = HttpResponse(output.getvalue(), content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="storyboard-v{version}.zip"'
     response["Cache-Control"] = "private, no-store"

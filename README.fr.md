@@ -7,231 +7,35 @@
 
 # Panda Store
 
-[English README](README.md). L’anglais est la langue par défaut du produit.
+[English](README.md)
 
-L'atelier modulaire pour développer l'audience de vos applications mobiles.
-Code source accessible et auto-hébergeable, sous [Elastic License 2.0](LICENSE).
+Panda Store est un espace de travail open source pour le marketing des applications mobiles.
+Importez vos apps iOS, améliorez leurs fiches App Store et préparez vos contenus pour les réseaux sociaux.
 
-**Alpha 0.1.0 — développement local.** Connecter un compte Apple pour importer
-des fiches iOS, ou utiliser les apps fictives : import → brief → trois scripts
-issus de modèles → retouche → validation → export. L’ASO inclut une revue IA
-facultative. Studio relie désormais la veille à trois scripts IA. Google Play et la publication restent à construire.
+**ASO** (App Store Optimization) analyse vos fiches et captures d'écran,
+puis vous aide à rédiger, comparer et exporter vos améliorations.
 
-## Ce qui fonctionne
+**SMM** (Social Media Marketing) recherche des contenus sur TikTok, Instagram,
+Facebook et Google depuis votre navigateur. Sélectionnez trois références pertinentes
+aux performances observées, puis adaptez leurs formats en scripts, carrousels ou textes pour votre app.
 
-- Configuration initiale de l'organisation et du propriétaire, puis accès à la console.
-- Sessions persistantes, espaces de travail et rôles propriétaire/éditeur/lecteur.
-- Registre de modules avec dépendances, compatibilité et activation par espace.
-- Catalogue de deux apps fictives, import persistant et historique des métadonnées.
-- Connexions App Store Connect par espace, textes localisés, icônes, captures dans
-  la langue principale et actualisation manuelle des métadonnées.
-- Audit ASO Apple par langue : limites sourcées, répétitions exactes de mots-clés,
-  nettoyage copiable et données non évaluables signalées.
-- Connexions OpenAI, Gemini et Claude chiffrées par espace, catalogue de modèles
-  actualisable et revue éditoriale ASO facultative.
-- Brouillons ASO : sauvegarde automatique, comparaison, duplication, révisions,
-  restauration, revue séparée et export des modifications.
-- Veille dans Studio : recherche web, ouverture et défilement des pages, captures,
-  observations reliées aux sources et trois références de domaines différents.
-- Brief éditable, trois variantes produites par des modèles de rédaction locaux.
-- Trois scripts IA à partir des observations choisies et des faits produit confirmés,
-  avec sources, revue automatique et validation humaine séparée.
-- Historique des générations, édition, validation séparée et export Markdown.
-- Storyboards éditables, captures réelles de l’app, aperçu vertical et export ZIP versionné.
-- Étapes et journal d'exécution en direct, arrêt demandé et reprise des étapes inachevées.
-- Module d'exemple utilisant les mêmes conventions que les modules intégrés.
+Les deux modules partagent les informations de vos apps et vos propres connexions IA.
+Panda Store fonctionne en local avec Docker Compose ou Python et Node.js.
 
-La veille est disponible dans Studio, avant les scripts. Les visuels Publication,
-Mesure et Agents font partie de l'identité graphique ; ces modules restent à construire.
-Voir la [feuille de route](docs/roadmap.md).
+## Démarrer
 
-**Studio → Research** utilise le fournisseur et le modèle choisis dans l'espace.
-Installer Chromium avec `.venv/bin/python -m playwright install chromium`, puis
-redémarrer le worker. Les pages publiques consultables sont archivées ; les blocages,
-sources manquantes et hypothèses restent visibles. Les appels IA et recherches peuvent
-être facturés par le fournisseur. La vidéo et l'audio ne sont pas encore analysés.
-Voir le [fonctionnement et les limites](README.md#creative-research).
+Suivez le [guide d'installation](docs/installation.md), puis connectez une app ou essayez la démo.
+Le projet est en alpha et prend actuellement en charge les apps iOS pour un usage local.
 
-Sélectionner une à trois observations, puis **Use observations in brief** ouvre **Scripts**.
-Renseigner audience, objectif, ton, langue, durée cible et faits produit, puis choisir un modèle.
-La génération écrit trois directions, vérifie leurs affirmations et conserve leurs références.
-Un rejet bloque l'enregistrement des scripts et affiche les raisons ; un timeout permet de
-reprendre les étapes inachevées. Les scripts restent à relire, éditer et approuver séparément.
-Il s'agit de textes et de plans de tournage, pas de fichiers vidéo ni de publications.
-Voir le [parcours de création](README.md#create-scripts-from-research).
+La [documentation](docs/README.md) détaille [ASO](docs/aso.md), [SMM](docs/smm.md)
+et les [connexions](docs/connections.md). Les évolutions prévues figurent dans la [feuille de route](docs/roadmap.md).
 
-**Studio → Scenes** transforme le script sauvegardé en plans éditables et permet d’associer
-les captures de l’app. L’aperçu fait défiler les images, sans son ; les durées restent à ajuster
-au tournage. Chaque sauvegarde conserve une version et l’export ZIP fournit les plans, textes,
-durées et images sélectionnées. L’import de vidéos, la voix et le rendu MP4 restent à construire.
-Voir le [parcours des scènes](README.md#plan-scenes-and-prepare-an-editing-package).
+## Contribuer
 
-Activer **ASO** dans **Modules**, choisir l'app et la langue, puis **Run audit**.
-Le bilan utilise l'import enregistré et conserve ses sources, leur date de revue
-et son journal d'exécution. Un nouvel audit utilise le dernier import ; une reprise
-garde les données originales et les contrôles déjà terminés. Copier une proposition
-ne modifie rien chez Apple. La divergence entre les limites Apple de mots-clés en
-octets et en caractères est signalée. Aucun score de croissance n'est calculé.
-Dans **ASO → Audit → AI settings**, le propriétaire connecte ses propres clés
-OpenAI, Gemini ou Claude. Elles sont chiffrées dans la base locale, avec la clé
-d’installation `PANDA_CREDENTIAL_KEYS`, et ne sont jamais renvoyées au navigateur.
-**Refresh models** actualise les modèles de ce compte. Choisir **AI provider**,
-**Model** et **Language**, puis **Run audit**. Le texte importé de cette langue est
-envoyé au fournisseur choisi, avec sa facturation. **Rules only · No AI** reste gratuit
-et local. Aucun changement implicite de fournisseur ni nouvelle tentative payante automatique.
+Consultez le [guide de contribution](CONTRIBUTING.md) et le [guide des modules](docs/modules.md).
+Pour une faille de sécurité, suivez les [consignes de signalement](SECURITY.md).
 
-Les étapes s’affichent en direct ; **Recommendations** présente ensuite les
-propositions, justifications, extraits de la fiche et sources Apple. Le modèle exact
-et les tokens sont enregistrés. **Add to draft** prépare un brouillon à relire.
-Les références inconnues, extraits inventés, doublons et dépassements de champs sont
-écartés. Cela ne prouve pas la justesse sémantique ou un gain de conversion : les
-propositions IA restent des hypothèses à vérifier. Zéro proposition est un résultat valide.
-OpenAI et Gemini ont été testés réellement ; Claude est couvert par les tests de contrat.
+## Licence
 
-La demande de recherche, la mesure et l'audit Google Play restent à construire.
-L'ASO s'appuie sur les sources et références conservées par le projet ; la navigation
-dans les sources découvertes appartient à la veille Studio.
-
-**Add to draft** crée un brouillon depuis la seule proposition choisie.
-**Drafts → New draft** part d'une langue importée. La référence reste figée ;
-on peut comparer avec le dernier import. Une restauration ajoute une révision et
-une modification remet le statut **Ready** à **Draft**. Les éditions concurrentes
-sont bloquées sans écraser le texte local. La navigation attend la sauvegarde.
-**Copy changes** et **Export changes** préparent l'application manuelle.
-**Refresh and compare** relit Apple si Connections est activé ; sinon la comparaison
-utilise uniquement l'import enregistré. Une correspondance ne prouve ni publication
-ni gain de téléchargements.
-
-## Démarrer en local
-
-Prérequis : Python 3.12 et Node.js 24. Depuis la racine du dépôt :
-
-```sh
-python3.12 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python scripts/bootstrap.py
-.venv/bin/python manage.py migrate
-npm --prefix web ci
-```
-
-Dans trois terminaux :
-
-```sh
-.venv/bin/python -m uvicorn panda_store.asgi:application --host 127.0.0.1 --port 8000 --reload
-```
-
-```sh
-.venv/bin/python manage.py run_workflows
-```
-
-```sh
-npm --prefix web run dev
-```
-
-Ouvrir **http://127.0.0.1:5173**. Au premier lancement, nommer l'organisation puis
-choisir un identifiant, un e-mail et un mot de passe. L'organisation et le compte
-sont enregistrés dans la base de cette installation ; le mot de passe est haché.
-La console s'ouvre immédiatement. Elle s'ouvre aussi directement lors des visites
-suivantes tant que la session est valide. Après déconnexion ou expiration, utiliser
-les identifiants choisis. Aucun compte cloud ni envoi d'e-mail n'intervient.
-
-La configuration locale active `PANDA_SETUP_ENABLED=true`. La configuration initiale
-ne peut être validée qu'une fois. Pour mettre à jour une ancienne alpha, ajouter cette
-variable à `.env` puis appliquer les migrations : l'unique espace de démo peut être
-repris et renommé sans perdre ses apps. Les installations avec d'autres comptes
-conservent leur connexion habituelle. Le script préserve les `.env` existants ;
-ce fichier contient des secrets et ne doit jamais être publié.
-
-Choisir **Connections → Try with demo apps**, importer **Runclub**, puis ouvrir le **Studio** pour
-préparer trois pistes. L'espace initial est vide pour tester le vrai parcours
-d'import. En mode local, SQLite et le worker `run_workflows` exécutent les tâches
-en arrière-plan, sans service Redis supplémentaire :
-aucun compte externe ni clé IA n'est nécessaire.
-
-Garder le worker ouvert et le redémarrer après les changements de code Python.
-Pour une mise à jour, installer les dépendances puis appliquer les migrations.
-Studio affiche les étapes cliquables et leur journal en direct. Fermer la page
-ne perd pas l'exécution ; l'historique permet de la retrouver. `Stop` demande
-l'arrêt, et `Retry unfinished steps` crée une tentative liée avec les mêmes
-métadonnées et le même brief, en réutilisant les étapes terminées. Les agents IA,
-les branches parallèles et l'éditeur de workflows restent à construire.
-
-Pour un compte réel, choisir **Connections → Connect Apple** puis saisir le nom,
-le type et l'identifiant de la clé, son fichier `.p8` et l'Issuer ID pour une clé
-d'équipe. Ces identifiants sont enregistrés chiffrés par espace, jamais dans le
-`.env`. Le propriétaire gère les clés ; les éditeurs peuvent importer et actualiser.
-Le connecteur ne fait que des lectures. Il privilégie la version iOS publiée, sinon
-la version brouillon la plus récente. La sélection, l'import iOS (textes localisés,
-icône, catégorie et captures de la langue principale) et l'actualisation sans
-doublon sont validés sur un compte réel avec une clé d'équipe App Manager. Les clés
-individuelles sont couvertes par des tests simulés ; leur validation réelle reste à faire.
-
-Sur une ancienne installation, sauvegarder la base et le `.env`, puis lancer
-`python scripts/bootstrap.py --add-credential-key`, appliquer les migrations et
-redémarrer le backend. Les nouvelles installations génèrent cette clé automatiquement.
-Conserver la clé de chiffrement pour pouvoir relire les identifiants enregistrés.
-Voir le [parcours Apple détaillé](README.md#connect-an-apple-account) pour les limites
-et la déconnexion.
-
-## Démo avec Docker Compose
-
-Avec Docker Engine et Compose démarrés :
-
-```sh
-python3 scripts/bootstrap.py
-docker compose up --build
-```
-
-Ouvrir **http://127.0.0.1:8080** et suivre la même configuration initiale.
-Cette variante utilise PostgreSQL, Redis, un worker Celery, Django et Nginx.
-La base est distincte de la base SQLite locale. `docker compose down` conserve
-les données dans les volumes. L'option `--volumes` les supprimerait.
-
-Compose est limité à localhost et au mode démo. Ce n'est pas une configuration
-de production. Voir [SECURITY.md](SECURITY.md) pour les limites actuelles.
-
-## Développer et vérifier
-
-```sh
-.venv/bin/ruff check .
-.venv/bin/ruff format --check .
-.venv/bin/pytest
-.venv/bin/python manage.py check
-.venv/bin/python manage.py makemigrations --check --dry-run
-npm --prefix web test
-npm --prefix web run format:check
-npm --prefix web run build
-```
-
-La CI est configurée pour exécuter les tests serveur avec PostgreSQL et les
-tests d'interface avec jsdom. Les tests d'interface ne remplacent pas une revue
-visuelle dans un navigateur.
-
-```text
-panda_store/       configuration Django, comptes, espaces, registre
-addons/           modules Django + manifestes + interfaces React
-web/              coque React/TypeScript, design et ressources locales
-docs/             architecture, modules, licence et feuille de route
-tests/            tests d'intégration et d'isolation des espaces
-deploy/           proxy local de la démo Compose
-```
-
-- [Architecture](docs/architecture.md)
-- [Créer un module](docs/modules.md)
-- [Environnement de développement](docs/development.md)
-- [Contributions](CONTRIBUTING.md)
-
-## Licence et offre cloud
-
-ELv2 permet notamment l'usage interne et l'auto-hébergement. Elle interdit de
-fournir à des tiers un service hébergé ou géré donnant accès à un ensemble
-substantiel des fonctionnalités du logiciel. Elle **n'interdit pas toute
-activité commerciale**. Le texte de la licence prévaut.
-
-Cette restriction protège le projet d'une reprise en service cloud concurrent.
-Le cloud officiel est prévu, mais n'est pas lancé. Cette édition est
-**source available**, pas open source au sens OSI. Les modalités des
-contributions externes sont en préparation : [détails](docs/licensing.md).
-
-L'organisation modulaire s'inspire d'Odoo ; Panda Store possède son propre code,
-ses interfaces et ses visuels. Aucun code ni visuel Odoo n'est embarqué.
+Panda Store est distribué sous [GNU LGPLv3](LICENSE).
+Les dépendances et ressources intégrées conservent leurs [propres licences](THIRD_PARTY_NOTICES.md).

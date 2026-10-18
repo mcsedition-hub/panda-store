@@ -71,6 +71,47 @@ it('does not adopt late connection responses after unmount', async () => {
   expect(changed.mock.calls).toEqual([[null, true]]);
 });
 
+it('recovers a failed catalog read without reporting unavailable credential storage or writing a connection', async () => {
+  mockApi.mockRejectedValue(new Error('Cannot reach Panda Store.'));
+  const changed = vi.fn();
+  render(<AIOptions workspaceId="one" owner disabled={false} onChange={changed} />);
+  await screen.findByText(/AI connections could not be loaded/);
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
+  expect(screen.queryByText(/Credential storage is unavailable/)).toBeNull();
+  expect(screen.queryByLabelText('API key')).toBeNull();
+  mockApi.mockResolvedValue(catalog);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading AI connections' }));
+  await screen.findByLabelText('Model');
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByLabelText('API key')).toBeTruthy();
+  expect(changed).toHaveBeenLastCalledWith({ provider: 'openai', model: '' }, false);
+  expect(mockApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+});
+
+it('reloads a changed connection before an explicit retry with its current revision', async () => {
+  mockApi.mockImplementation(async (_, options) => {
+    if (options?.method) throw new Error('This connection changed. Reload AI settings.');
+    return catalog;
+  });
+  render(<AIOptions workspaceId="one" owner disabled={false} onChange={vi.fn()} />);
+  await screen.findByLabelText('Model');
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
+  await screen.findByText('This connection changed. Reload AI settings.');
+  const updated = {
+    ...catalog,
+    providers: [{ ...catalog.providers[0], revision: 'revision-two' }],
+  };
+  mockApi.mockResolvedValue(updated);
+  fireEvent.click(screen.getByRole('button', { name: 'Reload AI connections' }));
+  await screen.findByRole('button', { name: 'Refresh models' });
+  expect(mockApi.mock.calls.filter(([, options]) => options?.method)).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
+  await screen.findByText('Connection checked. Available models updated.');
+  const writes = mockApi.mock.calls.filter(([, options]) => options?.method);
+  expect(JSON.parse(String(writes[1][1]?.body))).toEqual({ revision: 'revision-two' });
+});
+
 const googleCatalog = {
   credentials_ready: true,
   providers: [

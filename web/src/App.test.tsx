@@ -48,13 +48,13 @@ it('waits for module edits before navigation and stays put when saving fails', a
     if (path.endsWith('/modules/'))
       return [
         { id: 'app_catalog', name: 'My apps', enabled: true },
-        { id: 'studio', name: 'Studio', enabled: true },
+        { id: 'studio', name: 'SMM', enabled: true },
       ];
     if (path.endsWith('/apps/')) return [];
     throw new Error(path);
   });
   render(<App />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Studio' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'SMM' }));
   await screen.findByRole('heading', { name: 'Script workspace' });
   guardMock.mockResolvedValue(false);
   fireEvent.click(screen.getByRole('button', { name: 'Modules' }));
@@ -159,7 +159,7 @@ it('shows module states and blocks navigation after disabling, including changes
     if (path.endsWith('/modules/')) {
       return [
         { id: 'app_catalog', name: 'My apps', enabled: true, required: true },
-        { id: 'studio', name: 'Studio', enabled },
+        { id: 'studio', name: 'SMM', enabled },
         { id: 'aso', name: 'ASO', availability: 'planned', enabled: false },
       ];
     }
@@ -169,7 +169,7 @@ it('shows module states and blocks navigation after disabling, including changes
   await screen.findByRole('heading', { name: 'Your apps' });
   const nav = within(screen.getByRole('navigation', { name: 'Modules' }));
   fireEvent.click(nav.getByRole('button', { name: 'Modules' }));
-  const studioCard = within(screen.getByRole('heading', { name: 'Studio' }).closest('article')!);
+  const studioCard = within(screen.getByRole('heading', { name: 'SMM' }).closest('article')!);
   expect(studioCard.getByText('Enabled')).toBeTruthy();
   const planned = within(screen.getByRole('heading', { name: 'ASO' }).closest('article')!);
   expect(planned.getByText('Planned')).toBeTruthy();
@@ -179,15 +179,15 @@ it('shows module states and blocks navigation after disabling, including changes
   expect(nav.queryByRole('button', { name: 'ASO' })).toBeNull();
   fireEvent.click(studioCard.getByRole('button', { name: 'Disable' }));
   await studioCard.findByText('Disabled');
-  expect(nav.queryByRole('button', { name: 'Studio' })).toBeNull();
+  expect(nav.queryByRole('button', { name: 'SMM' })).toBeNull();
   fireEvent.click(studioCard.getByRole('button', { name: 'Enable module' }));
-  fireEvent.click(await nav.findByRole('button', { name: 'Studio' }));
+  fireEvent.click(await nav.findByRole('button', { name: 'SMM' }));
   await screen.findByRole('heading', { name: 'Script workspace' });
   enabled = false;
   fireEvent(window, new Event('focus'));
   await waitFor(() =>
     expect(screen.queryByRole('heading', { name: 'Script workspace' })).toBeNull(),
   );
-  expect(nav.queryByRole('button', { name: 'Studio' })).toBeNull();
+  expect(nav.queryByRole('button', { name: 'SMM' })).toBeNull();
   expect(screen.getByText('This module is not enabled in this workspace.')).toBeTruthy();
 });

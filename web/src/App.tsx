@@ -433,12 +433,8 @@ export default function App() {
         </main>
         <footer className="app-footer">
           <span>Panda Store</span>
-          <a
-            href="https://www.elastic.co/licensing/elastic-license"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Source available · ELv2
+          <a href="https://www.gnu.org/licenses/lgpl-3.0.html" target="_blank" rel="noreferrer">
+            Open source · LGPLv3
           </a>
         </footer>
       </div>

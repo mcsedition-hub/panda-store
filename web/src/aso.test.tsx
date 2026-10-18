@@ -70,6 +70,27 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it('reloads audit history after a server failure without starting another audit', async () => {
+  let fail = true;
+  mockData(async () => {
+    if (fail) throw new Error('Cannot reach Panda Store.');
+    return [run];
+  });
+  render(<ASO {...props} />);
+  await screen.findByText('Cannot reach Panda Store.');
+  expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
+    true,
+  );
+  fail = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading audits' }));
+  await screen.findByText('sort: already in subtitle');
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
+    false,
+  );
+  expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+});
+
 const savedGuidance = {
   id: 'saved-source',
   guidance: 'The exact notes saved with this audit.',

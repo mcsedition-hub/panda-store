@@ -1,5 +1,7 @@
 # Développement
 
+[Documentation](README.md) · [Installation](installation.md)
+
 Le démarrage documenté utilise venv/pip et npm. `requirements.txt` contient les
 versions des dépendances serveur validées dans l'environnement Python 3.12 ;
 `requirements-dev.txt` ajoute les outils. `web/package-lock.json` fixe le graphe
@@ -57,6 +59,20 @@ une session enregistrée côté serveur. L'e-mail est enregistré mais pas véri
 par un envoi ; la récupération de mot de passe par e-mail n'est pas encore implémentée.
 
 ## Vérifications
+
+Depuis la racine du dépôt :
+
+```sh
+.venv/bin/ruff check .
+.venv/bin/ruff format --check .
+.venv/bin/pytest
+.venv/bin/python manage.py check
+.venv/bin/python manage.py makemigrations --check --dry-run
+npm --prefix web test
+node --test tests/browser_extension.test.mjs
+npm --prefix web run format:check
+npm --prefix web run build
+```
 
 Le backend local démarre avec `python -m uvicorn panda_store.asgi:application
 --host 127.0.0.1 --port 8000 --reload`. Lancer séparément `python manage.py

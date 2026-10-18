@@ -4,7 +4,8 @@ version = "0.1.0a1"
 description = "A modular, self-hostable workspace for mobile app growth."
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
-license = "Elastic-2.0"
+license = "LGPL-3.0-only"
+license-files = ["LICENSE", "COPYRIGHT", "THIRD_PARTY_NOTICES.md"]
 dependencies = [
   "Django>=5.2.18,<5.3",
   "djangorestframework>=3.16,<4",
@@ -37,7 +38,7 @@ build-backend = "setuptools.build_meta"
 include = ["panda_store*", "addons*"]
 
 [tool.setuptools.package-data]
-"*" = ["module.json", "fixtures/*.json", "knowledge/*.json", "evaluation/*.json"]
+"*" = ["module.json", "fixtures/*.json", "knowledge/*.json", "evaluation/*.json", "fonts/*.woff2", "fonts/*.txt", "browser_extension/*.js", "browser_extension/*.json", "browser_extension/*.md"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "panda_store.settings_test"

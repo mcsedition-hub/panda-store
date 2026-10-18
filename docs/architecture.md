@@ -11,6 +11,14 @@ Chaque module comprend une app Django, un `module.json`, des routes, ses modèle
 et éventuellement `frontend/index.tsx`. Le chargement est effectué au déploiement.
 L'activation dans un espace ouvre les fonctionnalités déjà installées.
 
+La première version publique communautaire retient deux modules métier : **ASO et SMM**.
+Le catalogue, les connexions Apple et IA et les workflows constituent le socle de ces
+parcours. Le module d'exemple sert au développement d'extensions. Les connexions sociales
+de publication, l'envoi et la programmation sont réservés à la future version cloud ;
+le connecteur navigateur utilisé pour la recherche fait partie de SMM communautaire.
+Les [critères de finalisation](roadmap.md#prochaine-tranche) portent sur l'installation,
+la fiabilité, l'édition et les exports.
+
 Les dépendances, versions et cycles sont vérifiés au démarrage. Une activation
 inclut ses dépendances ; la désactivation d'un module requis est refusée.
 L'activation n'exécute pas d'installation Python ou de migration dynamique.
@@ -24,8 +32,8 @@ Les états Enabled/Disabled décrivent l'activation par espace.
 La désactivation retire les accès métier sans supprimer les données importées.
 Ainsi, désactiver Connections conserve les fiches dans My apps mais bloque leurs
 imports et actualisations. L'interface relit les activations au retour sur un
-onglet. Le worker Studio vérifie aussi l'activation sous le verrou de l'espace
-avant de démarrer une génération en attente : si Studio est désactivé, elle échoue
+onglet. Le worker SMM vérifie aussi l'activation sous le verrou de l'espace
+avant de démarrer une génération en attente : si SMM est désactivé, elle échoue
 sans appeler le fournisseur. Une tâche déjà commencée peut finir ; la désactivation
 ne constitue pas une annulation d'un appel externe en cours.
 
@@ -76,17 +84,21 @@ Redis et Celery. Les exécutions possèdent un bail et un heartbeat. Un worker
 interrompu perd le droit d’enregistrer un résultat après expiration de son bail.
 Le suivi et le worker local détectent les baux expirés ; la reprise est explicite.
 
-Les trois scripts proviennent de modèles de rédaction déterministes.
-Ils sont éditables et exportables. Une modification invalide leur approbation,
-même si un client envoie une approbation dans la même requête. Il n'existe encore
-ni appel IA dans Studio, ni agent navigateur, ni publication automatique.
+Le mode démo produit trois scripts avec des modèles de rédaction déterministes ;
+SMM propose aussi une génération IA à partir des observations sélectionnées.
+Les scripts sont éditables et exportables. Une modification invalide leur approbation,
+même si un client envoie une approbation dans la même requête. SMM dispose d'un connecteur
+pour le navigateur de l'utilisateur ; l'ancien parcours de pages publiques côté serveur
+reste accessible séparément. La publication automatique est réservée au cloud et reste
+à construire.
 
 ## Évolutions prévues
 
-L'audit ASO précède la création de scripts. Ses règles vérifiables par code restent
+ASO et SMM sont des modules distincts ; un audit ASO n'est pas requis pour utiliser SMM.
+Les règles ASO vérifiables par code restent
 distinctes des appréciations éditoriales assistées par IA ; chacune conserve sa
-source officielle et sa date. Les scripts référencent l'instantané audité de la
-fiche, afin que les corrections et les générations restent traçables.
+source officielle et sa date. Les scripts référencent l'instantané de la fiche
+utilisé, afin que les générations restent traçables.
 
 Le socle `panda_store.ai` propose OpenAI (Responses + JSON Schema), Google Gemini
 (generateContent + JSON Schema) et Anthropic Claude (outil de réponse structuré).
@@ -129,7 +141,7 @@ Sources : [catalogue Google](https://ai.google.dev/gemini-api/docs/models),
 Les futurs agents devront conserver les sources et dates de leurs observations,
 les actions effectuées et les coûts. Les connecteurs de stores et réseaux
 sociaux auront des interfaces séparées. La veille et la génération peuvent
-s'exécuter en tâches ; une publication nécessitera un contenu validé, une
+s'exécuter en tâches ; dans la future édition cloud, une publication nécessitera un contenu validé, une
 destination explicite et un mécanisme de reprise idempotent.
 
 Les quotas, budgets IA, stockage durable des médias,
@@ -174,8 +186,8 @@ Références relues le 16 octobre 2026 :
 ## Workflows et événements d'exécution
 
 Le socle `panda_store.workflows` est partagé, avec une première intégration dans
-Studio. `WorkflowRun`, `StepRun` et `RunEvent` conservent la définition versionnée,
-les dépendances, les états, les dates et les événements ordonnés. Studio fige
+SMM. `WorkflowRun`, `StepRun` et `RunEvent` conservent la définition versionnée,
+les dépendances, les états, les dates et les événements ordonnés. SMM fige
 l'instantané, le brief et le fournisseur dans `GenerationRun`. Les anciennes
 générations restent lisibles sans inventer d'événements historiques.
 
@@ -210,11 +222,11 @@ du flux est signalée séparément de l'échec de la tâche.
 (`canceling`) si elle travaille. La fin de l'appel courant est attendue ; son
 résultat est écarté si le bail ou le statut ne l'autorise plus. La sauvegarde des
 scripts et la réussite du workflow sont atomiques. Un arrêt ne défait pas une
-publication externe et le Studio actuel n'en effectue aucune.
+publication externe et le module SMM actuel n'en effectue aucune.
 
 `Retry unfinished steps` crée une tentative liée, conserve la précédente et
 réutilise les checkpoints terminés lorsque version, étapes et dépendances
-correspondent. Studio reprend les entrées originales, même si la fiche ou le
+correspondent. SMM reprend les entrées originales, même si la fiche ou le
 brief ont changé depuis. Une seule reprise par tentative rend les doubles clics
 idempotents. Les checkpoints internes ne sont pas exposés dans l'API d'activité ;
 les messages sont des résumés contrôlés, jamais des réponses brutes du fournisseur.
@@ -230,12 +242,12 @@ sans nouvelle génération des résultats sauvegardés, curseurs et reconnexion,
 accès révoqués, panne de dispatch, worker expiré et flux ASGI. Les doubles
 livraisons concurrentes sont aussi vérifiées sur PostgreSQL en CI.
 
-Restent à construire : agents IA et navigateur, ordonnanceur de branches
-parallèles, validation humaine suspendant un workflow, contrats de progression
-quantifiée et de médias privés, éditeur visuel et supervision autonome de toutes
-les tâches. Chaque connecteur avec effets externes devra ajouter idempotence et
-réconciliation. Les URLs, captures et coûts seront exposés seulement lorsque
-les outils concernés les auront réellement produits.
+Le navigateur SMM, les étapes IA et les médias privés sont implémentés. Restent à
+construire : ordonnanceur de branches parallèles, validation humaine suspendant un
+workflow, contrats de progression quantifiée, éditeur visuel et supervision autonome
+de toutes les tâches. Chaque futur connecteur de publication cloud devra ajouter
+idempotence et réconciliation. Les URLs, captures et coûts affichés doivent correspondre
+aux résultats effectivement produits par les outils.
 
 ## Conception de l'agent ASO spécialisé
 
@@ -622,7 +634,7 @@ créer un `ScreenshotBrief` depuis l'audit terminé de la même app. Les constat
 un brief. Aucune requête IA ni tâche facturée ne se déclenche : le serveur reprend
 le constat existant, remplace ses identifiants d'image par les noms de fichier,
 et conserve une copie de la fiche et des sources utilisées. Le brief appartient
-au module ASO ; Studio peut être désactivé sans affecter ce parcours.
+au module ASO ; SMM peut être désactivé sans affecter ce parcours.
 
 Le contenu éditable comprend le changement, l'écran ou état à capturer, un éventuel
 texte de surimpression et une hypothèse de test. La référence `ScreenshotEvidence`
@@ -652,7 +664,116 @@ image. Aucun fichier arbitraire du système n'est ajouté. L'UI sauvegarde avant
 export, duplication et navigation, garde les modifications locales lors d'un
 conflit et réutilise une requête dont le résultat était incertain.
 
-### Veille avant création dans Studio
+## Module SMM : marketing organique
+
+SMM signifie **Social Media Marketing**. Ce nom remplace Studio dans le produit.
+L'identifiant technique `studio` reste stable pour conserver les activations, routes,
+workflows et données existantes. ASO reste indépendant. Ces deux modules constituent
+le périmètre métier de la première version publique communautaire.
+
+Le parcours cible ci-dessous reste la référence. Une première tranche est implémentée :
+`SocialResearch` fige le contexte et les filtres ; `studio.social` prépare les recherches
+puis analyse les preuves. Le connecteur Chrome Manifest V3 ouvre son propre onglet et
+exécute des commandes bornées de recherche, lecture, défilement et capture. Les commandes
+proviennent uniquement des origines locales autorisées et restent liées à l'onglet
+Panda Store qui les a demandées. Aucune commande JavaScript arbitraire n'est exposée.
+
+`SocialPost` conserve URL normalisée, preuves textuelles, captures JPEG, compteurs bruts
+et normalisés, limites de couverture et revue. Les captures sont immuables par URL/session
+et protégées par les mêmes droits d'espace. La validation serveur ne transforme pas un
+compteur ambigu ou absent en zéro ou en preuve. Après filtres déterministes, deux appels
+distincts analysent puis vérifient la pertinence et les observations. Trois sources qualifiées
+distinctes sont figées dans `GenerationRun.inputs` avec `mode=smm` ; chaque variante garde
+sa source et son format, contrôlés aussi côté serveur. Les faits produit restent confirmés
+par l'auteur et les propositions passent par une revue séparée avant sauvegarde.
+
+`GET social-research/<id>/references/` propose les références qualifiées des autres
+recherches terminées du même espace et de la même app. La réutilisation exige le même
+import, les mêmes faits produit confirmés, la même audience et le même marché.
+Le serveur revérifie la pertinence, la revue et les seuils de performance de la recherche
+cible, sans refaire d'appels IA ni modifier les captures. Les URLs déjà présentes dans
+la recherche cible sont exclues ; les autres sont dédupliquées. L'adaptation vérifie
+à nouveau ces conditions sous verrou, refuse trois identifiants représentant moins de
+trois URLs, puis fige les métriques, l'analyse, le format et la recherche d'origine de
+chaque source. Les compteurs restent des observations datées, sans actualisation implicite.
+Le test réel de réutilisation a sauvegardé un lot MonTri UGC TikTok / carrousel Instagram /
+texte Facebook. Après la revue IA, une correction manuelle tracée a raccourci la voix off
+et retiré les implications de confidentialité et les garanties contre toute suppression
+accidentelle. Les brouillons restent non approuvés. Les consignes demandent une voix off
+compatible avec la durée cible et les médias originaux à fournir. L'historique des
+corrections est conservé dans l'audit, mais les anciennes idées corrigées ne sont pas
+renvoyées au modèle comme inspiration.
+
+Les collecteurs sociaux sont une première version. La collecte
+reste limitée au texte et à trois vues échantillonnées, sans audio ni couverture complète
+de la vidéo ou du carrousel. Le test réel TikTok du 17 octobre 2026 a collecté 11 publications,
+retenu quatre références et enregistré trois adaptations MonTri (UGC, carrousel, UGC).
+Une interruption de chargement a été reprise ; une vérification TikTok a ensuite arrêté
+la collecte, sans empêcher l'analyse des preuves sauvegardées. Les compteurs ambigus des
+cartes de recherche servent uniquement à ordonner les candidats, jamais à établir les vues.
+Une correction tracée a retiré un ancien compteur ambigu et limité l'observation d'un
+carrousel à la diapositive réellement capturée. Une promesse excessive dans un brouillon
+a aussi été corrigée après la revue IA : celle-ci reste faillible. Le test suivant a
+enregistré 12 publications Instagram et trouvé des liens Google. Les deux présentations
+Instagram, les compteurs, les dates et les carrousels contenant de la vidéo ont été corrigés.
+Le budget de collecte alterne les réseaux et les filtres de performance s'appliquent avant
+les appels IA, y compris les vues manquantes. Le connecteur 0.1.3 résout jusqu'à trois liens
+Facebook masqués par requête :
+le collecteur DOM identifie une date dans une carte explicitement publique, vérifie
+qu'elle est visible et non recouverte, puis le service utilise des événements pointeur
+Chrome dans son seul onglet. Il lit l'URL permanente et referme le dialogue avant de
+continuer. Les coordonnées ne viennent jamais d'une commande du tableau de bord.
+Le test réel du 17 octobre 2026 a enregistré six publications Facebook, avec liens de
+pages nommées et `permalink.php` (identifiants de page et de publication conservés).
+Un post texte est qualifié avec environ 4 600 likes ; les autres sont écartés par les
+filtres de format/compteurs. La relecture a corrigé une idée qui reprenait des promesses
+non confirmées sur le stockage, en conservant l'ancienne version et la revue IA. Les
+instructions d'analyse et de vérification exigent désormais aussi que l'idée respecte
+les faits produit confirmés et le format source. Les plans natifs refusent la syntaxe
+Google (site:, OR, etc.). Les connexions sociales pour publication, la programmation et
+l'envoi automatique sont réservés à la future version cloud et restent à construire.
+
+Parcours communautaire cible (étapes 1 à 5), suivi de l'extension cloud prévue (étape 6) :
+
+1. **Comprendre l'app.** Partir de sa fiche, de ses fonctionnalités confirmées, de son
+   audience et de sa niche pour choisir les concurrents et les sujets pertinents.
+2. **Chercher dans le navigateur de l'utilisateur.** L'agent ouvre un nouvel onglet
+   visible et recherche d'abord sur TikTok, puis sur Instagram, Facebook et Google.
+   Il utilise les accès disponibles dans ce navigateur. Le connecteur local fournit
+   cette liaison ; le navigateur serveur historique ne remplit pas
+   cette fonction. Google sert aussi à découvrir des sources et leurs publications.
+3. **Qualifier les références.** Conserver l'URL, le compte, les dates de publication
+   et d'observation, les vues, likes et autres métriques réellement accessibles.
+   Définir des seuils explicites par plateforme et format, avec le contexte de la
+   niche et de l'ancienneté du post. Une vidéo avec peu de vues et de likes n'est pas
+   retenue comme virale. Des métriques absentes ne deviennent pas une preuve de
+   performance ; un résultat non qualifié reste un candidat. La viralité ne prouve
+   pas la conversion en installations.
+4. **Analyser le contenu réel.** Identifier carrousel de photos, vidéo UGC, publication
+   texte, montage ou vidéo avec des personnes. Étudier les slides, l'accroche, le
+   déroulé, les textes, les visuels, l'audio et l'appel à l'action selon le format.
+   Indiquer les éléments effectivement consultés et ceux qui restent inaccessibles.
+5. **Proposer trois adaptations.** Utiliser trois contenus viraux distincts, pertinents
+   pour l'app, et conserver le lien entre chaque référence et son adaptation originale.
+   Produire selon le cas un carrousel slide par slide, un script UGC ou de tournage,
+   un plan de montage, ou le texte du post et son brief visuel. Les fonctionnalités
+   annoncées doivent appartenir à l'app ; préciser les prises de vues humaines requises.
+   Si moins de trois références sont qualifiées, afficher ce manque et poursuivre la
+   recherche, sans compléter avec des exemples génériques présentés comme viraux.
+6. **Extension cloud : publier depuis SMM.** Connecter les comptes ou pages de l'utilisateur pour envoyer
+   et programmer les contenus préparés. Prévoir les autorisations propres à chaque
+   plateforme, l'aperçu, le contrôle de l'utilisateur, le statut d'envoi et la protection
+   contre les doublons. La connexion de publication est distincte de la session du
+   navigateur utilisée pour la recherche. Les possibilités API restent à valider
+   pour chaque plateforme et type de compte.
+
+Les briefs, sources, faits produit, connexions IA et journaux de workflows existants
+constituent un socle réutilisable. La recherche publique actuelle et ses trois références
+de fiches stores ne qualifient pas trois contenus sociaux viraux. Les scènes et exports
+MP4 sont des outils complémentaires ; ils ne déterminent ni le format des adaptations
+ni la prochaine priorité. La synthèse vocale n'est pas la prochaine tranche.
+
+### Veille avant création dans SMM — état actuel
 
 `ResearchRun` fige l'import, le sujet, le marché, le fournisseur/modèle et la révision
 de connexion. Le workflow `studio.research` suit six étapes : contrôle du navigateur,
@@ -687,7 +808,7 @@ ou réservée et connecte l'IP contrôlée en gardant le nom TLS d'origine. Le n
 a un proxy fermé, sans contournement loopback ; il ne peut pas utiliser un chemin réseau
 direct si le relais refuse. Les robots des pages destinations sont vérifiés. Les
 services workers, WebSockets, médias, formulaires et frames sont bloqués. Les captures
-sont accessibles seulement aux membres de l'espace si Studio est actif.
+sont accessibles seulement aux membres de l'espace si SMM est actif.
 
 Chaque page a un délai externe de 65 secondes, un budget réseau de 20 Mo et 120 requêtes,
 avec des bornes par réponse et capture. L'annulation tue le groupe du processus navigateur.
@@ -752,7 +873,7 @@ scripts décrivent un tournage à réaliser : aucun média n'est produit ou publ
 Le mode `demo_templates` et son ancien workflow restent disponibles séparément.
 
 
-### Scènes et visuels du Studio
+### Scènes et visuels de SMM
 
 `Storyboard` appartient à un `Creative` et conserve le texte source et son empreinte.
 La création est idempotente par script. Le découpage reconnaît seulement les blocs explicites
@@ -774,11 +895,11 @@ Téléchargement HTTPS sur hôtes Apple autorisés, sans redirection, 12 seconde
 raster fixe JPEG/PNG/WebP, 20 mégapixels maximum, dérivé JPEG de 2048 px et 1.5 MB maximum.
 Les lignes sont dédupliquées par snapshot/position, privées à l'app, et limitées à 60 par app.
 La liste des visuels ne charge pas leurs données binaires. Les miniatures non archivées viennent
-du CDN Apple sans referrer ; leur sélection archive une copie locale. L'activation Studio et
+du CDN Apple sans referrer ; leur sélection archive une copie locale. L'activation SMM et
 les droits d'écriture sont revérifiés après le téléchargement avant la sauvegarde.
 
 Le preview React séquence les images en 9:16, sans recadrage, avec textes superposés et
 lecture/pause/position. Aucun son ni fichier vidéo n'est produit. L'export ZIP cible une révision
 précise, valide les empreintes des images et contient `storyboard.json`, `storyboard.md` et les
 JPEGs sélectionnés sous noms UUID fixes. Les images, exports et plans demandent une adhésion
-à l'espace et Studio activé. Les lecteurs peuvent consulter et exporter, sans modifier.
+à l'espace et SMM activé. Les lecteurs peuvent consulter et exporter, sans modifier.

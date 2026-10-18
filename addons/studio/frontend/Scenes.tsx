@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
+import VideoExports from './VideoExports';
 import type { Creative, ModuleProps } from '../../../web/src/contracts';
 
 export interface Scene {
@@ -10,6 +11,10 @@ export interface Scene {
   caption: string;
   duration: number;
   asset_id: string | null;
+  audio_asset_id?: string | null;
+  video_start?: number;
+  audio_start?: number;
+  original_audio?: boolean;
 }
 export interface Storyboard {
   id: string;
@@ -21,6 +26,9 @@ export interface Storyboard {
   updated_at: string;
 }
 interface Asset {
+  kind?: string;
+  duration?: number;
+  has_audio?: boolean;
   id: string;
   name: string;
   url: string;
@@ -51,6 +59,42 @@ const equal = (a: Scene[], b: Scene[]) => JSON.stringify(a) === JSON.stringify(b
 const clock = (seconds: number) =>
   `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 
+function VideoFrame({
+  asset,
+  elapsed,
+  start,
+  playing,
+}: {
+  asset: Asset;
+  elapsed: number;
+  start: number;
+  playing: boolean;
+}) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    const target = start + elapsed;
+    if (Number.isFinite(target) && Math.abs(video.currentTime - target) > 0.3)
+      video.currentTime = target;
+    if (playing) void video.play().catch(() => {});
+    else video.pause();
+  }, [elapsed, start, playing, asset.id]);
+  return (
+    <video
+      ref={ref}
+      src={asset.url}
+      muted
+      playsInline
+      preload="metadata"
+      aria-label={asset.name}
+      onLoadedMetadata={() => {
+        if (ref.current) ref.current.currentTime = start + elapsed;
+      }}
+    />
+  );
+}
+
 function Editor({
   initial,
   workspace,
@@ -74,6 +118,7 @@ function Editor({
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [exportVersion, setExportVersion] = useState(initial.version);
+  const audioPreview = useRef<HTMLAudioElement>(null);
   const alive = useRef(true);
   const savedRef = useRef(saved);
   const localRef = useRef(scenes);
@@ -100,6 +145,18 @@ function Editor({
       return elapsed < boundary;
     }) ?? scenes[scenes.length - 1];
   const asset = library.assets.find((item) => item.id === preview.asset_id);
+  const selectedVisual = library.assets.find((item) => item.id === current.asset_id);
+  const selectedAudio = library.assets.find((item) => item.id === current.audio_asset_id);
+  const audioAssets = library.assets.filter((item) => item.kind === 'audio');
+  const previewStart = scenes
+    .slice(
+      0,
+      scenes.findIndex((item) => item.id === preview.id),
+    )
+    .reduce((sum, item) => sum + item.duration, 0);
+  useEffect(() => {
+    if (!active) audioPreview.current?.pause();
+  }, [active]);
   useEffect(() => {
     setSelected(preview.id);
   }, [preview.id]);
@@ -182,7 +239,15 @@ function Editor({
     setLibraryError('');
     try {
       const next = await api<Library>(assetEndpoint);
-      if (alive.current) setLibrary(next);
+      if (alive.current)
+        setLibrary((old) => ({
+          ...next,
+          // An upload can finish while the initial library request is in flight.
+          // Keep newly returned assets and their assignments when that older read arrives.
+          assets: [
+            ...new Map([...next.assets, ...old.assets].map((item) => [item.id, item])).values(),
+          ],
+        }));
     } catch (err) {
       if (alive.current) setLibraryError((err as Error).message);
     } finally {
@@ -263,6 +328,75 @@ function Editor({
       if (alive.current) setImporting(false);
     }
   }
+  async function upload(file: File) {
+    if (file.size > 25_000_000) {
+      setLibraryError('Choose a file of at most 25 MB.');
+      return;
+    }
+    importingRef.current = true;
+    setImporting(true);
+    setLibraryError('');
+    const sceneId = current.id;
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      const next = await api<Asset>(
+        moduleUrl(workspace.id, 'studio', `apps/${selectedApp!.id}/media/`),
+        { method: 'POST', body: form, feedback: { success: 'Media imported.' } },
+      );
+      if (!alive.current) return;
+      setLibrary((old) => ({
+        ...old,
+        assets: [...old.assets.filter((item) => item.id !== next.id), next],
+      }));
+      update(
+        localRef.current.map((row) =>
+          row.id === sceneId
+            ? {
+                ...row,
+                ...(next.kind === 'audio'
+                  ? { audio_asset_id: next.id, audio_start: 0 }
+                  : { asset_id: next.id, video_start: 0, original_audio: false }),
+              }
+            : row,
+        ),
+      );
+    } catch (err) {
+      if (alive.current) setLibraryError((err as Error).message);
+    } finally {
+      importingRef.current = false;
+      if (alive.current) setImporting(false);
+    }
+  }
+  async function removeAsset(item: Asset) {
+    setImporting(true);
+    importingRef.current = true;
+    try {
+      await api(moduleUrl(workspace.id, 'studio', `scene-assets/${item.id}/file/`), {
+        method: 'DELETE',
+        feedback: { success: 'Unused media removed.' },
+      });
+      if (!alive.current) return;
+      setLibrary((old) => ({
+        assets: old.assets.filter((asset) => asset.id !== item.id),
+        candidates: old.candidates.map((candidate) =>
+          candidate.asset_id === item.id ? { ...candidate, asset_id: null } : candidate,
+        ),
+      }));
+      update(
+        localRef.current.map((row) => ({
+          ...row,
+          asset_id: row.asset_id === item.id ? null : row.asset_id,
+          audio_asset_id: row.audio_asset_id === item.id ? null : row.audio_asset_id,
+        })),
+      );
+    } catch (err) {
+      if (alive.current) setLibraryError((err as Error).message);
+    } finally {
+      importingRef.current = false;
+      if (alive.current) setImporting(false);
+    }
+  }
   async function reload() {
     setBusy(true);
     try {
@@ -335,7 +469,13 @@ function Editor({
               onClick={() => choose(row.id)}
             >
               <span className="scene-thumb">
-                {image ? <img src={image.url} alt="" /> : <span>{row.title}</span>}
+                {image?.kind === 'video' ? (
+                  <span>Recording</span>
+                ) : image ? (
+                  <img src={image.url} alt="" />
+                ) : (
+                  <span>{row.title}</span>
+                )}
               </span>
               <strong>{row.title}</strong>
               <span>
@@ -424,6 +564,74 @@ function Editor({
                 onChange={(event) => edit({ caption: event.target.value })}
               />
             </label>
+            {selectedVisual?.kind === 'video' && (
+              <>
+                <label>
+                  Recording starts at (seconds)
+                  <input
+                    type="number"
+                    min={0}
+                    max={selectedVisual.duration}
+                    step={0.1}
+                    value={current.video_start ?? 0}
+                    onChange={(event) =>
+                      edit({ video_start: Math.max(0, Number(event.target.value) || 0) })
+                    }
+                  />
+                </label>
+                <p className="note">
+                  Recording: {selectedVisual.duration?.toFixed(1)}s. The shot must end within the
+                  recording.
+                </p>
+                <label className="scene-audio-toggle">
+                  <input
+                    type="checkbox"
+                    checked={current.original_audio ?? false}
+                    disabled={frozen || !!current.audio_asset_id || !selectedVisual.has_audio}
+                    onChange={(event) => edit({ original_audio: event.target.checked })}
+                  />
+                  Keep recording audio
+                </label>
+              </>
+            )}
+            <label>
+              Voiceover recording
+              <select
+                value={current.audio_asset_id ?? ''}
+                onChange={(event) =>
+                  edit({ audio_asset_id: event.target.value || null, audio_start: 0 })
+                }
+              >
+                <option value="">No voiceover file</option>
+                {audioAssets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} · {item.duration?.toFixed(1)}s
+                  </option>
+                ))}
+              </select>
+            </label>
+            {selectedAudio && (
+              <>
+                <label>
+                  Voiceover starts at (seconds)
+                  <input
+                    type="number"
+                    min={0}
+                    max={selectedAudio.duration}
+                    step={0.1}
+                    value={current.audio_start ?? 0}
+                    onChange={(event) =>
+                      edit({ audio_start: Math.max(0, Number(event.target.value) || 0) })
+                    }
+                  />
+                </label>
+                <audio ref={audioPreview} src={selectedAudio.url} controls preload="metadata" />
+                <p className="note">
+                  Voiceover replaces recording audio. Audio is trimmed to the shot; shorter files
+                  end in silence. Written voiceover is not synthesized.
+                </p>
+              </>
+            )}
             <div className="scene-order">
               <button
                 className="text-button"
@@ -466,12 +674,25 @@ function Editor({
                 </button>
               )}
             </div>
-            <p className="note">
-              Store screenshots. Select a reference for this shot; record the app separately when
-              movement is needed.
-            </p>
+            <p className="note">Choose an image or screen recording for this shot.</p>
+            <label className="media-upload">
+              Upload media
+              <input
+                type="file"
+                accept=".mp4,.mp3,.m4a,.wav,.png,.jpg,.jpeg,.webp"
+                disabled={frozen}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  if (file) void upload(file);
+                }}
+              />
+              <span className="note">
+                Up to 25 MB · H.264 MP4, MP3, M4A, WAV or images · Recordings up to 120s
+              </span>
+            </label>
             {libraryLoading && <p role="status">Loading app visuals…</p>}
-            {importing && <p role="status">Importing screenshot…</p>}
+            {importing && <p role="status">Importing media…</p>}
             {libraryError && (
               <p className="error" role="alert">
                 {libraryError}
@@ -487,8 +708,8 @@ function Editor({
               !library.candidates.length &&
               !library.assets.length && (
                 <p className="note">
-                  No supported store screenshots imported. Refresh the app connection or keep this
-                  shot as a recording to prepare.
+                  Upload a recording or image, or refresh the app connection to import store
+                  screenshots.
                 </p>
               )}
             <div className="scene-assets">
@@ -514,7 +735,9 @@ function Editor({
               })}
               {library.assets
                 .filter(
-                  (item) => !library.candidates.some((candidate) => candidate.asset_id === item.id),
+                  (item) =>
+                    item.kind !== 'audio' &&
+                    !library.candidates.some((candidate) => candidate.asset_id === item.id),
                 )
                 .map((item) => (
                   <button
@@ -522,22 +745,60 @@ function Editor({
                     disabled={frozen}
                     aria-label={`Use ${item.name}`}
                     aria-pressed={current.asset_id === item.id}
-                    onClick={() => edit({ asset_id: item.id })}
+                    onClick={() =>
+                      edit({ asset_id: item.id, video_start: 0, original_audio: false })
+                    }
                   >
-                    <img src={item.url} alt={item.name} />
+                    {item.kind === 'video' ? (
+                      <span className="media-file-tile">
+                        MP4
+                        <br />
+                        {item.duration?.toFixed(1)}s
+                      </span>
+                    ) : (
+                      <img src={item.url} alt={item.name} />
+                    )}
                     <span>{item.name}</span>
                   </button>
                 ))}
             </div>
+            {canWrite && library.assets.length > 0 && (
+              <details className="media-library-manage">
+                <summary>Manage library files</summary>
+                <p className="note">
+                  Only files unused by saved storyboard versions can be deleted.
+                </p>
+                {library.assets.map((item) => (
+                  <div key={item.id}>
+                    <span>{item.name}</span>
+                    <button
+                      className="text-button"
+                      disabled={frozen}
+                      onClick={() => removeAsset(item)}
+                    >
+                      Delete {item.name}
+                    </button>
+                  </div>
+                ))}
+              </details>
+            )}
           </section>
         </div>
         <aside className="scene-preview" aria-label="Storyboard preview">
           <div className="scene-preview-heading">
             <h3>Preview</h3>
-            <span>9:16 · Stills</span>
+            <span>9:16 · Muted</span>
           </div>
           <div className="scene-stage">
-            {asset ? (
+            {asset?.kind === 'video' ? (
+              <VideoFrame
+                key={asset.id}
+                asset={asset}
+                start={preview.video_start ?? 0}
+                elapsed={Math.max(0, elapsed - previewStart)}
+                playing={playing && active}
+              />
+            ) : asset ? (
               <img src={asset.url} alt={asset.name} />
             ) : (
               <div className="scene-placeholder">
@@ -575,8 +836,7 @@ function Editor({
           />
           <p className="scene-voiceover">{preview.voiceover}</p>
           <p className="note">
-            Silent preview. Durations are starting estimates; check them with the recorded
-            voiceover.
+            Muted timeline preview. Check the rendered MP4 for the final sound and timing.
           </p>
         </aside>
       </div>
@@ -584,7 +844,7 @@ function Editor({
         <div>
           <h3>Editing package</h3>
           <p className="note">
-            Shot list, timings, script and selected images. ZIP · no video or audio yet.
+            Shot list, timings, script and selected media. ZIP for external editing.
           </p>
         </div>
         <label>
@@ -610,6 +870,15 @@ function Editor({
           {dirty && exportVersion === saved.version ? 'Save & export' : 'Export package'}
         </button>
       </footer>
+      {!previewMode && (
+        <VideoExports
+          workspaceId={workspace.id}
+          boardId={saved.id}
+          version={saved.version}
+          dirty={dirty || busy || importing || uncertain || conflict}
+          canWrite={canWrite}
+        />
+      )}
       <details className="script-context">
         <summary>Source script</summary>
         <p>{saved.source.hook}</p>

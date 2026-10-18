@@ -1,8 +1,31 @@
 from django.urls import path
 
-from . import creative_views, research_views, scene_assets, storyboards, views
+from . import (
+    creative_views,
+    media_views,
+    render_views,
+    research_views,
+    scene_assets,
+    social_views,
+    storyboards,
+    views,
+)
 
 urlpatterns = [
+    path("social/extension/", social_views.extension),
+    path("social-posts/<uuid:post_id>/frames/<int:position>/", social_views.frame),
+    path("apps/<uuid:app_id>/social-research/", social_views.sessions),
+    path("social-research/<uuid:session_id>/", social_views.detail),
+    path("social-research/<uuid:session_id>/references/", social_views.references),
+    path("social-research/<uuid:session_id>/captures/", social_views.capture),
+    path("social-research/<uuid:session_id>/adapt/", social_views.adapt),
+    path("media-capabilities/", media_views.capabilities),
+    path("apps/<uuid:app_id>/media/", media_views.upload),
+    path("scene-assets/<uuid:asset_id>/file/", media_views.asset_file),
+    path("storyboards/<uuid:board_id>/renders/", render_views.renders),
+    path("renders/<uuid:render_id>/retry/", render_views.retry),
+    path("renders/<uuid:render_id>/video/", media_views.video),
+    path("renders/<uuid:render_id>/", render_views.remove),
     path("creatives/<uuid:creative_id>/storyboard/", storyboards.for_creative),
     path("storyboards/<uuid:board_id>/", storyboards.detail),
     path("storyboards/<uuid:board_id>/export/", storyboards.export),

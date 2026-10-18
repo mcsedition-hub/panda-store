@@ -105,7 +105,7 @@ def failure(provider, status, data, retry_after=None):
         return issue(
             "model_unavailable",
             "This model or resource is unavailable. Refresh models in AI settings and "
-            "start a new audit with an available model.",
+            "start a new task with an available model.",
         )
     if status == 413 or identifiers & {"context_length_exceeded", "request_too_large"}:
         return issue(

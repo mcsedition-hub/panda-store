@@ -87,7 +87,7 @@ def configure_installation(data):
     Membership.objects.get_or_create(
         user=user, workspace=workspace, defaults={"role": Membership.Role.OWNER}
     )
-    activate_modules(workspace, ["app_catalog", "apple_store", "studio"])
+    activate_modules(workspace, ["app_catalog", "apple_store", "aso", "studio"])
     installation.owner = user
     installation.workspace = workspace
     installation.save(update_fields=["owner", "workspace"])

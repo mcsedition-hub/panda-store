@@ -16,6 +16,9 @@ vi.mock('./ai/AIOptions', () => ({
   ),
 }));
 vi.mock('./workflows/WorkflowPanel', () => ({ default: () => <div>Live generation</div> }));
+vi.mock('../../addons/studio/frontend/SocialResearch', () => ({
+  default: () => <p>Social research</p>,
+}));
 vi.mock('../../addons/studio/frontend/Research', () => ({
   default: ({ onUseInBrief }: { onUseInBrief: (id: string, pages: string[]) => Promise<void> }) => (
     <button onClick={() => void onUseInBrief('research-one', ['page-one'])}>
@@ -112,6 +115,33 @@ it('requires checked facts and a model, and sends the explicit brief and saved s
     model: 'gemini-3.8-flash',
     brief: { product_facts: 'MonTri sorts photos with swipes.', duration_seconds: 30 },
   });
+});
+it('shows the frozen social context instead of the unrelated legacy generation form', async () => {
+  const implementation = mocked.getMockImplementation()!;
+  mocked.mockImplementation(async (path, options) =>
+    path.endsWith('runs/')
+      ? [
+          {
+            ...queued,
+            status: 'succeeded',
+            context: {
+              mode: 'smm',
+              brief: { ...brief, audience: 'Social research audience' },
+              ai: { provider: 'google', model: 'gemini-3.8-flash' },
+              sources: [{ ...brief.research_sources![0], title: 'TikTok reference' }],
+            },
+          },
+        ]
+      : implementation(path, options),
+  );
+  render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
+  await screen.findByRole('heading', { name: 'App context used' });
+  expect(screen.getByText('Social research audience')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Create scripts' })).toBeNull();
+  expect(screen.queryByLabelText('Generation mode')).toBeNull();
+  expect(screen.queryByText('Selected source')).toBeNull();
+  expect(screen.getAllByRole('link', { name: 'TikTok reference ↗' }).length).toBeGreaterThan(0);
 });
 it('saves a research selection and keeps the edited brief when moving from Research to Scripts', async () => {
   render(<Studio {...props} />);

@@ -1,6 +1,6 @@
 {
   "id": "studio",
-  "name": "Studio",
+  "name": "SMM",
   "version": "0.1.0",
   "core": ">=0.1,<0.2",
   "depends": {
@@ -8,9 +8,12 @@
   },
   "family": "coral",
   "icon": "studio",
-  "description": "Research public examples, review sources and prepare creative work.",
+  "description": "Social Media Marketing: research sources and prepare content for your app.",
   "capabilities": [
     "research.browse",
+    "social.browser_research",
+    "social.qualify",
+    "social.adapt",
     "briefs.edit",
     "scripts.demo_generate",
     "scripts.ai_generate",
@@ -18,6 +21,8 @@
     "scripts.export",
     "scenes.edit",
     "scenes.import_assets",
-    "scenes.export"
+    "scenes.export",
+    "media.upload",
+    "video.render"
   ]
 }

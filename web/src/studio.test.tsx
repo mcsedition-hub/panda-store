@@ -8,6 +8,9 @@ vi.mock('./api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./api')>()),
   api: vi.fn(),
 }));
+vi.mock('../../addons/studio/frontend/SocialResearch', () => ({
+  default: () => <p>Social research</p>,
+}));
 vi.mock('../../addons/studio/frontend/Research', () => ({
   default: () => <p>Research workspace</p>,
 }));

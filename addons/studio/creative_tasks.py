@@ -123,7 +123,13 @@ def generate_ai_scripts(run_id):
                         **{k: script[k] for k in ("variant", "angle", "hook", "script", "cta")},
                         provenance={
                             k: script[k]
-                            for k in ("source_page_ids", "adaptation", "product_claims")
+                            for k in (
+                                "source_page_ids",
+                                "adaptation",
+                                "product_claims",
+                                "content_format",
+                            )
+                            if k in script
                         },
                     )
                     for script in scripts

@@ -198,3 +198,16 @@ it('keeps workflow activity read-only for viewers and closes streams on unmount'
   view.unmount();
   expect(Source.current.close).toHaveBeenCalled();
 });
+
+it('reloads interrupted activity without retrying the task or losing saved results', async () => {
+  mockApi.mockRejectedValue(new ApiError('Cannot reach Panda Store.', 0));
+  render(<WorkflowPanel {...props} />);
+  await screen.findByText('Activity unavailable');
+  expect(screen.getByText(/The task may still be running/)).toBeTruthy();
+  mockApi.mockResolvedValue(completed);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading activity' }));
+  await screen.findByText('Brief checked.');
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(props.onRetry).not.toHaveBeenCalled();
+  expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+});

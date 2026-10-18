@@ -194,13 +194,17 @@ def export_run(request, workspace_id, run_id):
             "Review before recording or publishing."
         )
     )
-    lines = [f"# {run.app.name} — scripts", "", mode, ""]
+    social = run.inputs.get("mode") == "smm"
+    title = "content adaptations" if social else "scripts"
+    lines = [f"# {run.app.name} — {title}", "", mode, ""]
     if run.provider != "demo_templates":
         lines += [
             "## Brief",
             "",
             f"Language: {run.inputs['brief']['language']}",
-            f"Target duration: {run.inputs['brief']['duration_seconds']} seconds (estimate)",
+            f"Audience: {run.inputs['brief']['audience']}",
+            f"Target duration: {run.inputs['brief']['duration_seconds']} seconds (estimate)"
+            + (" — video only; not applicable to carousel or text." if social else ""),
             "",
             "Product facts confirmed by the author:",
             run.inputs["brief"]["product_facts"],
@@ -210,11 +214,45 @@ def export_run(request, workspace_id, run_id):
         ]
         for source in run.inputs["sources"]:
             lines += [f"- {source['title']}: {source['url']} (captured {source['captured_at']})"]
+            if social:
+                lines += [
+                    f"  Source ID: {source['page_id']}",
+                    f"  Format: {source['format']}",
+                ]
+                if source.get("research_id"):
+                    lines += [f"  Research session: {source['research_id']}"]
+                for name in ("views", "likes", "comments", "shares"):
+                    metric = source.get("metrics", {}).get(name)
+                    value = (
+                        f"{'≈ ' if metric.get('approximate') else ''}{metric['value']:,}"
+                        f" (label: {metric['raw']})"
+                        if metric
+                        else "Not observed"
+                    )
+                    lines += [f"  Observed {name}: {value}"]
+                lines += [f"  Coverage: {source.get('coverage', 'Not documented')}"]
+                lines += [
+                    f"  Limitation: {limit}"
+                    for limit in source.get("finding", {}).get("limitations", [])
+                ]
         lines += ["", "References inform structure; they do not prove performance.", ""]
+        if social:
+            lines += [
+                "Counts describe the captured post at the observation date; they do not prove "
+                "organic reach, conversions or future results. Full video/audio were not analyzed.",
+                "",
+            ]
+        for correction in run.review.get("corrections", []):
+            lines += [f"Revision ({correction['at']}): {correction['reason']}", ""]
     for creative in run.creatives.all():
         lines += [
             f"## {creative.variant}. {creative.angle}",
             "",
+            *(
+                [f"Format: {creative.provenance['content_format']}", ""]
+                if creative.provenance.get("content_format")
+                else []
+            ),
             f"Hook: {creative.hook}",
             "",
             creative.script,

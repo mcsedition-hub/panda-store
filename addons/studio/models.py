@@ -79,6 +79,7 @@ class SceneAsset(models.Model):
     source_key = models.CharField(max_length=64)
     metadata = models.JSONField()
     data = models.BinaryField()
+    byte_size = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -112,6 +113,42 @@ class StoryboardRevision(models.Model):
             models.UniqueConstraint(
                 fields=["board", "request_id"], name="unique_storyboard_request"
             ),
+        ]
+
+
+class VideoRender(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    revision = models.ForeignKey(
+        StoryboardRevision, on_delete=models.CASCADE, related_name="renders"
+    )
+    workflow = models.OneToOneField("workflows.WorkflowRun", on_delete=models.CASCADE)
+    request_id = models.UUIDField()
+    retry_of = models.ForeignKey(
+        "self", null=True, on_delete=models.RESTRICT, related_name="retries"
+    )
+    data = models.BinaryField(null=True)
+    byte_size = models.PositiveIntegerField(default=0)
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["workspace", "request_id"], name="unique_video_request")
+        ]
+
+
+class RenderPart(models.Model):
+    render = models.ForeignKey(VideoRender, on_delete=models.CASCADE, related_name="parts")
+    position = models.PositiveSmallIntegerField()
+    data = models.BinaryField()
+    sha256 = models.CharField(max_length=64)
+    byte_size = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["render", "position"], name="unique_render_part")
         ]
 
 
@@ -156,4 +193,48 @@ class ResearchPage(models.Model):
         ordering = ["position"]
         constraints = [
             models.UniqueConstraint(fields=["run", "position"], name="unique_research_page")
+        ]
+
+
+class SocialResearch(models.Model):
+    """A browser-assisted SMM session; server research remains a separate legacy path."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
+    app = models.ForeignKey(MobileApp, on_delete=models.CASCADE, related_name="social_research")
+    request_id = models.UUIDField()
+    request = models.JSONField()
+    inputs = models.JSONField()
+    plan = models.JSONField(default=dict)
+    events = models.JSONField(default=list)
+    status = models.CharField(max_length=20, default="planning")
+    workflow = models.ForeignKey("workflows.WorkflowRun", on_delete=models.SET_NULL, null=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["workspace", "request_id"], name="unique_social_research_request"
+            )
+        ]
+
+
+class SocialPost(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    research = models.ForeignKey(SocialResearch, on_delete=models.CASCADE, related_name="posts")
+    url = models.URLField(max_length=2000)
+    evidence = models.JSONField()
+    frames = models.JSONField(default=list)
+    metrics = models.JSONField(default=dict)
+    qualification = models.JSONField(default=dict)
+    analysis = models.JSONField(default=dict)
+    captured_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["captured_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["research", "url"], name="unique_social_post_url")
         ]
