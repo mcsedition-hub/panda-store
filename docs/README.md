@@ -4,14 +4,16 @@
 
 ## Using Panda Store
 
-[Installation](installation.md) explains how to run the application with Docker Compose
-or set up a local development environment.
+[Installation](installation.md) explains how to run Panda Store, choose English or French,
+and start from an idea, an imported app or a demo.
 
 [Connections](connections.md) covers App Store Connect, Google Play and AI providers.
 
-[ASO](aso.md) covers listing audits, screenshot reviews and editable drafts.
+[ASO](aso.md) covers listing proposals from an idea, saved audits, model comparisons,
+screenshot reviews and editable drafts.
 
-[SMM](smm.md) covers browser research, content adaptation, scripts, scenes and exports.
+[SMM](smm.md) covers browser research, saved sessions, reference filters,
+one to three adaptations, scripts, scenes and exports.
 
 ## Development
 

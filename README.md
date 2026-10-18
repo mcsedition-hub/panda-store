@@ -10,7 +10,7 @@
 [Français](README.fr.md)
 
 Panda Store is an open source workspace for mobile app marketing.
-Import your iOS and Android apps, improve App Store listings and prepare content for social media.
+Start from an app idea or import your iOS and Android apps, then prepare store copy and social content.
 
 **ASO** (App Store Optimization) reviews your listings and screenshots,
 then helps you write, compare and export improvements.
@@ -24,7 +24,7 @@ You can run Panda Store locally with Docker Compose or Python and Node.js.
 
 ## Getting started
 
-Follow the [installation guide](docs/installation.md), then connect an app or try the demo.
+Follow the [installation guide](docs/installation.md), then create a project, import an app or try the demo.
 This project is in alpha for local use. ASO audits currently support App Store listings.
 
 The [documentation](docs/README.md) covers [ASO](docs/aso.md), [SMM](docs/smm.md)

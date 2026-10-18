@@ -43,7 +43,7 @@ workspace UUID, provider and model from that connection's current catalog:
   --max-calls 20 --output output/aso-eval/first-run
 ```
 
-`openai`, `google` and `anthropic` use their existing encrypted connections. No key
+`openai`, `google`, `anthropic` and `zai` use their existing encrypted connections. No key
 belongs in command arguments or reports. Any installation can run the suite with
 its own workspace and models; no project owner's account is assumed. This is a
 maintainer command with server access, not a web endpoint exposed to members.

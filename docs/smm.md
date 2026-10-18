@@ -28,7 +28,8 @@ server browser, which remains under **Public-page research (legacy)**.
    Developer mode and load the extracted folder. For development, load
    `addons/studio/browser_extension` directly. Return to Panda Store; the connection is detected automatically.
 3. Check the app features and audience, choose platforms, performance filters and an
-   AI provider/model, then choose **Start social research**. The model prepares search
+   AI provider with an image-capable model. Confirm the project scope in the box above
+   **Start social research**, then start. The model prepares search
    queries and the connector opens a dedicated visible tab in your current Chrome profile.
 4. Keep Panda Store open. Collection saves up to 12 posts, their observed counters,
    dates, text and up to three viewport frames. An individual post that does not load
@@ -54,6 +55,11 @@ definition of virality. Missing or ambiguous counts cannot pass. Video requires 
 views and likes; text/image/carousel requires likes. Relevance and evidence undergo a separate
 AI review. At least one qualified reference is required for adaptation; no extra generic examples
 are generated to fill a smaller selection. Google discovers posts on the supported social sites.
+
+The form shows the expected AI calls before starting: one planning call, up to two
+analysis calls per eligible post and two calls for adaptations. Your selected provider
+bills usage. **Show connection instructions** opens the connector setup beside the form
+when it is not connected; an enabled extension still needs a working dashboard connection.
 
 Connector 0.1.8 reconnects open dashboard tabs automatically after extension installation,
 reload/update, or browser startup, preserving the form. Compatible patch versions no
@@ -84,9 +90,31 @@ See [GLM connection and model selection](connections.md#zai-glm).
 Run connector checks with `node --test tests/browser_extension.test.mjs`.
 See the [connector instructions](../addons/studio/browser_extension/README.md).
 
+## Browse results and saved research
+
+The results initially show up to **four qualified references**, including compatible
+references from earlier research. **Show more** reveals the remaining qualified posts;
+**Show less** returns to four. Posts awaiting analysis and unqualified posts stay behind
+**Show other references**, with their rejection reasons and observed counters intact.
+Reaching the thresholds alone does not qualify a post: relevance and evidence must also
+pass the AI review.
+
+Use the platform filters to show TikTok, Instagram or Facebook separately. Google is
+a discovery source; a found post belongs to its social platform. Changing the filter
+or opening another research session restores the compact display. Filtering or collapsing
+cards does not clear your selection; the interface indicates selected references hidden
+from the current view.
+
+**New research** is available from Research, Scripts and Scenes. It opens a fresh form;
+the previous research, captured evidence and scripts stay saved. Only **Start social
+research** starts the new task. Use the saved research selector to reopen a session
+and the generation history in Scripts to revisit earlier drafts. Reading saved results
+does not call an AI provider again.
+
 ## Create scripts from research
 
-For browser research, select one to three qualified posts and choose **Create adaptations**.
+For browser research, select one to three qualified posts. The action shows the selected
+count: **Create 1 adaptation**, **Create 2 adaptations** or **Create 3 adaptations**.
 One selected post produces one draft, two produce two, and three produce three.
 Each draft retains its reference, observed format and confirmed app context.
 
@@ -111,7 +139,7 @@ automatically rechecked. The Markdown export includes the sources and the confir
 Social-research exports also preserve each content format, observed counters (including
 approximate or missing values), capture dates, research sessions and coverage limits.
 Recorded review corrections remain traceable. Target duration applies to video only;
-carousel and text adaptations keep their own structure.
+image, carousel and text adaptations keep their own structure.
 
 These are editable scripts and shooting directions, not generated video files. Target duration is
 an estimate. No social account is connected or post published. AI generation works with demo mode
@@ -125,8 +153,8 @@ Other script formats are preserved in one editable shot. This step makes no mode
 not approve the script. Adjust shot order, direction, voiceover, on-screen text and duration.
 
 Select an image in **App visuals** to archive and attach one of the connected app's own store
-screenshots. Supported imports currently come from Apple's image CDN; competitor research
-captures are not offered as production assets. Images retain their aspect ratio in the 9:16
+screenshots. Supported imports come from the allowed Apple and Google Play image hosts;
+competitor research captures are not offered as production assets. Images retain their aspect ratio in the 9:16
 preview. They are store-image derivatives, potentially with marketing text, not raw screen
 recordings. Upload PNG, JPEG or WebP images, H.264 MP4 recordings, or MP3, M4A and WAV
 audio in the same library. Choose a clip start, attach voiceover audio or keep the recording's

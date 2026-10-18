@@ -2,11 +2,12 @@
 
 [Documentation](README.md)
 
-Audit imported App Store listings and prepare editable copy and screenshot briefs.
+Prepare an App Store listing from an idea, or audit an imported listing.
+Revisit saved analyses, compare models and turn proposals into editable drafts.
 
 ## Audit an App Store listing
 
-Enable **ASO** in **Modules**, choose an imported app and language, then select
+ASO is enabled during setup. Choose an imported app and language, then select
 **Run audit**. Audits use the selected saved import, not a live store refresh.
 Each result retains its inputs, sources and review date, with a persistent activity
 log. Running a new audit checks the latest imported snapshot; retrying an interrupted
@@ -24,6 +25,8 @@ listings, unselected fields keep analysis A's saved listing. Idea proposals requ
 five fields. Different source versions are flagged; different languages or review types
 can be compared but cannot be combined. Rejected proposals cannot be selected. Review
 the combined copy and keyword repetitions in the draft before using it.
+
+## Prepare a listing from an idea
 
 For an unpublished app, use **My apps → Create a project** and describe the idea,
 or paste/import its Markdown document. Then open **ASO**, select an AI model and
@@ -47,6 +50,8 @@ If structural validation rejects a proposal, the error identifies the failed fie
 and rule. The rejected response remains in the private checkpoint; **Retry unfinished
 steps** requests a corrected proposal using that feedback, then verifies it. It keeps
 the original project, provider and model, and makes no automatic paid retries.
+
+## Edit and export proposals
 
 The initial rules check name, subtitle, description and promotional-text lengths,
 the keyword budget, exact keyword repetition and comma spacing. A proposed cleanup
@@ -86,7 +91,7 @@ screenshot has been generated, a store experiment has run or Apple has approved 
 `brief.md`, `brief.json` and the archived `reference.jpg` when available. Creation,
 editing and export make no AI calls and never publish to a store.
 
-### Choose an AI model
+## Choose an AI model
 
 Open **ASO → Audit → AI settings**. A workspace owner can connect OpenAI, Google
 Gemini, Anthropic Claude or Z.ai (GLM) with their own API key. Keys are encrypted in this

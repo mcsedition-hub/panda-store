@@ -13,9 +13,12 @@ python3 scripts/bootstrap.py
 docker compose up --build
 ```
 
-Open **http://127.0.0.1:8080** and create your organization and owner account.
-SMM browser research on this port requires **Panda SMM Browser 0.1.5**.
-Download the connector from SMM and reload the unpacked extension after replacing its files.
+Open **http://127.0.0.1:8080**, choose English or French, then create your organization
+and owner account.
+For browser research, download **Panda SMM Browser** from SMM and follow the
+[connector instructions](../addons/studio/browser_extension/README.md). The current
+connector reconnects open dashboard tabs automatically after installation or reload.
+An unpacked extension still needs a manual reload when you replace its files.
 This configuration uses PostgreSQL, Redis, a Celery worker, Django and Nginx.
 Its database is separate from the local SQLite database. `docker compose down`
 preserves data volumes; adding `--volumes` would delete them.
@@ -63,6 +66,10 @@ Returning visits open the console while your session is valid; after signing out
 or session expiry, sign in with the account you created. There is no cloud account
 or email delivery during setup.
 ASO and SMM are enabled in the new workspace, alongside the app catalog and store connections.
+The example module is a developer reference and is hidden from the interface.
+
+## Start with your app
+
 If your app is not on a store yet, choose **My apps → Create a project**. Type or
 paste your idea, or import a `.md` / `.markdown` file. Choose **Idea** or
 **In development**, describe the audience and distinguish planned features from
@@ -72,10 +79,17 @@ prepare launch content from this context. In ASO, choose an AI model and select
 **Analyze idea and suggest listing** to get positioning analysis and a first App Store
 listing. ASO proposes the name, subtitle, description, keywords and promotional text;
 you can then save and edit the complete proposal in **Drafts**.
+
+For an existing app, use **My apps → Import an app**, choose App Store or Google Play,
+then select one app to import. Repeat whenever you want to add another app. See
+[Connections](connections.md) for the account setup.
+
 The interface language chosen during setup is saved in your account.
 New AI analyses and explanations follow this language, including evidence reviews.
 Store copy keeps the listing locale; scripts follow the language selected in their brief.
 New briefs default to the account language. Imported listings and earlier results are preserved.
+
+## Update an existing installation
 
 The local configuration enables `PANDA_SETUP_ENABLED=true`. Setup can run only once.
 To update an earlier alpha, add this setting to `.env` and run migrations: the
@@ -83,14 +97,20 @@ single seeded demo workspace can be renamed and claimed without losing its apps.
 Installations with other existing accounts retain sign-in. The bootstrap script
 preserves existing `.env` files; this file contains secrets and must never be published.
 
+For a native installation, after pulling changes, install the Python requirements,
+run `npm --prefix web ci`, apply migrations and restart the API, workflow worker and
+frontend. The native worker does not reload backend code automatically. For Compose,
+run `docker compose up --build`; its initialization service applies migrations.
+For a folder-installed browser connector, follow its update instructions as well.
+
+## Try the demo
+
 Choose **My apps → Import an app → Store → Demo apps**, import **Runclub**, then use **SMM** to create
 three directions from **Scripts → Demo templates · No AI**. You can also open **ASO → Run audit**
 with **Rules only · No AI**. These two paths require no paid key. Browser research uses a
 connected AI provider and the Chrome connector; its billing and coverage limits are shown
 before it starts. The initial workspace is empty so you can try the actual import
 flow. Local development uses SQLite and a background worker: no Redis service,
-external account or paid AI key is required. Keep the worker terminal running;
-restart it after changing backend code. After updating an existing installation,
-install the requirements and run migrations before restarting these processes.
+external account or paid AI key is required. Keep the worker terminal running.
 
 For App Store Connect and Google Play imports, follow [Connections](connections.md). For research, install the [SMM browser connector](smm.md#social-research-in-your-browser).

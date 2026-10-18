@@ -27,13 +27,13 @@ contenus, sans établir une connexion de publication.
 
 | Étape | Résultat attendu | État |
 | --- | --- | --- |
-| Fondation | Espaces, modules, import fictif, brief, 3 scripts, export | Alpha implémentée |
+| Fondation | Espaces, modules, projets décrits en Markdown, imports, langues et exports | Alpha implémentée ; choix français ou anglais à l'installation |
 | App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
-| Audit ASO | Recommandations avec règle officielle, source, date et correction proposée | Contrôles Apple, revue IA des textes et captures, brouillons, briefs de captures et évaluations implémentés ; recherche propre à chaque audit à construire |
+| Audit ASO | Proposition depuis une idée ou analyse d'une fiche importée, avec sources et corrections | Cinq champs Apple, historique, comparaison de modèles, revue des captures et brouillons implémentés ; recherche propre à chaque audit à construire |
 | Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé ASO/SMM et générations IA implémentés ; branches parallèles et éditeur à construire |
-| Veille SMM | Contenus pertinents trouvés dans le navigateur avec preuves de performance | Tests réels : 11 publications TikTok et quatre références retenues, 12 Instagram et une retenue, six Facebook et une retenue ; découverte de liens via Google vérifiée |
-| Création SMM | Trois adaptations de références distinctes, selon leur format et les faits produit | Références compatibles réutilisables entre recherches ; lot MonTri UGC TikTok / carrousel Instagram / texte Facebook sauvegardé, relu et corrigé ; brouillons non approuvés |
-| Google Play | Import des fiches Android, puis extension de l'ASO | Connexion, import et actualisation implémentés et testés automatiquement ; validation sur un compte réel et audit ASO Android à compléter |
+| Veille SMM | Contenus pertinents trouvés dans le navigateur avec preuves de performance | Historique, filtres par réseau, quatre références qualifiées visibles par défaut et autres résultats dépliables ; validations réelles détaillées ci-dessous |
+| Création SMM | Une à trois adaptations de références distinctes, selon leur format et les faits produit | Une adaptation par source sélectionnée ; références compatibles réutilisables entre recherches ; scripts éditables et exportables |
+| Google Play | Import des fiches Android, puis extension de l'ASO | Connexion, import sélectif et actualisation validés sur compte réel le 18 octobre ; audit ASO Android à construire |
 | Mesure | Liens de campagne, séries temporelles, rapports et limites d'attribution | Besoin à prioriser après les retours d'usage ; hors première version publique |
 | Publication SMM — cloud | Comptes et pages sociaux connectés, publication et programmation, aperçu et statut d'envoi | Réservée au cloud, à construire |
 | Exploitation cloud | Isolation renforcée, facturation, quotas, sauvegardes, support | À construire pour l'offre hébergée |
@@ -44,6 +44,58 @@ contenus, sans établir une connexion de publication.
 Les collectes réelles et la génération multiformat ont été exercées. La préparation de
 la sortie porte maintenant sur la fiabilité, l'installation, la clarté de l'interface
 et les exports. Voir le [cadrage SMM](architecture.md#module-smm--marketing-organique).
+
+Restent notamment la validation réelle des modèles GLM visuels, les essais sur d'autres
+comptes et configurations, et la calibration humaine des recommandations ASO. Les limites
+de couverture vidéo/audio, la recherche de références propre à chaque audit et l'audit
+Google Play restent des chantiers distincts. La publication sociale et les opérations
+d'hébergement appartiennent à la future version cloud.
+
+### Mise à jour du 18 octobre 2026
+
+Le catalogue accepte une idée saisie, collée ou importée en Markdown. ASO propose la
+fiche complète, dont l'accroche Apple de 170 caractères ; SMM prépare des contenus de
+lancement à partir du même projet. Les textes destinés au public utilisent les
+fonctionnalités décrites sans imposer de mention de stade de développement. Les faits
+non documentés et les affirmations de disponibilité restent exclus.
+
+Les résultats ASO sont conservés à la navigation et comparables entre modèles, avec
+création d'un brouillon depuis les champs choisis. Le choix français ou anglais de
+l'assistant initial s'applique aussi aux nouvelles explications IA. OpenAI, Gemini,
+Claude et Z.ai disposent du même guide de modèles : cinq choix principaux au maximum,
+une liste complète et une recommandation adaptée au module.
+
+La recherche SMM accepte une à trois sources qualifiées. Elle affiche quatre références
+qualifiées par défaut, propose les suivantes et masque les autres résultats derrière
+une action séparée. Les filtres réseau conservent la sélection. Nouvelle recherche reste
+accessible depuis Recherche, Scripts et Scènes, sans effacer les anciennes sessions.
+Le module d'exemple reste dans le dépôt pour les développeurs et disparaît de l'interface.
+
+Le connecteur 0.1.8 reconnecte les onglets Panda Store ouverts après installation ou
+rechargement ; la 0.1.7 reste compatible. Les installations par dossier nécessitent
+encore un rechargement manuel pour appliquer de nouveaux fichiers. Les compteurs
+Instagram manquants peuvent être recherchés sur la grille Reels du créateur avec
+preuve du post exact. Les captures JPEG sont normalisées avant sauvegarde.
+
+L'import Google Play réel a confirmé deux langues, cinq captures téléphone et un
+visuel de présentation, avec conservation de l'instantané après une erreur temporaire
+et reprise réussie. GLM a passé la connexion et la sortie textuelle structurée ; la
+validation visuelle réelle reste en attente après une réponse de surcharge du fournisseur.
+Voir les détails dans [Connexions](connections.md).
+
+La vérification du code au commit
+[`2a87923`](https://github.com/mcsedition-hub/panda-store/commit/2a87923d74b0732897bd6335331aef3214f5f272)
+a terminé avec **551 tests backend réussis et 3 ignorés sur SQLite**, **221 tests
+d'interface** et **46 tests du connecteur** réussis. Ruff, formatage, contrôles Django,
+absence de migration manquante et build frontend passent. Les trois tests ignorés
+exigent PostgreSQL ; les validations PostgreSQL ci-dessous datent du 17 octobre et
+ne constituent pas une nouvelle exécution de la suite du 18 octobre.
+
+### Validation initiale du 17 octobre 2026
+
+Ce relevé conserve les versions et résultats de cette journée. Les comportements
+modifiés depuis, notamment le nombre de références et la connexion du navigateur,
+sont décrits dans la mise à jour ci-dessus et les guides d'utilisation.
 
 La vérification du 17 octobre 2026 a utilisé une copie isolée du dépôt, un nouvel
 environnement Python, `npm ci` et une base SQLite vierge, sans les clés ni les données
@@ -85,7 +137,7 @@ de l'installation de travail. Les points restants sont indiqués séparément.
   par les tests. Le test réel a révélé deux boutons de fermeture superposés sur les
   Reels Facebook : le connecteur choisit maintenant le contrôle accessible. La lecture
   est limitée à la carte vidéo active pour exclure les compteurs des Reels préchargés.
-  La version 0.1.5 est désormais requise sur les deux installations.
+  La version testée ce jour-là était la 0.1.5 sur les deux installations.
 - [x] **Reprise de collecte dans la version assemblée.** Les collectes réelles et
   la sélection entre recherches ont été vérifiées sur l'installation de travail.
   Avec la 0.1.5 : arrêt après une capture, actualisation, reprise et achèvement avec
@@ -99,7 +151,8 @@ de l'installation de travail. Les points restants sont indiqués séparément.
   pour les deux premières preuves, vérifiés par l'API HTTP. Ce test couvre la collecte
   et sa persistance ; il ne rejoue pas la planification ni l'analyse IA sur Compose.
   La vérification finale des filtres se termine via le worker avec zéro référence
-  qualifiée. L'interface demande trois preuves qualifiées et bloque la génération.
+  qualifiée. L'interface de cette version demandait trois preuves qualifiées et bloquait
+  la génération ; la version actuelle accepte une à trois références.
   Le message d'activité est masqué lorsque la recherche est arrêtée ou terminée.
 - [x] **Revue visuelle des parcours principaux.** Audit et éditeur de brouillon ASO,
   brief, workflow et éditeur SMM examinés dans Chrome sur écran large et à 390 px.
@@ -141,7 +194,7 @@ le budget de mots-clés et les répétitions exactes, avec sources Apple datées
 propositions de nettoyage copiables et limites de couverture explicites. Il conserve
 l'import choisi et utilise le suivi commun en trois étapes. L'impact sur les téléchargements n'est pas évalué automatiquement.
 La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
-Les brouillons et la revue éditoriale OpenAI/Gemini/Claude sont implémentés, avec
+Les brouillons et la revue éditoriale OpenAI/Gemini/Claude/GLM sont implémentés, avec
 choix explicite du modèle et propositions sourcées à relire. Le projet
 ajoute un contrôle distinct des observations et propositions contre la fiche :
 les déductions non étayées sont retirées, et les contrôles incomplets bloquent
@@ -157,7 +210,8 @@ exemples de fiches publiques, avec leurs limites et leur périmètre.
 `Sources` permet d'inspecter les notes conservées pour
 chaque audit et celles destinées aux nouveaux audits. Apple reste la référence
 officielle ; Phiture, AppTweak et SplitMetrics apportent des méthodes de travail.
-La suite porte sur les captures d'écran, cette calibration et les outils de recherche. La
+La revue des captures et leurs briefs sont livrés. La suite porte sur la calibration
+et les outils de recherche. La
 [conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
 spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
 observations, propositions et résultats. La première sélection inclut Apple,
@@ -168,7 +222,8 @@ La préparation des captures comprend désormais une [revue documentaire et troi
 fiches examinées dans le navigateur](../addons/aso/knowledge/visual-research.json) :
 Duolingo, Spotify et Tinder, dans trois domaines différents, le 17 octobre 2026.
 Trois annotations textuelles issues de cette revue sont injectées dans les nouveaux
-audits et visibles dans Sources ; les observations visuelles restent à intégrer.
+audits et visibles dans Sources ; les observations visuelles alimentent la revue
+séparée des captures.
 La revue des affirmations distingue exemples et preuves propres à l'app.
 La tranche recherche devra
 ouvrir trois fiches à chaque exécution, afficher ses sources et sa couverture,
@@ -265,7 +320,7 @@ des workflows pourra venir ensuite, sur la même définition versionnée.
 Références : [graphe GitHub Actions](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-the-visualization-graph)
 (capture officielle examinée) et
 [historique des exécutions n8n](https://docs.n8n.io/build/understand-workflows/understand-executions/view-executions-for-a-single-workflow).
-Le socle commun est maintenant implémenté dans SMM et ASO : trois étapes réelles,
+Le socle commun est maintenant implémenté dans SMM et ASO : étapes propres à chaque tâche,
 journal SSE avec reconnexion et polling de secours, arrêt coopératif et reprise
 des étapes inachevées avec les entrées originales. Les résultats terminés sont
 réutilisés et la trace précédente est conservée. Le worker local utilise la base ;
@@ -305,15 +360,15 @@ dans App Store Connect.
 
 ## Choix des fournisseurs et modèles IA
 
-L'utilisateur doit pouvoir choisir OpenAI, Anthropic (Claude) ou Google (Gemini),
-puis un modèle disponible chez ce fournisseur. Cette exigence s'applique aux
-analyses ASO assistées par IA, au SMM et aux futurs agents. Le catalogue doit
-être configurable et actualisable ; aucun modèle ni compte du développeur de
-Panda Store ne doit être imposé dans une installation indépendante.
+L'utilisateur choisit OpenAI, Anthropic (Claude), Google (Gemini) ou Z.ai (GLM),
+puis un modèle disponible et compatible avec la tâche. Ce choix s'applique aux
+analyses ASO assistées par IA et à SMM ; l'ancienne découverte web côté serveur
+ne prend pas en charge Z.ai. Le catalogue est actualisable ; aucun modèle ni compte
+du développeur de Panda Store n'est imposé dans une installation indépendante.
 
 Chaque espace configure ses propres clés depuis l'interface, avec stockage chiffré
-côté serveur. Un modèle par défaut peut être défini pour l'espace, puis remplacé
-pour une tâche. Le choix doit tenir compte des capacités nécessaires (texte,
+côté serveur. La préférence durable de modèle par espace reste à construire ;
+chaque tâche utilise un choix explicite. Le choix tient compte des capacités nécessaires (texte,
 images, outils) et du budget. Si le modèle est indisponible ou incompatible,
 afficher une erreur explicite ; ne pas envoyer les données à un autre fournisseur
 sans choix de l'utilisateur. Conserver le fournisseur, l'identifiant exact du

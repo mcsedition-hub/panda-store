@@ -28,12 +28,13 @@ clé en tête de `PANDA_CREDENTIAL_KEYS`, suivie de l'ancienne, séparées par u
 Les nouvelles écritures utilisent la première ; conserver les anciennes tant que
 des identifiants ou sauvegardes les utilisent. Il n'existe pas encore d'outil de
 réencryption globale. Déconnecter dans Panda Store ne révoque pas la clé chez Apple.
-Le proxy Compose limite les tentatives sur la connexion ; `runserver` n'inclut
-pas cette limitation. Le compte de démo n'est pas un administrateur Django.
+Le proxy Compose limite les tentatives sur la connexion ; l'API lancée directement
+avec Uvicorn ou `runserver` n'inclut pas cette limitation. Le compte de démo n'est pas
+un administrateur Django.
 
 La configuration locale active `PANDA_SETUP_ENABLED=true` pour créer une organisation
 et son propriétaire au premier lancement. Conserver la liaison à localhost fournie
-par Vite, runserver et Compose : le premier visiteur peut configurer une installation
+par Vite, Uvicorn et Compose : le premier visiteur peut configurer une installation
 vide. L'assistant est protégé par CSRF ; une transaction et un enregistrement unique
 empêchent une seconde configuration. Seul l'ancien compte de démo non administrateur,
 isolé dans son espace prédéfini, peut être repris ; les autres bases avec des comptes
@@ -51,9 +52,17 @@ observabilité, journal d'audit, sauvegardes et restauration testées, budgets
 de tâches et revue de l'isolation doivent être complétés.
 
 Les modules installés sont du code Python de confiance. Ne pas installer un
-module inconnu sans revue. Le verrouillage applicatif des générations ne fournit
-pas encore la récupération automatique après un crash de worker, ni un contrôle
-de conflit lors d'éditions concurrentes d'un même script.
+module inconnu sans revue. Les workflows détectent les baux expirés après un arrêt
+de worker et proposent une reprise explicite des étapes inachevées. Ils ne relancent
+pas automatiquement un appel IA payant. Les brouillons ASO et storyboards détectent
+les conflits de version ; l'édition d'un même script SMM ne dispose pas encore de
+ce contrôle.
+
+La recherche SMM transmet au fournisseur IA choisi le contexte confirmé de l'app,
+le texte capturé et des vues de l'onglet de recherche. Les mots de passe et cookies
+sociaux ne sont pas exportés. Les sources web sont traitées comme des données non
+fiables ; elles n'autorisent aucune commande arbitraire. Voir les
+[limites du connecteur](addons/studio/browser_extension/README.md).
 
 Ne pas publier les détails exploitables d'une vulnérabilité dans une issue.
 Utiliser « Report a vulnerability » dans l'onglet Security du dépôt si le

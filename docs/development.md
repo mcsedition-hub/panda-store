@@ -24,7 +24,7 @@ le backend et le frontend avant de proposer la mise à jour.
 | Variable | Usage |
 | --- | --- |
 | DJANGO_SECRET_KEY | Secret de signature généré localement |
-| PANDA_CREDENTIAL_KEYS | Clés Fernet de cette installation, séparées par des virgules ; première utilisée pour chiffrer les identifiants Apple saisis dans l'interface |
+| PANDA_CREDENTIAL_KEYS | Clés Fernet de cette installation, séparées par des virgules ; première utilisée pour chiffrer les clés Apple, Google Play et IA saisies dans l'interface |
 | DJANGO_DEBUG | Débogage local uniquement |
 | DJANGO_ALLOWED_HOSTS | Hôtes acceptés, séparés par des virgules |
 | DJANGO_CSRF_TRUSTED_ORIGINS | Origines autorisées pour le développement |
@@ -34,6 +34,7 @@ le backend et le frontend avant de proposer la mise à jour.
 | PANDA_DEMO_USERNAME / PASSWORD | Compte de l'ancien outil seed_demo ; les nouveaux comptes sont créés par l'assistant |
 | PANDA_MODULE_PACKAGES | Liste complète des apps de modules installées |
 | PANDA_WORKFLOW_DISPATCH | `database` par défaut pour le worker local ; `celery` dans Compose |
+| PANDA_AI_TIMEOUT_SECONDS | Délai des appels de génération IA, 300 secondes par défaut ; entier entre 30 et 900 |
 | CELERY_TASK_ALWAYS_EAGER | Exécution synchrone des tâches Celery, utilisée dans les tests |
 | CELERY_BROKER_URL | Redis pour les tâches asynchrones |
 | DJANGO_SECURE_COOKIES | Cookies HTTPS par défaut hors DEBUG |
@@ -42,8 +43,10 @@ le backend et le frontend avant de proposer la mise à jour.
 `scripts/bootstrap.py` ne remplace jamais un `.env` existant. L'option explicite
 `--add-credential-key` ajoute uniquement la clé de chiffrement si son entrée est
 absente, pour mettre à jour les anciennes installations. Redémarrer ensuite les
-processus Django et Celery. Les identifiants Apple restent propres à chaque espace
-et sont saisis dans Connections, jamais dans les variables d'environnement.
+processus API et worker. Les identifiants Apple et Google Play restent propres à
+chaque espace et sont saisis dans Connexions. Les clés IA se configurent dans
+Paramètres IA ; une clé dans un fichier d'environnement ne crée pas de connexion
+accessible aux utilisateurs.
 `seed_demo` est conservé pour les anciennes démos et refuse une installation déjà
 configurée. Le démarrage normal ne l'exécute plus. L'assistant crée le propriétaire,
 l'espace et ses modules dans une transaction unique, puis ouvre une session Django.
@@ -57,6 +60,23 @@ SQLite conserve les comptes, organisations, sessions et données métier dans
 Le navigateur ne conserve pas le mot de passe ; le cookie de session identifie
 une session enregistrée côté serveur. L'e-mail est enregistré mais pas vérifié
 par un envoi ; la récupération de mot de passe par e-mail n'est pas encore implémentée.
+
+## Interface, langues et modèles
+
+Les traductions de l'interface sont dans `web/src/i18n`. Le choix français ou anglais
+de l'assistant initial est enregistré sur le compte. Les nouveaux appels IA reçoivent
+cette langue pour leurs analyses ; les textes store et les scripts gardent la langue
+de leur fiche ou de leur brief. Préserver cette distinction lors d'un ajout de champ.
+
+Le sélecteur partagé présente au plus cinq modèles principaux par fournisseur, puis
+une liste complète. Les conseils d'usage et leurs sources sont dans
+`web/src/ai/modelProfiles.ts`. Actualiser le catalogue d'une connexion modifie les
+modèles disponibles, pas ces conseils. Les capacités et réglages affichés doivent
+rester cohérents avec les adaptateurs dans `panda_store/ai`.
+
+Le connecteur Chrome est dans `addons/studio/browser_extension`. Après une modification,
+recharger l'extension depuis `chrome://extensions` ; le tableau de bord se reconnecte
+sans perdre le formulaire. Voir ses [instructions](../addons/studio/browser_extension/README.md).
 
 ## Vérifications
 
@@ -92,7 +112,8 @@ des objets entre espaces, les dépendances des modules, les imports répétés,
 les générations répétées et leurs erreurs. Le frontend teste l'ordre des
 sauvegardes, les retouches, l'approbation et les erreurs réseau.
 
-Les tests locaux utilisent SQLite. Pour tester avec PostgreSQL, fournir une
+Les tests locaux utilisent SQLite ; les contrôles de concurrence qui exigent des
+verrous PostgreSQL sont alors ignorés. Pour tester avec PostgreSQL, fournir une
 base jetable via `TEST_DATABASE_URL` puis lancer pytest. Le compte doit pouvoir
 créer une base de test. Ne jamais utiliser une base de production.
 

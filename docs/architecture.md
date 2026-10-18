@@ -13,7 +13,8 @@ L'activation dans un espace ouvre les fonctionnalités déjà installées.
 
 La première version publique communautaire retient deux modules métier : **ASO et SMM**.
 Le catalogue, les connexions Apple, Google Play et IA et les workflows constituent le socle de ces
-parcours. Le module d'exemple sert au développement d'extensions. Les connexions sociales
+parcours. Le module d'exemple sert au développement d'extensions et reste masqué dans
+la navigation et l'écran Modules. Les connexions sociales
 de publication, l'envoi et la programmation sont réservés à la future version cloud ;
 le connecteur navigateur utilisé pour la recherche fait partie de SMM communautaire.
 Les [critères de finalisation](roadmap.md#prochaine-tranche) portent sur l'installation,
@@ -89,6 +90,28 @@ empêche les imports simultanés de ce compte dans l'installation. L'import a un
 budget de 40 secondes et un nettoyage borné séparé. Une révision modifiée ou une
 connexion supprimée pendant la lecture empêche l'enregistrement des résultats.
 
+L'interface importe une app à la fois. Apple propose le catalogue du compte choisi ;
+Google Play demande le nom de package, son API ne fournissant pas le catalogue complet.
+Le compte et la clé se gèrent dans Connexions, la sélection et l'import dans Mes applications.
+
+### Projets sans fiche store
+
+`MobileApp.origin=project` distingue une idée ou une app en développement d'un import.
+Le catalogue accepte une description saisie, collée ou importée en Markdown, jusqu'à
+20 000 caractères, avec audience et fonctionnalités déclarées comme développées.
+Les modifications créent des instantanés ; les recherches et analyses conservent celui
+utilisé au démarrage dans `app_context`. Aucun compte store ni fiche préécrite n'est requis.
+
+SMM reçoit le descriptif complet et un périmètre confirmé de 4 000 caractères maximum.
+Les propositions ASO et adaptations SMM préparent des textes pour la publication,
+au présent, à partir des fonctionnalités documentées. Le stade interne du projet ne
+devient pas une mention obligatoire dans la publicité. Les questions restantes et
+les médias à fournir restent hors des textes destinés au public. Cette convention
+n'autorise ni fonctionnalités inventées, ni faux témoignages ou résultats, ni affirmation
+de disponibilité sur un store. Écriture et vérification utilisent la même convention.
+
+### Générations
+
 Une génération enregistre le brief et les métadonnées utilisés avant de lancer
 la tâche. Le couple espace/request_id protège contre les requêtes répétées ;
 une réutilisation avec des entrées différentes donne HTTP 409. La tâche verrouille
@@ -109,7 +132,7 @@ pour le navigateur de l'utilisateur ; l'ancien parcours de pages publiques côt�
 reste accessible séparément. La publication automatique est réservée au cloud et reste
 à construire.
 
-## Évolutions prévues
+## Fournisseurs IA et langues
 
 ASO et SMM sont des modules distincts ; un audit ASO n'est pas requis pour utiliser SMM.
 Les règles ASO vérifiables par code restent
@@ -118,7 +141,8 @@ source officielle et sa date. Les scripts référencent l'instantané de la fich
 utilisé, afin que les générations restent traçables.
 
 Le socle `panda_store.ai` propose OpenAI (Responses + JSON Schema), Google Gemini
-(generateContent + JSON Schema) et Anthropic Claude (outil de réponse structuré).
+(generateContent + JSON Schema), Anthropic Claude (outil de réponse structuré) et
+Z.ai GLM (Chat Completions et validation locale du schéma JSON).
 `AIConnection` conserve la clé chiffrée et un catalogue par fournisseur/espace.
 Seul le propriétaire peut connecter, remplacer, actualiser ou retirer une connexion.
 Les membres lisent uniquement l’état et le catalogue. Les modèles textuels sont filtrés
@@ -132,28 +156,30 @@ ou d’écraser un remplacement concurrent. Les clés d’environnement ne devie
 implicitement accessibles à tous les espaces. L’interface ASO choisit explicitement
 le modèle pour chaque analyse ; il n’existe pas encore de préférence de modèle durable.
 
-Pour Gemini, le catalogue conserve aussi la capacité `thinking` déclarée par l’API
-(absente = inconnue). Le module ASO fournit une sélection courte au composant commun :
-Gemini 3.8 Flash et Gemini 4 Argon, versions stables avec raisonnement et sortie structurée
-selon les fiches Google relues le 16 octobre 2026. Elle est intersectée avec le catalogue
-de la clé de chaque espace et exige `thinking: true`. Aucun modèle n’est choisi automatiquement.
-« Show other models » donne accès aux autres modèles compatibles, dont les versions Lite,
-preview et alias mobiles. Les anciennes connexions doivent actualiser leur catalogue pour
-obtenir la nouvelle capacité. Une clé sans modèle suggéré peut toujours afficher les autres.
-Cette sélection est un conseil de départ, pas un classement mesuré de qualité ASO ; elle
-appartient au module et doit être révisée à l’évolution des modèles.
+Le composant partagé affiche au plus cinq modèles principaux par fournisseur et une
+action pour voir les autres. `web/src/ai/modelProfiles.ts` décrit leurs usages, vitesse
+relative, capacités visuelles, raisonnement et réglages effectifs, avec sources et date
+de revue. La sélection croise ces profils avec le catalogue de la connexion ; actualiser
+le catalogue ne réécrit pas les conseils. Chaque module signale un modèle recommandé
+compatible avec la tâche, sans le sélectionner ni lancer d'appel automatiquement.
+Les modèles inconnus gardent leurs caractéristiques non vérifiées. Il s'agit de conseils
+éditoriaux, pas d'un classement mesuré de qualité ASO ou SMM.
 
-L’adaptateur envoie explicitement `thinkingLevel: medium` aux deux modèles suggérés,
-conformément au défaut documenté ; ce paramètre est obligatoire pour Gemini 4.
-La limite de sortie (12 000 tokens pour la revue ASO complète) inclut le raisonnement
-chez Gemini et peut interrompre une réponse :
-l’analyse échoue alors explicitement sans enregistrer une proposition incomplète ni
-relancer un appel payant automatiquement. Les autres modèles gardent leurs réglages
-fournisseur par défaut ; notamment, supporter le raisonnement ne signifie pas l’activer
-par défaut sur toutes les versions Lite.
-Sources : [catalogue Google](https://ai.google.dev/gemini-api/docs/models),
-[capacité thinking](https://ai.google.dev/api/models),
-[réglages du raisonnement](https://ai.google.dev/gemini-api/docs/generate-content/thinking).
+Les tâches avec captures exigent un modèle capable d'analyser des images. Le sélecteur
+ne génère pas d'images. Z.ai utilise un catalogue maintenu dans l'application et une
+clé API standard ; la recherche sociale navigateur est compatible avec ses modèles
+visuels, mais l'ancienne découverte web côté serveur ne l'est pas. Les détails de
+connexion et validations réelles sont dans le [guide des connexions](connections.md).
+
+Les limites de sortie peuvent inclure le raisonnement selon le fournisseur. Une réponse
+tronquée échoue explicitement sans proposition incomplète ni nouvel appel payant
+automatique. Les réglages affichés doivent rester alignés sur les adaptateurs serveur.
+
+Le choix français ou anglais de l'assistant initial est enregistré dans `User.language`.
+Les workflows figent la langue des nouvelles analyses et explications ; les textes store
+suivent la locale choisie et les scripts la langue de leur brief. Un nouveau brief prend
+par défaut celle du compte. Changer de langue ne traduit ni les imports ni les résultats
+déjà sauvegardés.
 
 Les futurs agents devront conserver les sources et dates de leurs observations,
 les actions effectuées et les coûts. Les connecteurs de stores et réseaux
@@ -161,8 +187,8 @@ sociaux auront des interfaces séparées. La veille et la génération peuvent
 s'exécuter en tâches ; dans la future édition cloud, une publication nécessitera un contenu validé, une
 destination explicite et un mécanisme de reprise idempotent.
 
-Les quotas, budgets IA, stockage durable des médias,
-facturation et opérations cloud ne font pas partie de cette alpha.
+Les budgets IA, la facturation et les opérations cloud restent à construire. Les médias
+de l'alpha sont conservés en base avec des quotas locaux décrits dans le [guide SMM](smm.md).
 
 ### Retours d’action et erreurs fournisseur
 
@@ -208,8 +234,9 @@ les dépendances, les états, les dates et les événements ordonnés. SMM fige
 l'instantané, le brief et le fournisseur dans `GenerationRun`. Les anciennes
 générations restent lisibles sans inventer d'événements historiques.
 
-Le parcours actuel est séquentiel : lire les métadonnées et le brief, produire
-les trois modèles de scripts, puis les enregistrer pour revue. Un contrat de
+Les parcours actuels sont séquentiels, avec des étapes propres à chaque tâche ASO ou SMM.
+La génération IA vérifie le contexte, rédige les propositions, relit leurs affirmations
+puis les enregistre pour revue humaine. Un contrat de
 module déclare ses étapes et un adaptateur `workflow.RUNNERS` associe une clé et
 une version à son exécuteur. Les dépendances sont vérifiées à la création ; le
 worker local charge seulement les adaptateurs des packages déjà installés dans
@@ -277,6 +304,22 @@ valeur vide. Les imports antérieurs utilisent uniquement les champs présents.
 Une langue absente ne bénéficie jamais d'un repli implicite sur la langue principale.
 La reprise garde l'import original ; changer les règles impose de changer leur
 version et celle du workflow. Un rapport sauvegardé n'est pas recalculé à la lecture.
+
+Au retour dans ASO, l'interface restaure l'audit consulté ou actif, sa langue et son type.
+L'historique permet de relire les rapports sans relancer le modèle. La comparaison place
+deux analyses terminées côte à côte et permet de choisir chaque champ depuis A ou B.
+La création du brouillon conserve la provenance par champ et n'appelle pas l'IA.
+Des langues ou types d'analyse différents restent comparables, mais leurs propositions
+ne peuvent pas être fusionnées. Les différences de version source sont signalées.
+
+Pour un projet iOS ou sans plateforme choisie, le workflow de préparation analyse le
+positionnement, l'audience, les intentions de recherche et les informations manquantes,
+puis propose les cinq champs Apple, dont le texte promotionnel de 170 caractères.
+Il valide longueurs, citations exactes du projet et sources par champ avant une revue
+séparée. Un rejet structurel conserve la réponse et le motif dans un checkpoint privé ;
+une reprise explicite demande une correction, puis la vérifie. Une vérification interrompue
+réutilise la rédaction sauvegardée. Le projet, le modèle et les sources restent figés.
+Le brouillon proposé reste distinct du projet et n'est jamais publié automatiquement.
 
 Le [catalogue de sources](../addons/aso/knowledge/sources.json) distingue les
 références disponibles des [annotations utilisées](../addons/aso/knowledge/editorial.json).
@@ -619,10 +662,11 @@ compte de ces références. L'API d'image vérifie l'appartenance au workspace e
 l'activation du module, avec cache privé désactivé. Aucun octet d'image n'apparaît
 dans les réponses d'historique ou les événements du workflow.
 
-Les formats officiels des trois transports sont documentés ici :
+Les transports utilisent les formats d'images des fournisseurs :
 [OpenAI Responses](https://developers.openai.com/api/docs/guides/images-vision),
 [Gemini Generate Content](https://ai.google.dev/gemini-api/docs/generate-content/image-understanding),
-[Claude Messages](https://platform.claude.com/docs/en/build-with-claude/vision).
+[Claude Messages](https://platform.claude.com/docs/en/build-with-claude/vision) et
+[Z.ai GLM vision](https://docs.z.ai/guides/vlm/glm-4.6v).
 Les mêmes octets et identifiants d'image accompagnent les deux appels. Aucun modèle
 alternatif n'est appelé automatiquement. Les erreurs d'accès, quota, délai ou
 incompatibilité remontent dans le workflow existant.
@@ -699,9 +743,10 @@ Panda Store qui les a demandées. Aucune commande JavaScript arbitraire n'est ex
 et normalisés, limites de couverture et revue. Les captures sont immuables par URL/session
 et protégées par les mêmes droits d'espace. La validation serveur ne transforme pas un
 compteur ambigu ou absent en zéro ou en preuve. Après filtres déterministes, deux appels
-distincts analysent puis vérifient la pertinence et les observations. Trois sources qualifiées
-distinctes sont figées dans `GenerationRun.inputs` avec `mode=smm` ; chaque variante garde
-sa source et son format, contrôlés aussi côté serveur. Les faits produit restent confirmés
+distincts analysent puis vérifient la pertinence et les observations. Une à trois sources
+qualifiées distinctes sont figées dans `GenerationRun.inputs` avec `mode=smm` ; chaque
+source produit exactement une variante qui garde son format. Le serveur contrôle le
+nombre, les numéros consécutifs et la correspondance des sources. Les faits produit restent confirmés
 par l'auteur et les propositions passent par une revue séparée avant sauvegarde.
 
 `GET social-research/<id>/references/` propose les références qualifiées des autres
@@ -710,8 +755,8 @@ import, les mêmes faits produit confirmés, la même audience et le même march
 Le serveur revérifie la pertinence, la revue et les seuils de performance de la recherche
 cible, sans refaire d'appels IA ni modifier les captures. Les URLs déjà présentes dans
 la recherche cible sont exclues ; les autres sont dédupliquées. L'adaptation vérifie
-à nouveau ces conditions sous verrou, refuse trois identifiants représentant moins de
-trois URLs, puis fige les métriques, l'analyse, le format et la recherche d'origine de
+à nouveau ces conditions sous verrou, refuse les identifiants et URLs en double,
+puis fige les métriques, l'analyse, le format et la recherche d'origine de
 chaque source. Les compteurs restent des observations datées, sans actualisation implicite.
 Le test réel de réutilisation a sauvegardé un lot MonTri UGC TikTok / carrousel Instagram /
 texte Facebook. Après la revue IA, une correction manuelle tracée a raccourci la voix off
@@ -720,6 +765,23 @@ accidentelle. Les brouillons restent non approuvés. Les consignes demandent une
 compatible avec la durée cible et les médias originaux à fournir. L'historique des
 corrections est conservé dans l'audit, mais les anciennes idées corrigées ne sont pas
 renvoyées au modèle comme inspiration.
+
+L'interface affiche les quatre premières références qualifiées du filtre réseau courant,
+puis une action pour montrer les suivantes. Les autres publications, y compris celles
+en attente d'analyse, sont masquées derrière une action distincte. Les sélections sont
+conservées quand un filtre ou un repli masque une carte. Une nouvelle recherche ouvre un
+formulaire sans effacer les sessions et générations précédentes ; leur consultation
+n'entraîne aucun appel IA.
+
+Le connecteur 0.1.8, protocole 1, reconnecte les tableaux de bord locaux ouverts après
+installation, mise à jour ou démarrage du navigateur, sans rejouer une commande de
+recherche. La version 0.1.7 reste compatible. Une installation par dossier exige toujours
+un rechargement manuel de l'extension pour appliquer les nouveaux fichiers. La collecte
+est bornée à 12 publications et 24 candidats examinés par tentative. Les vues Instagram
+manquantes peuvent être vérifiées sur la grille Reels du créateur, uniquement avec le
+shortcode exact et un compteur de vues identifié. Sa capture occupe la dernière des
+trois images possibles ; une donnée inaccessible reste inconnue. Les images, carrousels
+et textes passent le filtre de mentions J'aime ; les vidéos exigent aussi les vues.
 
 Les collecteurs sociaux sont une première version. La collecte
 reste limitée au texte et à trois vues échantillonnées, sans audio ni couverture complète
@@ -734,7 +796,7 @@ a aussi été corrigée après la revue IA : celle-ci reste faillible. Le test s
 enregistré 12 publications Instagram et trouvé des liens Google. Les deux présentations
 Instagram, les compteurs, les dates et les carrousels contenant de la vidéo ont été corrigés.
 Le budget de collecte alterne les réseaux et les filtres de performance s'appliquent avant
-les appels IA, y compris les vues manquantes. Le connecteur 0.1.3 résout jusqu'à trois liens
+les appels IA, y compris les vues manquantes. Le connecteur résout jusqu'à trois liens
 Facebook masqués par requête :
 le collecteur DOM identifie une date dans une carte explicitement publique, vérifie
 qu'elle est visible et non recouverte, puis le service utilise des événements pointeur
@@ -785,12 +847,15 @@ Parcours communautaire cible (étapes 1 à 5), suivi de l'extension cloud prévu
    pour chaque plateforme et type de compte.
 
 Les briefs, sources, faits produit, connexions IA et journaux de workflows existants
-constituent un socle réutilisable. La recherche publique actuelle et ses trois références
-de fiches stores ne qualifient pas trois contenus sociaux viraux. Les scènes et exports
+constituent un socle réutilisable. L'ancienne recherche sur pages publiques et ses
+références de fiches stores ne qualifient pas des contenus sociaux viraux. Les scènes et exports
 MP4 sont des outils complémentaires ; ils ne déterminent ni le format des adaptations
 ni la prochaine priorité. La synthèse vocale n'est pas la prochaine tranche.
 
-### Veille avant création dans SMM — état actuel
+### Recherche sur pages publiques (ancienne version)
+
+Ce parcours côté serveur reste accessible séparément de la recherche sociale principale
+avec le connecteur Chrome. Ses pages et observations ne sont pas des `SocialPost` qualifiés.
 
 `ResearchRun` fige l'import, le sujet, le marché, le fournisseur/modèle et la révision
 de connexion. Le workflow `studio.research` suit six étapes : contrôle du navigateur,
@@ -849,7 +914,7 @@ la vérification peuvent être facturées à nouveau. Le rapport d'origine est c
 La consommation enregistrée dans une étape réutilisée vient de la tentative d'origine ;
 le journal indique sa réutilisation, ce n'est pas un nouvel appel facturé.
 
-### Création IA depuis la veille
+### Création IA depuis les pages publiques (ancienne version)
 
 Le brief conserve une session `ResearchRun` et un à trois identifiants de pages dont
 les observations ont été retenues. Le serveur vérifie l'app, l'espace, le statut terminé
@@ -865,9 +930,11 @@ effectué par Panda Store. La requête normalisée et les entrées sont figées 
 sans consulter un nouvel import ou une nouvelle clé ; une réutilisation de l'identifiant
 avec un contenu différent est refusée. Une génération active par espace est autorisée.
 
-Le workflow `studio.ai_scripts` vérifie le contexte, écrit trois scripts, effectue une
+Dans ce parcours, le workflow `studio.ai_scripts` vérifie le contexte, écrit trois scripts, effectue une
 seconde revue et sauvegarde les sorties. Les adaptateurs structurés existants sont
-réutilisés pour les trois fournisseurs. Le format suit la
+réutilisés pour les quatre fournisseurs. Ce parcours historique produit toujours trois
+scripts ; le parcours social principal utilise le même workflow avec une adaptation
+par source sélectionnée. Le format suit la
 [documentation officielle OpenAI sur les sorties structurées](https://developers.openai.com/api/docs/guides/structured-outputs),
 consultée le 17 octobre 2026 ; un schéma valide ne garantit pas un contenu correct.
 Les variantes, limites de champs, références connues, citations de faits produit et
@@ -905,8 +972,8 @@ des droits et verrou du storyboard protègent les écritures. Une réponse perdu
 la même requête ; un conflit conserve les retouches locales et impose un rechargement explicite.
 Les modifications du script signalent un décalage, sans réécrire le storyboard.
 
-Les visuels proviennent exclusivement d'une capture du snapshot de l'app désignée, jamais
-d'une URL libre ni des captures concurrentes. Le téléchargement et le décodage bornés sont
+Les visuels importés du store proviennent d'une capture du snapshot de l'app désignée,
+jamais d'une URL libre ni des captures concurrentes. Le téléchargement et le décodage bornés sont
 partagés avec ASO dans `panda_store.core.images`, sans dépendance fonctionnelle à ce module.
 Téléchargement HTTPS sur hôtes d'images Apple ou Google autorisés, sans redirection, 12 secondes/8 MB maximum ;
 raster fixe JPEG/PNG/WebP, 20 mégapixels maximum, dérivé JPEG de 2048 px et 1.5 MB maximum.
@@ -915,8 +982,22 @@ La liste des visuels ne charge pas leurs données binaires. Les miniatures non a
 des CDN Apple et Google sans referrer ; leur sélection archive une copie locale. L'activation SMM et
 les droits d'écriture sont revérifiés après le téléchargement avant la sauvegarde.
 
-Le preview React séquence les images en 9:16, sans recadrage, avec textes superposés et
-lecture/pause/position. Aucun son ni fichier vidéo n'est produit. L'export ZIP cible une révision
-précise, valide les empreintes des images et contient `storyboard.json`, `storyboard.md` et les
-JPEGs sélectionnés sous noms UUID fixes. Les images, exports et plans demandent une adhésion
-à l'espace et SMM activé. Les lecteurs peuvent consulter et exporter, sans modifier.
+La bibliothèque accepte aussi les images PNG/JPEG/WebP, vidéos H.264 MP4 et fichiers
+audio MP3/M4A/WAV fournis par l'utilisateur. FFmpeg et ffprobe vérifient les enregistrements
+sur l'API et le worker. Le stockage en base est limité à 60 fichiers et 200 MB par app,
+avec 25 MB par envoi et 120 secondes par enregistrement. Une révision de storyboard
+qui référence un média empêche sa suppression.
+
+Le preview React séquence les images et vidéos en 9:16, sans recadrage, avec textes
+superposés et lecture/pause/position. Cet aperçu est silencieux. L'export ZIP cible une
+révision précise, valide les empreintes et contient `storyboard.json`, `storyboard.md`
+et les médias sélectionnés sous noms UUID fixes. Les images, exports et plans demandent
+une adhésion à l'espace et SMM activé. Les lecteurs peuvent consulter et exporter,
+sans modifier.
+
+Le workflow de rendu MP4 utilise FFmpeg pour une révision sauvegardée, en 1080 × 1920
+à 30 images/seconde, avec textes et audio choisi. Chaque plan exige une image ou une
+vidéo et le total ne dépasse pas 120 secondes. Un audio attaché remplace celui de la
+vidéo ; le texte de voix off n'est pas synthétisé. Les exports et plans rendus partagent
+un quota de 500 MB par espace. Arrêt et reprise suivent le socle commun, avec réutilisation
+des plans terminés. Les limites détaillées figurent dans le [guide SMM](smm.md#plan-scenes-and-prepare-an-editing-package).
