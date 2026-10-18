@@ -56,13 +56,26 @@ Start the backend, workflow worker and frontend in three separate terminals:
 npm --prefix web run dev
 ```
 
-Open **http://127.0.0.1:5173**. On the first visit, name your organization and choose
-your username, email and password. Panda Store saves the organization and account
+Open **http://127.0.0.1:5173**. On the first visit, choose English or French, name
+your organization and choose your username, email and password. Panda Store saves the organization and account
 in this installation's database, stores a password hash, and opens the console.
 Returning visits open the console while your session is valid; after signing out
 or session expiry, sign in with the account you created. There is no cloud account
 or email delivery during setup.
-ASO and SMM are enabled in the new workspace, alongside the app catalog and Apple import.
+ASO and SMM are enabled in the new workspace, alongside the app catalog and store connections.
+If your app is not on a store yet, choose **My apps → Create a project**. Type or
+paste your idea, or import a `.md` / `.markdown` file. Choose **Idea** or
+**In development**, describe the audience and distinguish planned features from
+those already implemented. The description is editable and accepts up to 20,000
+characters. No store account is required. SMM can research comparable apps and
+prepare launch content from this context. In ASO, choose an AI model and select
+**Analyze idea and suggest listing** to get positioning analysis and a first App Store
+listing. ASO proposes the name, subtitle, description, keywords and promotional text;
+you can then save and edit the complete proposal in **Drafts**.
+The interface language chosen during setup is saved in your account.
+New AI analyses and explanations follow this language, including evidence reviews.
+Store copy keeps the listing locale; scripts follow the language selected in their brief.
+New briefs default to the account language. Imported listings and earlier results are preserved.
 
 The local configuration enables `PANDA_SETUP_ENABLED=true`. Setup can run only once.
 To update an earlier alpha, add this setting to `.env` and run migrations: the
@@ -70,7 +83,7 @@ single seeded demo workspace can be renamed and claimed without losing its apps.
 Installations with other existing accounts retain sign-in. The bootstrap script
 preserves existing `.env` files; this file contains secrets and must never be published.
 
-Choose **Connections → Try with demo apps**, import **Runclub**, then use the **SMM** to create
+Choose **My apps → Import an app → Store → Demo apps**, import **Runclub**, then use **SMM** to create
 three directions from **Scripts → Demo templates · No AI**. You can also open **ASO → Run audit**
 with **Rules only · No AI**. These two paths require no paid key. Browser research uses a
 connected AI provider and the Chrome connector; its billing and coverage limits are shown
@@ -80,4 +93,4 @@ external account or paid AI key is required. Keep the worker terminal running;
 restart it after changing backend code. After updating an existing installation,
 install the requirements and run migrations before restarting these processes.
 
-For Apple imports, follow [Connections](connections.md). For research, install the [SMM browser connector](smm.md#social-research-in-your-browser).
+For App Store Connect and Google Play imports, follow [Connections](connections.md). For research, install the [SMM browser connector](smm.md#social-research-in-your-browser).

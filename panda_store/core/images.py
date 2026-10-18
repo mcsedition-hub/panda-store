@@ -1,4 +1,4 @@
-"""Bounded raster decoding and imported Apple image downloads shared by modules."""
+"""Bounded raster decoding and imported store image downloads shared by modules."""
 
 import asyncio
 import hashlib
@@ -10,13 +10,22 @@ from urllib.parse import urlsplit
 import httpx
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+STORE_IMAGE_HOSTS = {
+    "apple_store": r"is\d+-ssl\.mzstatic\.com",
+    "google_play": r"(?:play-lh\.googleusercontent\.com|lh\d+\.(?:googleusercontent|ggpht)\.com)",
+}
 
-def allowed_url(url):
+
+def allowed_url(url, *, store=None):
     try:
         parsed = urlsplit(url)
         return (
             parsed.scheme == "https"
-            and re.fullmatch(r"is\d+-ssl\.mzstatic\.com", parsed.hostname or "") is not None
+            and any(
+                re.fullmatch(pattern, parsed.hostname or "") is not None
+                for provider, pattern in STORE_IMAGE_HOSTS.items()
+                if store in (None, provider)
+            )
             and parsed.port in {None, 443}
             and parsed.username is None
             and parsed.password is None
@@ -28,14 +37,14 @@ def allowed_url(url):
 
 async def download(url, *, max_download=8_000_000):
     if not allowed_url(url):
-        raise ValueError("The imported image is not on a supported Apple image host.")
+        raise ValueError("The imported image is not on a supported store image host.")
     async with asyncio.timeout(12):
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(10, connect=5), follow_redirects=False
         ) as client:
             async with client.stream("GET", url) as response:
                 if response.status_code != 200:
-                    raise ValueError("Apple could not provide this image. Refresh the import.")
+                    raise ValueError("The store could not provide this image. Refresh the import.")
                 data = bytearray()
                 async for chunk in response.aiter_bytes():
                     data.extend(chunk)

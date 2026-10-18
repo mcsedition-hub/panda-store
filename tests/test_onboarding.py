@@ -97,6 +97,7 @@ def test_setup_cannot_be_repeated_or_reset_by_a_new_visitor(setup_client, detail
     [
         {"organization_name": "   "},
         {"email": "invalid"},
+        {"language": "de"},
         {"username": "with spaces"},
         {"password": "password", "password_confirmation": "password"},
         {"password_confirmation": "different-password"},

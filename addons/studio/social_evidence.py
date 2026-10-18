@@ -10,7 +10,7 @@ from PIL import Image
 from rest_framework.exceptions import ValidationError
 
 PLATFORMS = ("tiktok", "instagram", "facebook", "google")
-FORMATS = ("carousel", "ugc", "text", "montage", "human_video", "video", "unknown")
+FORMATS = ("carousel", "image", "ugc", "text", "montage", "human_video", "video", "unknown")
 HOSTS = {
     "tiktok": {"www.tiktok.com", "tiktok.com"},
     "instagram": {"www.instagram.com", "instagram.com"},
@@ -143,20 +143,46 @@ def validate_capture(data):
     frames = data.get("frames", [])
     if not isinstance(frames, list) or len(frames) > 3:
         raise ValidationError("At most three frames per post.")
-    validated_frames = []
-    for frame in frames:
-        if not isinstance(frame, str) or len(frame) > 275000:
-            raise ValidationError("The captured frame is too large.")
-        try:
-            raw = base64.b64decode(frame, validate=True)
-            with Image.open(io.BytesIO(raw)) as image:
-                if image.format != "JPEG" or image.width * image.height > 3000000:
-                    raise ValueError()
-                image.verify()
-        except Exception:
-            raise ValidationError("Invalid JPEG evidence.") from None
-        validated_frames.append(frame)
+    validated_frames = [validate_frame(frame) for frame in frames]
+    if validated_frames != frames:
+        note = "High-resolution viewport captures were resized to fit evidence limits."
+        clean["coverage"] = clean["coverage"][: 999 - len(note)] + "\n" + note
     return clean, metrics, validated_frames
+
+
+# CSS pixels and screenshot pixels differ on Retina/HiDPI displays. Keep the
+# connector's existing upload budget, then bound decoded input and stored output.
+MAX_FRAME_LENGTH = 275000
+MAX_INPUT_PIXELS = 20000000
+FRAME_SIZE = (1200, 1600)
+
+
+def validate_frame(frame):
+    if not isinstance(frame, str) or len(frame) > MAX_FRAME_LENGTH:
+        raise ValidationError("The captured frame is too large.")
+    try:
+        raw = base64.b64decode(frame, validate=True)
+        with Image.open(io.BytesIO(raw)) as image:
+            if image.format != "JPEG":
+                raise ValueError()
+            if image.width * image.height > MAX_INPUT_PIXELS:
+                raise ValidationError("The captured frame resolution is too large.")
+            # JPEG verify() alone does not decode the pixel data. Reject truncated
+            # and corrupt streams before preserving or resizing a capture.
+            image.load()
+            if image.width <= FRAME_SIZE[0] and image.height <= FRAME_SIZE[1]:
+                return frame
+            image.thumbnail(FRAME_SIZE, Image.Resampling.LANCZOS)
+            normalized = image.convert("RGB")
+            for quality in (75, 55, 35):
+                output = io.BytesIO()
+                normalized.save(output, "JPEG", quality=quality, optimize=True)
+                encoded = base64.b64encode(output.getvalue()).decode("ascii")
+                if len(encoded) <= MAX_FRAME_LENGTH:
+                    return encoded
+    except (ValueError, OSError, Image.DecompressionBombError):
+        raise ValidationError("Invalid JPEG evidence.") from None
+    raise ValidationError("The captured frame is too large.")
 
 
 def qualify(evidence, metrics, thresholds, *, content_format=None):
@@ -166,7 +192,7 @@ def qualify(evidence, metrics, thresholds, *, content_format=None):
         reasons.append("The post could not be observed: " + evidence["blocked_reason"])
     if fmt == "unknown":
         reasons.append("Content format is not established.")
-    keys = ["likes"] if fmt in {"carousel", "text"} else ["views", "likes"]
+    keys = ["likes"] if fmt in {"carousel", "image", "text"} else ["views", "likes"]
     for key in keys:
         actual = metrics.get(key, {}).get("value")
         minimum = thresholds["min_" + key]

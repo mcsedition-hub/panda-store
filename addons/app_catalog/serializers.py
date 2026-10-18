@@ -22,6 +22,7 @@ class AppSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "platform",
+            "origin",
             "bundle_id",
             "external_id",
             "is_demo",

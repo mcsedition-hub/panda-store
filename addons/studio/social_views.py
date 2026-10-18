@@ -1,4 +1,5 @@
 import base64
+import copy
 import io
 import json
 import zipfile
@@ -15,7 +16,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
-from panda_store.ai.providers import PROVIDERS
+from panda_store.ai.providers import PROVIDERS, ProviderError, check_capabilities
 from panda_store.core.access import workspace_access
 from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows import services
@@ -24,7 +25,7 @@ from .creative_ai import VERSION
 from .creative_views import ScriptBrief, no_active
 from .models import GenerationRun, SocialPost, SocialResearch
 from .serializers import RunSerializer
-from .social_evidence import PLATFORMS, qualify, validate_capture
+from .social_evidence import PLATFORMS, post_url, qualify, validate_capture
 from .views import dispatch_generation
 from .workflow import create_ai_workflow
 
@@ -47,13 +48,17 @@ class Start(serializers.Serializer):
 
 class Adapt(serializers.Serializer):
     request_id = serializers.UUIDField()
-    post_ids = serializers.ListField(child=serializers.UUIDField(), min_length=3, max_length=3)
+    post_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1, max_length=3)
 
 
 def connection(workspace, provider, model):
     item = AIConnection.objects.filter(workspace=workspace, provider=provider).first()
     if not item or model not in [m["id"] for m in item.model_catalog]:
         raise ValidationError("Connect an AI provider and choose an available model.")
+    try:
+        check_capabilities(provider, model, images=True)
+    except ProviderError as exc:
+        raise ValidationError(str(exc)) from None
     return {
         "provider": provider,
         "model": model,
@@ -171,6 +176,23 @@ def launch(session, user, kind):
     transaction.on_commit(lambda: dispatch(workflow.pk))
 
 
+def adaptation_brief(inputs, language):
+    brief = copy.deepcopy(inputs["brief"])
+    # Earlier browser searches automatically selected concept feedback for every
+    # project. New adaptations use launch copy without rewriting saved research.
+    if inputs.get("app_context", {}).get("origin") == "project" and brief["goal"] in {
+        "Present the unpublished concept and gather feedback.",
+        "Present the concept and gather feedback.",
+        "Présenter le concept et recueillir des retours.",
+    }:
+        brief["goal"] = (
+            "Donner envie d’essayer l’application."
+            if language == "fr"
+            else "Encourage people to try the app."
+        )
+    return brief
+
+
 @api_view(["GET", "POST"])
 def sessions(request, workspace_id, app_id):
     workspace = workspace_access(
@@ -206,9 +228,19 @@ def sessions(request, workspace_id, app_id):
             created_by=request.user,
             inputs={
                 **operation,
+                "app_context": snapshot.data.get("project", {}),
+                "response_language": request.user.language,
                 "metadata": {
                     k: str(snapshot.data.get(k, ""))[:8000]
-                    for k in ("name", "subtitle", "description", "category", "locale")
+                    for k in (
+                        "name",
+                        "subtitle",
+                        "short_description",
+                        "description",
+                        "category",
+                        "locale",
+                        "platform",
+                    )
                 },
                 "ai": ai,
                 "facts_confirmed_at": timezone.now().isoformat(),
@@ -264,7 +296,10 @@ def detail(request, workspace_id, session_id):
             message = request.data.get("message")
             if not isinstance(message, str) or not 1 <= len(message) <= 500:
                 raise ValidationError("Invalid browser activity.")
-            event(session, message)
+            source_url = request.data.get("url", "")
+            if not isinstance(source_url, str) or len(source_url) > 2048:
+                raise ValidationError("Invalid browser activity.")
+            event(session, message, post_url(source_url)[1] if source_url else "")
         else:
             raise ValidationError("Unknown research action.")
         session.save()
@@ -318,15 +353,18 @@ def adapt(request, workspace_id, session_id):
             if old.request != operation or old.app_id != session.app_id:
                 return Response({"error": "Request ID already used."}, status=409)
             return Response(RunSerializer(old).data)
-        if session.status != "completed" or len(set(operation["post_ids"])) != 3:
-            raise ValidationError("Select three distinct qualified posts from completed research.")
+        count = len(operation["post_ids"])
+        if session.status != "completed" or len(set(operation["post_ids"])) != count:
+            raise ValidationError(
+                "Select one to three distinct qualified posts from completed research."
+            )
         posts = {
             str(p.pk): p for p in compatible_posts(session).filter(pk__in=operation["post_ids"])
         }
         current_urls = set(session.posts.values_list("url", flat=True))
         if (
-            len(posts) != 3
-            or len({p.url for p in posts.values()}) != 3
+            len(posts) != count
+            or len({p.url for p in posts.values()}) != count
             or any(
                 not passes_current_filters(p, session)
                 or (p.research_id != session.pk and p.url in current_urls)
@@ -334,8 +372,9 @@ def adapt(request, workspace_id, session_id):
             )
         ):
             raise ValidationError(
-                "Choose three different qualified posts for this app, with matching confirmed "
-                "features, audience, market and app import. Current performance filters apply."
+                "Choose one to three different qualified posts for this app, with matching "
+                "confirmed features, audience, market and app import. "
+                "Current performance filters apply."
             )
         no_active(workspace)
         sources = [
@@ -365,10 +404,12 @@ def adapt(request, workspace_id, session_id):
             provider=session.inputs["ai"]["provider"],
             inputs={
                 "version": VERSION,
+                "response_language": request.user.language,
                 "mode": "smm",
+                "app_context": session.inputs.get("app_context", {}),
                 "snapshot_id": session.inputs["snapshot_id"],
                 "metadata": session.inputs["metadata"],
-                "brief": session.inputs["brief"],
+                "brief": adaptation_brief(session.inputs, request.user.language),
                 "research_id": str(session.pk),
                 "sources": sources,
                 "facts_confirmed_at": session.inputs["facts_confirmed_at"],

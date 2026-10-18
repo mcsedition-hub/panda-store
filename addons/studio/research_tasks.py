@@ -15,6 +15,7 @@ from django.conf import settings
 from django.db import close_old_connections, connections
 from playwright.sync_api import sync_playwright
 
+from panda_store.ai.context import include_app_context
 from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.workflows import services
@@ -146,11 +147,16 @@ def research(workflow_id):
                 choice["provider"],
                 analysis.connection(run),
                 choice["model"],
-                {
-                    "app": run.inputs["app"],
-                    "topic": run.inputs["topic"],
-                    "market": run.inputs["market"],
-                },
+                include_app_context(
+                    run.inputs,
+                    {
+                        "app": run.inputs["app"],
+                        "topic": run.inputs["topic"],
+                        "market": run.inputs["market"],
+                        "purpose": "smm_launch",
+                    },
+                ),
+                response_language=run.inputs.get("response_language", "en"),
             )
             services.complete_step(
                 workflow_id,

@@ -1,3 +1,4 @@
+import { t, getLocale } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
@@ -117,11 +118,11 @@ export default function VideoExports({
     }
   }
   return (
-    <section className="video-exports" aria-label="Video exports">
+    <section className="video-exports" aria-label={t('Video exports')}>
       <div className="storyboard-toolbar">
         <div>
-          <h3>Video</h3>
-          <p className="note">MP4 · 1080 × 1920 · Up to 120 seconds</p>
+          <h3>{t('Video')}</h3>
+          <p className="note">{t('MP4 · 1080 × 1920 · Up to 120 seconds')}</p>
         </div>
         <button
           className="button primary"
@@ -130,38 +131,49 @@ export default function VideoExports({
           }
           onClick={() => start()}
         >
-          {busy ? 'Starting…' : uncertain ? 'Check render request' : `Render MP4 · v${version}`}
+          {busy
+            ? t('Starting…')
+            : uncertain
+              ? t('Check render request')
+              : t('Render MP4 · v{0}', version)}
         </button>
       </div>
-      {dirty && <p className="note">Save storyboard changes before starting a new render.</p>}
+      {dirty && (
+        <p className="note">{t('Save storyboard changes before starting a new render.')}</p>
+      )}
       {loaded && !available && (
         <p className="notice">
-          Install FFmpeg and ffprobe on the API and worker to enable video rendering. Docker
-          includes them.
+          {t(
+            'Install FFmpeg and ffprobe on the API and worker to enable video rendering. Docker includes them.',
+          )}
         </p>
       )}
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {!loaded && error && (
         <button className="text-button" onClick={load}>
-          Reload renders
+          {t('Reload renders')}
         </button>
       )}
       {uncertain && (
         <p className="notice">
-          The start could not be confirmed. Check the same request before starting another render.
+          {t(
+            'The start could not be confirmed. Check the same request before starting another render.',
+          )}
         </p>
       )}
       {renders.length > 0 && (
         <label className="scene-script-picker">
-          Render
+          {t('Render ')}
           <select value={current?.id ?? ''} onChange={(event) => setSelected(event.target.value)}>
             {renders.map((item) => (
               <option value={item.id} key={item.id}>
-                v{item.version} · {new Date(item.created_at).toLocaleString()} · {item.status}
+                {t('v')}
+                {item.version} · {new Date(item.created_at).toLocaleString(getLocale())} ·{' '}
+                {t(item.status)}
               </option>
             ))}
           </select>
@@ -171,7 +183,10 @@ export default function VideoExports({
         <>
           {current.version !== version && (
             <p className="note">
-              This video uses saved version {current.version}. The editor is on version {version}.
+              {t('This video uses saved version ')}
+              {current.version}
+              {t('. The editor is on version ')}
+              {version}.
             </p>
           )}
           <WorkflowPanel
@@ -209,19 +224,20 @@ export default function VideoExports({
                   }
                 }}
               >
-                Download MP4
+                {t('Download MP4')}
               </button>
             </>
           )}
           {current.can_delete && canWrite && (
             <details className="render-delete">
-              <summary>Manage this render</summary>
+              <summary>{t('Manage this render')}</summary>
               <p>
-                Delete this export, its activity and saved shots. The storyboard and original media
-                stay in your library.
+                {t(
+                  'Delete this export, its activity and saved shots. The storyboard and original media stay in your library.',
+                )}
               </p>
               <button className="text-button" disabled={busy || uncertain} onClick={remove}>
-                Delete render files
+                {t('Delete render files')}
               </button>
             </details>
           )}

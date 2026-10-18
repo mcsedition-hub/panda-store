@@ -9,7 +9,7 @@ from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.workflows import services
 
-from . import editorial, grounding, images, visual
+from . import editorial, grounding, images, project, visual
 from .models import AuditRun
 from .rules import audit, localized_metadata
 
@@ -88,6 +88,21 @@ def audit_listing(workflow_id):
     if "ai" in run.inputs:
         heartbeat.start()
     try:
+        if run.inputs.get("mode") == "project":
+            report = project.prepare(run, token)
+            services.start_step(
+                workflow_id, token, "report", "Saving the project analysis and proposed listing."
+            )
+            with services.execution_lock(workflow_id, token):
+                run.report = report
+                run.save(update_fields=["report"])
+                services.complete_step(
+                    workflow_id, token, "report", "ASO proposal saved for review."
+                )
+                services.succeed(
+                    workflow_id, token, "Project analysis complete. Nothing was published."
+                )
+            return
         saved = services.start_step(
             workflow_id, token, "listing", "Reading the saved localization."
         )

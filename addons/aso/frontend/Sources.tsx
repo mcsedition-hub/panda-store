@@ -1,3 +1,4 @@
+import { t, getLocale } from '../../../web/src/i18n';
 import { useEffect, useState } from 'react';
 import { api, moduleUrl } from '../../../web/src/api';
 
@@ -37,7 +38,7 @@ export const fieldNames: Record<string, string> = {
   name: 'App name',
   subtitle: 'Subtitle',
   description: 'Description',
-  promotional_text: 'Promotional text',
+  promotional_text: 'Hook (promotional text)',
   keywords: 'Keywords',
   screenshots: 'Screenshots',
 };
@@ -58,7 +59,7 @@ function ObservationScope({ context }: { context?: ObservationContext }) {
   if (!context) return null;
   return (
     <p className="note">
-      {context.storefront} · {context.language === 'en' ? 'English' : context.language} ·{' '}
+      {context.storefront} · {context.language === 'en' ? t('English') : context.language} ·{' '}
       {context.domain} · {context.method}
     </p>
   );
@@ -69,28 +70,34 @@ function ReferenceEntry({ entry }: { entry: Guidance }) {
     <article className="aso-library-entry">
       <div className="aso-library-meta">
         <strong>{entry.source.publisher}</strong>
-        <span>{sourceKind(entry.source)}</span>
-        <small>Reviewed {entry.source.reviewed_on}</small>
+        <span>{t(sourceKind(entry.source))}</span>
+        <small>
+          {t('Reviewed ')}
+          {entry.source.reviewed_on}
+        </small>
       </div>
       <div>
         <h3>
           <a href={entry.source.url} target="_blank" rel="noreferrer">
-            {entry.source.title} ↗
+            {t(entry.source.title)} ↗
           </a>
         </h3>
         <ObservationScope context={entry.observation_context} />
         {!!entry.fields?.length && (
           <p className="note">
-            {entry.fields.map((field) => fieldNames[field] ?? field).join(' · ')}
+            {entry.fields.map((field) => t(fieldNames[field] ?? field)).join(' · ')}
           </p>
         )}
-        <p>{entry.guidance}</p>
+        <p>{t(entry.guidance)}</p>
         {entry.limitations && (
           <details>
-            <summary>Scope and limitations</summary>
-            <p>{entry.limitations}</p>
+            <summary>{t('Scope and limitations')}</summary>
+            <p>{t(entry.limitations)}</p>
             {entry.observation_context && (
-              <p>App version observed: {entry.observation_context.observed_app_version}.</p>
+              <p>
+                {t('App version observed: ')}
+                {entry.observation_context.observed_app_version}.
+              </p>
             )}
           </details>
         )}
@@ -103,19 +110,23 @@ export function SourceReference({ source }: { source: Source }) {
   return (
     <div className="aso-source-reference">
       <a href={source.url} target="_blank" rel="noreferrer">
-        {source.publisher} · {source.title} ↗
+        {source.publisher} · {t(source.title)} ↗
       </a>
       <small>
-        {source.kind ? `${sourceKind(source)} · ` : ''}Reviewed {source.reviewed_on}
+        {source.kind ? `${t(sourceKind(source))} · ` : ''}
+        {t(' Reviewed ')}
+        {source.reviewed_on}
       </small>
       {source.guidance && (
         <details>
           <summary>
-            {source.kind === 'public_listing_observation' ? 'Observation used' : 'Guidance used'}
+            {source.kind === 'public_listing_observation'
+              ? t('Observation used')
+              : t('Guidance used')}
           </summary>
           <ObservationScope context={source.observation_context} />
-          <p>{source.guidance}</p>
-          {source.limitations && <p className="note">{source.limitations}</p>}
+          <p>{t(source.guidance)}</p>
+          {source.limitations && <p className="note">{t(source.limitations)}</p>}
         </details>
       )}
     </div>
@@ -163,49 +174,54 @@ export default function Sources({
   const guidance =
     data?.entries.filter((entry) => entry.source.kind !== 'public_listing_observation') ?? [];
   return (
-    <section className="aso-library" aria-label="Reference library">
+    <section className="aso-library" aria-label={t('Reference library')}>
       <div className="aso-report-heading">
-        <h2>Reference library</h2>
+        <h2>{t('Reference library')}</h2>
         {saved && (
           <label className="compact-label">
-            Reference set
+            {t('Reference set ')}
             <select value={view} onChange={(event) => setView(event.target.value)}>
-              <option value="saved">Selected audit</option>
-              <option value="current">For new audits</option>
+              <option value="saved">{t('Selected audit')}</option>
+              <option value="current">{t('For new audits')}</option>
             </select>
           </label>
         )}
       </div>
       <p className="note">
         {view === 'saved' && saved
-          ? `Notes saved for the audit started ${new Date(saved.created_at).toLocaleString('en-US')}.`
-          : 'Notes supplied to new App Store AI reviews.'}{' '}
-        Apple guidance takes precedence over methods and public listing examples.
+          ? t(
+              'Notes saved for the audit started {0}.',
+              new Date(saved.created_at).toLocaleString(getLocale()),
+            )
+          : t('Notes supplied to new App Store AI reviews.')}{' '}
+        {t('Apple guidance takes precedence over methods and public listing examples.')}
       </p>
       {error && view === 'current' ? (
         <div>
           <p className="error" role="alert">
-            {error}
+            {t(error)}
           </p>
           <button className="button secondary" onClick={() => setAttempt((value) => value + 1)}>
-            Retry loading sources
+            {t('Retry loading sources')}
           </button>
         </div>
       ) : !data ? (
-        <p role="status">Loading sources…</p>
+        <p role="status">{t('Loading sources…')}</p>
       ) : !data.entries.length ? (
-        <p>No guidance notes were saved for this audit.</p>
+        <p>{t('No guidance notes were saved for this audit.')}</p>
       ) : (
         <>
           {guidance.map((entry) => (
             <ReferenceEntry entry={entry} key={entry.id} />
           ))}
           {!!examples.length && (
-            <section aria-label="Public listing examples" className="aso-listing-examples">
-              <h2>Public listing examples</h2>
+            <section aria-label={t('Public listing examples')} className="aso-listing-examples">
+              <h2>{t('Public listing examples')}</h2>
               <p className="note">
-                {examples.length} reviewed examples · Saved observations, not live research or
-                conversion results.
+                {examples.length}
+                {t(
+                  ' reviewed examples · Saved observations, not live research or conversion results.',
+                )}
               </p>
               {examples.map((entry) => (
                 <ReferenceEntry entry={entry} key={entry.id} />
@@ -215,8 +231,9 @@ export default function Sources({
         </>
       )}
       <p className="aso-report-footnote">
-        These notes are reviewed by maintainers. An audit uses its saved references; it does not
-        search the web or retrieve vendor metrics.
+        {t(
+          'These notes are reviewed by maintainers. An audit uses its saved references; it does not search the web or retrieve vendor metrics.',
+        )}
       </p>
     </section>
   );

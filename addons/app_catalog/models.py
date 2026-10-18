@@ -9,9 +9,13 @@ class MobileApp(models.Model):
     class Platform(models.TextChoices):
         IOS = "ios", "App Store"
         ANDROID = "android", "Google Play"
+        UNDECIDED = "undecided", "Not decided"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="apps")
+    origin = models.CharField(
+        max_length=10, choices=[("store", "Store"), ("project", "Project")], default="store"
+    )
     name = models.CharField(max_length=200)
     platform = models.CharField(max_length=10, choices=Platform.choices)
     external_id = models.CharField(max_length=200)

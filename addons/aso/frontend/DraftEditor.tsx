@@ -1,3 +1,4 @@
+import { t } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
@@ -12,7 +13,10 @@ type Props = ModuleProps & {
   onDuplicate: (draft: Draft) => void;
 };
 type Local = { name: string; content: Content };
-const editable = (draft: Draft): Local => ({ name: draft.name, content: draft.content });
+const editable = (draft: Draft): Local => ({
+  name: draft.name,
+  content: draft.content,
+});
 const equal = (a: Local, b: Local) =>
   a.name === b.name && fields.every(([field]) => a.content[field] === b.content[field]);
 
@@ -51,6 +55,7 @@ export default function DraftEditor({
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
   const canWrite = workspace.role !== 'viewer' && !previewMode;
+  const isProject = app.origin === 'project';
   const endpoint = moduleUrl(workspace.id, 'aso', `drafts/${initial.id}/`);
   const dirty = !equal(local, editable(saved));
 
@@ -94,7 +99,12 @@ export default function DraftEditor({
         });
         pendingWrite.current = null;
         // Keep any typing made while this request was in flight.
-        if (equal(localRef.current, { name: payload.name, content: payload.content })) {
+        if (
+          equal(localRef.current, {
+            name: payload.name,
+            content: payload.content,
+          })
+        ) {
           localRef.current = editable(next);
           if (alive.current) setLocal(editable(next));
         }
@@ -186,7 +196,9 @@ export default function DraftEditor({
   async function reload() {
     setActionBusy(true);
     try {
-      const next = await api<Draft>(endpoint, { feedback: { success: 'Saved draft reloaded.' } });
+      const next = await api<Draft>(endpoint, {
+        feedback: { success: 'Saved draft reloaded.' },
+      });
       pendingWrite.current = null;
       conflictRef.current = false;
       setConflict(false);
@@ -203,7 +215,7 @@ export default function DraftEditor({
   async function copyChanges(unsaved = false) {
     const text = fields
       .filter(([field]) => localRef.current.content[field] !== savedRef.current.baseline[field])
-      .map(([field, label]) => `${label}\n${localRef.current.content[field] ?? ''}`)
+      .map(([field, label]) => `${t(label)}\n${localRef.current.content[field] ?? ''}`)
       .join('\n\n');
     try {
       await navigator.clipboard.writeText(text);
@@ -218,13 +230,13 @@ export default function DraftEditor({
   const changed = fields.filter(([field]) => local.content[field] !== saved.baseline[field]);
   const busy = actionBusy || saving;
   return (
-    <section className="draft-editor" aria-label="Listing draft">
+    <section className="draft-editor" aria-label={t('Listing draft')}>
       <button className="text-button" onClick={() => void action(async () => onBack())}>
-        ← Drafts
+        {t('← Drafts')}
       </button>
       <div className="draft-title-row">
         <label>
-          Draft name
+          {t('Draft name ')}
           <input
             value={local.name}
             maxLength={120}
@@ -232,9 +244,15 @@ export default function DraftEditor({
             onChange={(e) => edit({ ...local, name: e.target.value })}
           />
         </label>
-        <span className="pill">{!dirty && saved.status === 'ready' ? 'Ready' : 'Draft'}</span>
+        <span className="pill">{!dirty && saved.status === 'ready' ? t('Ready') : t('Draft')}</span>
         <span className="note" role="status">
-          {saving ? 'Saving…' : error ? 'Not saved' : dirty ? 'Unsaved changes' : 'Saved'}
+          {saving
+            ? t('Saving…')
+            : error
+              ? t('Not saved')
+              : dirty
+                ? t('Unsaved changes')
+                : t('Saved')}
         </span>
       </div>
       <div className="draft-actions">
@@ -248,25 +266,27 @@ export default function DraftEditor({
           }
           onClick={() =>
             void action(() =>
-              mutate({ status: savedRef.current.status === 'ready' ? 'draft' : 'ready' }),
+              mutate({
+                status: savedRef.current.status === 'ready' ? 'draft' : 'ready',
+              }),
             )
           }
         >
-          {saved.status === 'ready' && !dirty ? 'Return to draft' : 'Mark ready'}
+          {saved.status === 'ready' && !dirty ? t('Return to draft') : t('Mark ready')}
         </button>
         <button
           className="button secondary"
           disabled={!canWrite || busy}
           onClick={() => void action(async () => onDuplicate(savedRef.current))}
         >
-          Duplicate
+          {t('Duplicate')}
         </button>
         <button
           className="button secondary"
           disabled={busy || !changed.length}
           onClick={() => void action(() => copyChanges())}
         >
-          Copy changes
+          {t('Copy changes')}
         </button>
         <a
           className={`button secondary ${dirty || busy ? 'disabled' : ''}`}
@@ -283,7 +303,7 @@ export default function DraftEditor({
               );
           }}
         >
-          Export changes
+          {t('Export changes')}
         </a>
         <button
           className="text-button"
@@ -298,29 +318,30 @@ export default function DraftEditor({
             })
           }
         >
-          Revision history
+          {t('Revision history')}
         </button>
       </div>
       <p className="draft-status-note">
-        {saved.locale} · Ready means reviewed for manual application. Nothing is sent to Apple.
+        {saved.locale}
+        {t(' · Ready means reviewed for manual application. Nothing is sent to Apple.')}
       </p>
-      {saved.is_demo && <p className="notice">Fictional demo listing.</p>}
+      {saved.is_demo && <p className="notice">{t('Fictional demo listing.')}</p>}
       {error && (
         <div className="draft-error" role="alert">
-          <p>{error}</p>
+          <p>{t(error)}</p>
           <div className="action-group">
             {conflict ? (
               <>
                 <button className="button secondary" onClick={() => void copyChanges(true)}>
-                  Copy my unsaved changes
+                  {t('Copy my unsaved changes')}
                 </button>
                 <button className="text-button" disabled={busy} onClick={() => void reload()}>
-                  Discard local edits and reload
+                  {t('Discard local edits and reload')}
                 </button>
               </>
             ) : (
               <button className="button secondary" disabled={busy} onClick={() => void save()}>
-                Retry save
+                {t('Retry save')}
               </button>
             )}
           </div>
@@ -328,19 +349,23 @@ export default function DraftEditor({
       )}
       {notice && (
         <p className="saved" role="status">
-          {notice}
+          {t(notice)}
         </p>
       )}
       <div className="draft-comparison-bar">
         <label>
-          Compare with
+          {t('Compare with ')}
           <select
             value={compare}
             onChange={(e) => setCompare(e.target.value as 'latest' | 'baseline')}
           >
-            <option value="baseline">Reference import · {when(saved.captured_at)}</option>
+            <option value="baseline">
+              {isProject ? t('Reference project version · ') : t('Reference import · ')}
+              {when(saved.captured_at)}
+            </option>
             <option value="latest">
-              Latest import{saved.latest.captured_at ? ` · ${when(saved.latest.captured_at)}` : ''}
+              {isProject ? t('Latest project version ') : t('Latest import ')}
+              {saved.latest.captured_at ? ` · ${when(saved.latest.captured_at)}` : ''}
             </option>
           </select>
         </label>
@@ -368,31 +393,48 @@ export default function DraftEditor({
               }
               accept(latest);
               setCompare('latest');
-              setNotice('Compared with the latest saved import. Your draft is unchanged.');
-              notify('success', 'Compared with the latest saved import.');
+              const message = isProject
+                ? 'Compared with the latest project version. Your draft is unchanged.'
+                : 'Compared with the latest saved import. Your draft is unchanged.';
+              setNotice(message);
+              notify('success', message);
             })
           }
         >
           {app.sync_provider === 'apple_store' && availableModules?.includes('apple_store')
-            ? 'Refresh and compare'
-            : 'Compare latest import'}
+            ? t('Refresh and compare')
+            : isProject
+              ? t('Compare latest project version')
+              : t('Compare latest import')}
         </button>
       </div>
       {!!saved.latest.changed_since_baseline.length && (
         <p className="notice">
-          The imported listing changed since this draft was created. Review the latest values before
-          applying your text.
+          {t(
+            isProject
+              ? 'The project listing changed since this draft was created. Review its latest texts.'
+              : 'The imported listing changed since this draft was created. Review the latest values before applying your text.',
+          )}
         </p>
       )}
       {!dirty && saved.latest.all_changes_match && (
         <p className="saved">
-          All modified fields match the latest import. Store availability and download impact are
-          not verified.
+          {t(
+            isProject
+              ? 'All modified fields match the latest project listing. The app is still unpublished.'
+              : 'All modified fields match the latest import. Store availability and download impact are not verified.',
+          )}
         </p>
       )}
       <div className="draft-compare-heading">
-        <span>{compare === 'baseline' ? 'Reference listing' : 'Latest imported listing'}</span>
-        <span>Your draft</span>
+        <span>
+          {compare === 'baseline'
+            ? t('Reference listing')
+            : isProject
+              ? t('Latest project listing')
+              : t('Latest imported listing')}
+        </span>
+        <span>{t('Your draft')}</span>
       </div>
       {fields.map(([field, label, limit]) => {
         const value = local.content[field] ?? '';
@@ -404,22 +446,33 @@ export default function DraftEditor({
           (check) => check.field === field && saved.validation.blocking.includes(check.id),
         );
         return (
-          <section className="draft-field" key={field} aria-label={`${label} comparison`}>
+          <section className="draft-field" key={field} aria-label={t('{0} comparison', t(label))}>
             <div className="draft-field-heading">
-              <h3>{label}</h3>
-              {change && <span className="pill">Changed</span>}
+              <h3>{t(label)}</h3>
+              {change && <span className="pill">{t('Changed')}</span>}
               {saved.latest.matching_fields.includes(field) && !dirty && (
-                <span className="note">Matches latest import</span>
+                <span className="note">
+                  {isProject ? t('Matches latest project listing') : t('Matches latest import')}
+                </span>
               )}
             </div>
+            {field === 'promotional_text' && (
+              <p className="note">
+                {t(
+                  'Apple’s short marketing message, shown above the description. Up to 170 characters.',
+                )}
+              </p>
+            )}
             <div className="draft-field-columns">
               <div className="draft-original">
-                {current?.[field] ?? <span className="note">Not imported for this language</span>}
-                {current?.[field] === '' && <span className="note">Empty</span>}
+                {current?.[field] ?? (
+                  <span className="note">{t('Not imported for this language')}</span>
+                )}
+                {current?.[field] === '' && <span className="note">{t('Empty')}</span>}
               </div>
               <div>
                 <textarea
-                  aria-label={`Draft ${label}`}
+                  aria-label={t('Draft {0}', t(label))}
                   rows={
                     field === 'description'
                       ? 12
@@ -431,17 +484,21 @@ export default function DraftEditor({
                   value={value}
                   disabled={!canWrite || actionBusy || conflict}
                   onChange={(e) =>
-                    edit({ ...local, content: { ...local.content, [field]: e.target.value } })
+                    edit({
+                      ...local,
+                      content: { ...local.content, [field]: e.target.value },
+                    })
                   }
                 />
                 <div className={`draft-counter ${problem ? 'error' : ''}`}>
-                  {count} / {limit} characters
-                  {field === 'keywords' ? ` · ${bytes} / 100 UTF-8 bytes` : ''}
+                  {count} / {limit}
+                  {t(' characters ')}
+                  {field === 'keywords' ? t(' · {0} / 100 UTF-8 bytes', bytes) : ''}
                 </div>
                 {!dirty &&
                   checks.map((check) => (
                     <p className="draft-field-error" key={check.id}>
-                      {check.observation} {check.action}
+                      {t(check.observation)} {t(check.action)}
                     </p>
                   ))}
               </div>
@@ -450,12 +507,12 @@ export default function DraftEditor({
         );
       })}
       <details className="draft-preview">
-        <summary>Text preview</summary>
+        <summary>{t('Text preview')}</summary>
         <div>
           {app.metadata?.data.icon_url && (
             <img src={app.metadata.data.icon_url} alt="" referrerPolicy="no-referrer" />
           )}
-          <h2>{local.content.name || 'App name'}</h2>
+          <h2>{local.content.name || t('App name')}</h2>
           <p>{local.content.subtitle}</p>
           <p>{local.content.promotional_text}</p>
           <p className="draft-preview-description">{local.content.description}</p>
@@ -463,11 +520,17 @@ export default function DraftEditor({
       </details>
       {!!saved.provenance.length && (
         <details className="draft-provenance">
-          <summary>Source proposals</summary>
+          <summary>{t('Source proposals')}</summary>
           {saved.provenance.map((item, index) => (
             <div key={index}>
-              <h3>{item.check.title}</h3>
-              <p>{item.check.observation}</p>
+              <h3>{t(item.check.title)}</h3>
+              {item.model && (
+                <p className="note">
+                  {item.provider} · {item.model}
+                  {item.created_at ? ` · ${when(item.created_at)}` : ''}
+                </p>
+              )}
+              <p>{t(item.check.observation)}</p>
               {item.check.sources.map((source) => (
                 <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
                   {source.title} ↗
@@ -478,22 +541,23 @@ export default function DraftEditor({
         </details>
       )}
       {history && (
-        <section className="draft-history" aria-label="Revision history">
-          <h2>Revision history</h2>
+        <section className="draft-history" aria-label={t('Revision history')}>
+          <h2>{t('Revision history')}</h2>
           {history.map((item) => (
             <details key={item.version}>
               <summary>
-                {when(item.created_at)} · {item.reason} · {item.author}
+                {when(item.created_at)} · {t(item.reason)} · {item.author}
               </summary>
               <p className="note">
-                Revision {item.version} · {item.status} · {item.name}
+                {t('Revision ')}
+                {item.version} · {t(item.status)} · {item.name}
               </p>
               {fields.map(
                 ([field, label]) =>
                   field in item.content && (
                     <div key={field}>
-                      <strong>{label}</strong>
-                      <p>{item.content[field] || '(empty)'}</p>
+                      <strong>{t(label)}</strong>
+                      <p>{item.content[field] || t('(empty)')}</p>
                     </div>
                   ),
               )}
@@ -502,7 +566,7 @@ export default function DraftEditor({
                 disabled={!canWrite || busy || item.version === saved.version}
                 onClick={() => void action(() => mutate({ restore_version: item.version }))}
               >
-                Restore this revision
+                {t('Restore this revision')}
               </button>
             </details>
           ))}

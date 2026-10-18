@@ -9,10 +9,10 @@ L'édition communautaire auto-hébergée se concentre sur **deux modules métier
 
 - **ASO** : analyser une fiche store, préparer des corrections, les modifier et les exporter.
 - **SMM** : chercher des contenus performants dans le navigateur de l'utilisateur,
-  qualifier les références, puis produire, modifier et exporter trois adaptations
+  qualifier les références, puis produire, modifier et exporter une à trois adaptations
   distinctes en respectant leurs formats et les fonctionnalités confirmées de l'app.
 
-Le catalogue d'apps, les connexions Apple et IA, les espaces et les workflows constituent
+Le catalogue d'apps, les connexions Apple, Google Play et IA, les espaces et les workflows constituent
 le socle de ces parcours. Le module d'exemple sert aux développeurs. Aucun troisième
 module métier n'est prévu pour cette première version ; les retours d'usage guideront
 les ajouts ultérieurs.
@@ -33,7 +33,7 @@ contenus, sans établir une connexion de publication.
 | Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé ASO/SMM et générations IA implémentés ; branches parallèles et éditeur à construire |
 | Veille SMM | Contenus pertinents trouvés dans le navigateur avec preuves de performance | Tests réels : 11 publications TikTok et quatre références retenues, 12 Instagram et une retenue, six Facebook et une retenue ; découverte de liens via Google vérifiée |
 | Création SMM | Trois adaptations de références distinctes, selon leur format et les faits produit | Références compatibles réutilisables entre recherches ; lot MonTri UGC TikTok / carrousel Instagram / texte Facebook sauvegardé, relu et corrigé ; brouillons non approuvés |
-| Google Play | Extension de l'import et de l'ASO aux données disponibles | Évolution ultérieure, hors première version publique |
+| Google Play | Import des fiches Android, puis extension de l'ASO | Connexion, import et actualisation implémentés et testés automatiquement ; validation sur un compte réel et audit ASO Android à compléter |
 | Mesure | Liens de campagne, séries temporelles, rapports et limites d'attribution | Besoin à prioriser après les retours d'usage ; hors première version publique |
 | Publication SMM — cloud | Comptes et pages sociaux connectés, publication et programmation, aperçu et statut d'envoi | Réservée au cloud, à construire |
 | Exploitation cloud | Isolation renforcée, facturation, quotas, sauvegardes, support | À construire pour l'offre hébergée |
@@ -189,7 +189,7 @@ Les premières sources sont les recommandations Apple sur la
 [configuration des fiches Google Play](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en).
 Ne pas présenter une conformité de métadonnées comme une garantie de classement
 ou de téléchargements. Les critères Apple et Google restent distincts ; un audit
-Google complet dépendra de l'import Google Play.
+Google complet reste à développer au-delà de l'import Google Play désormais disponible.
 
 L'utilisateur relit les propositions avant toute application. Le connecteur Apple
 actuel reste en lecture seule : les corrections sont copiables et à appliquer dans

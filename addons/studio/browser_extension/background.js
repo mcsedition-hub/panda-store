@@ -1,7 +1,26 @@
 import { canonicalPost, dashboardOrigins, searchUrl } from './urls.js';
 const running = new Map();
+const transientPlatformError =
+  'The platform returned an error. Retry in the research tab, then resume.';
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sessionKey = (sender) => `panda-smm-${sender.tab.id}`;
+async function reconnectDashboards() {
+  const tabs = await chrome.tabs.query({ url: ['http://127.0.0.1/*', 'http://localhost/*'] });
+  await Promise.allSettled(
+    tabs.map(async (tab) => {
+      if (!tab.id || !tab.url || !dashboardOrigins.has(new URL(tab.url).origin)) return;
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, frameIds: [0] },
+        files: ['bridge.js'],
+        injectImmediately: true,
+      });
+    }),
+  );
+}
+// Chrome treats reloading an unpacked extension as an update. Reattach without
+// reloading the dashboard: its form, selected model and saved sessions stay intact.
+chrome.runtime.onInstalled.addListener(() => void reconnectDashboards().catch(() => {}));
+chrome.runtime.onStartup.addListener(() => void reconnectDashboards().catch(() => {}));
 function authorized(sender) {
   try {
     return sender.frameId === 0 && dashboardOrigins.has(new URL(sender.url).origin);
@@ -45,10 +64,19 @@ function sameDestination(actual, expected) {
     return false;
   }
 }
-async function navigate(state, url, check) {
+async function navigate(state, url, check, attempts = 50) {
   check();
-  await chrome.tabs.update(state.tabId, { url, active: true });
-  for (let i = 0; i < 50; i++) {
+  const current = await chrome.tabs.get(state.tabId);
+  check();
+  // Keep a page the user has just recovered (retry, sign-in or challenge).
+  // Reloading would discard its results and can trigger the failure again.
+  await chrome.tabs.update(
+    state.tabId,
+    !current.pendingUrl && sameDestination(current.url || '', url)
+      ? { active: true }
+      : { url, active: true },
+  );
+  for (let i = 0; i < attempts; i++) {
     await wait(400);
     check();
     const tab = await chrome.tabs.get(state.tabId);
@@ -197,11 +225,58 @@ async function screenshot(state) {
     await chrome.debugger.detach({ tabId: state.tabId }).catch(() => {});
   }
 }
+async function instagramViewEvidence(state, capture, profile, check) {
+  const postUrl = state.destination;
+  if (!(await navigate(state, profile, check, 12))) {
+    capture.coverage += '\nThe Instagram Reels view counter could not be verified.';
+  } else {
+    state.destination = profile;
+    // Bounded profile lookup, using only the exact shortcode's labelled views.
+    for (let i = 0; i < 12; i++) {
+      check();
+      const result = await collect(state, 'instagramViews', check, postUrl);
+      if (result.blocked_reason) {
+        capture.blocked_reason = result.blocked_reason;
+        return false;
+      }
+      if (result.metric) {
+        await validTab(state, profile);
+        try {
+          const frame = await screenshot(state);
+          if (frame) {
+            capture.metrics.views = result.metric;
+            capture.text = capture.text.slice(0, 23750) + '\n' + result.metric.quote;
+            capture.frames = [...capture.frames.slice(0, 2), frame];
+            capture.coverage +=
+              '\nThe last frame shows the matching Reel’s view counter on the creator profile, not the video content.';
+          }
+        } catch {
+          capture.coverage += '\nThe Instagram Reels view counter could not be verified.';
+        }
+        break;
+      }
+      if (i < 11) {
+        await collect(state, 'scroll', check);
+        await wait(600);
+      }
+    }
+  }
+  if (
+    !capture.metrics.views &&
+    !capture.coverage.includes('The Instagram Reels view counter could not be verified.')
+  )
+    capture.coverage += '\nThe Instagram Reels view counter could not be verified.';
+  check();
+  if (!(await navigate(state, postUrl, check)))
+    throw new Error('The requested page did not become ready. Check the research tab and resume.');
+  state.destination = postUrl;
+  return true;
+}
 async function command(message, sender) {
   if (!authorized(sender))
     throw new Error('Only the local Panda Store dashboard can use this connector.');
   const { command, payload = {} } = message;
-  if (command === 'ping') return { version: '0.1.5' };
+  if (command === 'ping') return { version: '0.1.8', protocol: 1 };
   const key = sessionKey(sender);
   if (command === 'stop') {
     running.get(key)?.abort();
@@ -255,8 +330,14 @@ async function command(message, sender) {
         await validTab(state, url);
         const result = await collect(state, 'discover', check);
         blocked = result.blocked_reason;
+        // Server-error panels can disappear while the page finishes loading.
+        // Wait within the existing budget; login and captcha still stop at once.
+        if (blocked && blocked !== transientPlatformError) break;
+        if (blocked) {
+          if (i < 12) await wait(1000);
+          continue;
+        }
         for (const candidate of result.candidates) candidates.set(candidate.url, candidate);
-        if (blocked) break;
         if (payload.platform === 'facebook' && facebookSeen.length < 3) {
           const target = await collect(state, 'facebookTarget', check, facebookSeen);
           if (target) {
@@ -281,13 +362,16 @@ async function command(message, sender) {
       check();
       await validTab(state, url);
       capture = await collect(state, 'read', check);
-      if (capture.blocked_reason || capture.ready) break;
+      if (capture.blocked_reason && capture.blocked_reason !== transientPlatformError) break;
+      if (!capture.blocked_reason && capture.ready) break;
       if (i < 12) await wait(1000);
     }
     if (!capture.ready && !capture.blocked_reason)
       capture.blocked_reason =
         'The post content did not become ready. Open it in the browser and resume.';
     delete capture.ready;
+    const instagramProfile = capture.instagram_profile;
+    delete capture.instagram_profile;
     capture.frames = [];
     if (!capture.blocked_reason) {
       for (let i = 0; i < 3; i++) {
@@ -302,8 +386,16 @@ async function command(message, sender) {
         }
         if (capture.format === 'carousel') {
           if (!(await collect(state, 'nextSlide', check))) break;
-        } else if (capture.format === 'text') break;
+        } else if (['text', 'image'].includes(capture.format)) break;
         await wait(1800);
+      }
+      if (
+        capture.format === 'video' &&
+        !capture.metrics?.views &&
+        new URL(url).hostname === 'www.instagram.com' &&
+        /^https:\/\/www\.instagram\.com\/[\w.]{1,30}\/reels\/$/.test(instagramProfile || '')
+      ) {
+        if (!(await instagramViewEvidence(state, capture, instagramProfile, check))) return capture;
       }
     }
     check();

@@ -98,8 +98,9 @@ not proof the app lacks it: ask for confirmation before removing an otherwise un
 The three cross-domain reference galleries are dated human observations, not images inspected
 by you, direct competitors or evidence of success. Use an analogy only if relevant and say why;
 never transplant brands, wording, features, a universal layout or unmeasured performance claims.
-Write observations and recommendations in English; any proposed caption must use the imported
-locale and claims supported by the listing, preserving paid/region/privacy qualifications.
+Write observations and recommendations in the response language. Any proposed caption must use
+the imported locale and claims supported by the listing, preserving payment, region and
+privacy qualifications.
 Keep each observation and recommendation under 100 words. Abstain when uncertain.
 """
 REVIEW_INSTRUCTION = """Independently verify each candidate screenshot assessment using the actual

@@ -1,3 +1,4 @@
+import { t, getLocale } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
@@ -5,8 +6,10 @@ import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 import type { WorkflowStatus } from '../../../web/src/workflows/types';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import Drafts from './Drafts';
+import CompareAudits from './CompareAudits';
+import ProjectProposal, { type ProjectProposalReport } from './ProjectProposal';
 import type { DraftSeed } from './draftTypes';
-import { modelSuggestions } from './modelSuggestions';
+import { readAuditView, saveAuditView } from './auditView';
 import { notify } from '../../../web/src/notifications/store';
 import Sources, { fieldNames, SourceReference, type Guidance, type Source } from './Sources';
 import Screenshots, { type VisualReport, type VisualImage } from './Screenshots';
@@ -41,9 +44,9 @@ const verdictLabels = {
   not_imported: 'Not imported',
   unvalidated: 'Review unavailable',
 };
-interface AuditRun {
+export interface AuditRun {
   id: string;
-  mode?: 'listing' | 'screenshots';
+  mode?: 'listing' | 'screenshots' | 'project';
   workflow_id: string;
   status: WorkflowStatus;
   locale: string;
@@ -56,6 +59,7 @@ interface AuditRun {
   knowledge_version?: string | null;
   ai?: { provider: string; model: string } | null;
   report: {
+    project?: ProjectProposalReport;
     visual?: VisualReport;
     editorial?: {
       provider: string;
@@ -89,7 +93,7 @@ const labels: Record<CheckStatus, string> = {
   passed: 'Checked',
 };
 const date = (value: string) =>
-  new Date(value).toLocaleString('en-US', {
+  new Date(value).toLocaleString(getLocale(), {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -128,46 +132,49 @@ function Finding({
     >
       <summary>
         <span className="aso-finding-title">
-          {assessment ? fieldNames[assessment.field] : check.title}
+          {t(assessment ? fieldNames[assessment.field] : check.title)}
         </span>
         <span className="pill">
-          {assessment
-            ? verdictLabels[assessment.verdict]
-            : isAI
-              ? 'AI proposal · Review'
-              : check.basis === 'requirement' && check.status === 'passed'
-                ? 'Within limit'
-                : labels[check.status]}
+          {t(
+            assessment
+              ? verdictLabels[assessment.verdict]
+              : isAI
+                ? t('AI proposal · Review')
+                : check.basis === 'requirement' && check.status === 'passed'
+                  ? t('Within limit')
+                  : labels[check.status],
+          )}
         </span>
       </summary>
       <div className="aso-finding-body">
-        <p className="aso-observation">{assessment?.observation ?? check.observation}</p>
+        <p className="aso-observation">{t(assessment?.observation ?? check.observation)}</p>
         {assessment && check.replacement && check.observation !== assessment.observation && (
-          <p>{check.observation}</p>
+          <p>{t(check.observation)}</p>
         )}
-        {!assessment && <p>{check.action}</p>}
+        {!assessment && <p>{t(check.action)}</p>}
         {assessment?.verdict === 'improve' && !check.replacement && (
           <p className="note">
-            No additional replacement retained. Review this observation alongside the Apple checks
-            below.
+            {t(
+              'No additional replacement retained. Review this observation alongside the Apple checks below.',
+            )}
           </p>
         )}
         {typeof check.observed === 'string' && check.observed && (
           <details className="aso-evidence">
-            <summary>Imported value</summary>
+            <summary>{t('Imported value')}</summary>
             <p>{check.observed}</p>
           </details>
         )}
         {check.replacement && (
           <div className="aso-proposal">
             <label>
-              {check.field === 'keywords' ? 'Proposed keywords' : 'Proposed text'}
+              {check.field === 'keywords' ? t('Proposed keywords') : t('Proposed text')}
               <textarea rows={3} readOnly value={check.replacement} />
             </label>
             <div className="action-group">
               {onAdd && (
                 <button className="button primary" onClick={onAdd}>
-                  Add to draft
+                  {t('Add to draft')}
                 </button>
               )}
               <button
@@ -183,11 +190,11 @@ function Finding({
                   }
                 }}
               >
-                Copy proposal
+                {t('Copy proposal')}
               </button>
               {copyState && (
                 <span className="note" role="status">
-                  {copyState}
+                  {t(copyState)}
                 </span>
               )}
             </div>
@@ -195,10 +202,10 @@ function Finding({
         )}
         {!!evidence.length && (
           <details className="aso-evidence">
-            <summary>Evidence from your listing</summary>
+            <summary>{t('Evidence from your listing')}</summary>
             {evidence.map((item, i) => (
               <blockquote key={i}>
-                <small>{fieldNames[item.field] || item.field}</small>
+                <small>{t(fieldNames[item.field] || item.field)}</small>
                 <p>{item.quote}</p>
               </blockquote>
             ))}
@@ -209,13 +216,13 @@ function Finding({
             <span>
               {isAI
                 ? assessment
-                  ? 'AI content review'
-                  : 'Editorial hypothesis'
+                  ? t('AI content review')
+                  : t('Editorial hypothesis')
                 : check.basis === 'requirement'
-                  ? 'Official requirement'
+                  ? t('Official requirement')
                   : check.basis === 'measurement'
-                    ? 'Measurement guidance'
-                    : 'Official recommendation'}
+                    ? t('Measurement guidance')
+                    : t('Official recommendation')}
             </span>
             {sources.map((source) => (
               <SourceReference key={source.id} source={source} />
@@ -229,7 +236,7 @@ function Finding({
 
 function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const { app, workspace, previewMode, navigate, registerLeaveGuard } = props;
-  const [tab, setTab] = useState<'overview' | 'drafts' | 'sources'>('overview');
+  const [tab, setTab] = useState<'overview' | 'compare' | 'drafts' | 'sources'>('overview');
   const [draftSeed, setDraftSeed] = useState<DraftSeed | null>(null);
   const [draftKind, setDraftKind] = useState<'listing' | 'screenshots'>('listing');
   const [screenshotBrief, setScreenshotBrief] = useState<ScreenshotBrief | null>(null);
@@ -246,26 +253,33 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     },
     [registerLeaveGuard],
   );
-  async function switchTab(next: 'overview' | 'drafts' | 'sources') {
+  async function switchTab(next: 'overview' | 'compare' | 'drafts' | 'sources') {
     if (draftGuard.current && !(await draftGuard.current())) return;
     setDraftSeed(null);
     setScreenshotBrief(null);
     setTab(next);
   }
+  const storageKey = `panda.aso.view:${workspace.id}:${app.id}`;
+  const [savedView] = useState(() => readAuditView(storageKey));
+  const restored = useRef(false);
   const metadata = app.metadata;
+  const project = metadata?.data.project;
   const locales = metadata?.data.localizations?.length
     ? metadata.data.localizations.map((item) => item.locale)
     : metadata?.data.locale
       ? [metadata.data.locale]
       : [];
   const [locale, setLocale] = useState(
-    locales.includes(metadata?.data.locale || '') ? metadata!.data.locale : locales[0] || '',
+    savedView?.locale ||
+      (locales.includes(metadata?.data.locale || '') ? metadata!.data.locale : locales[0] || ''),
   );
   const [ai, setAI] = useState<AIChoice>(null);
   const [aiLoading, setAILoading] = useState(true);
-  const [mode, setMode] = useState<'listing' | 'screenshots'>('listing');
+  const [mode, setMode] = useState<'listing' | 'screenshots' | 'project'>(
+    project ? 'project' : savedView?.mode || 'listing',
+  );
   const [runs, setRuns] = useState<AuditRun[]>([]);
-  const [runId, setRunId] = useState('');
+  const [runId, setRunId] = useState(savedView?.runId || '');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -276,16 +290,41 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const canWrite = workspace.role !== 'viewer' && !previewMode;
   const history = runs.filter((item) => item.locale === locale);
   const run = history.find((item) => item.id === runId) ?? history[0];
-  const working = history.some((item) => pending(item.status));
+  const activeRun = runs.find((item) => pending(item.status));
+  const working = !!activeRun;
+  const historyLocales = Array.from(new Set([...locales, ...runs.map((item) => item.locale)]));
   const screenshotCount =
     metadata?.data.screenshots_locale === locale ? (metadata.data.screenshots?.length ?? 0) : 0;
+
+  function openAudit(item: AuditRun) {
+    setLocale(item.locale);
+    setMode(project ? 'project' : item.mode || 'listing');
+    setRunId(item.id);
+    setTab('overview');
+  }
+  function receiveHistory(next: AuditRun[]) {
+    setRuns(next);
+    if (!restored.current) {
+      const selected =
+        next.find((item) => pending(item.status)) ??
+        next.find((item) => item.id === savedView?.runId) ??
+        next[0];
+      if (selected) openAudit(selected);
+      restored.current = true;
+    }
+  }
+  useEffect(() => {
+    if (!loading && !loadFailed) {
+      saveAuditView(storageKey, { locale, mode, runId: run?.id || '' });
+    }
+  }, [storageKey, locale, mode, run?.id, loading, loadFailed]);
 
   useEffect(() => {
     alive.current = true;
     let active = true;
     api<AuditRun[]>(base)
       .then((next) => {
-        if (active) setRuns(next);
+        if (active) receiveHistory(next);
       })
       .catch((err) => {
         if (active) {
@@ -307,14 +346,13 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     try {
       const next = await api<AuditRun[]>(base);
       if (alive.current) {
-        setRuns(next);
+        receiveHistory(next);
         setError('');
         setLoadFailed(false);
       }
     } catch (err) {
       if (alive.current) {
         setError((err as Error).message);
-        setRuns([]);
         setLoadFailed(true);
       }
     } finally {
@@ -322,13 +360,14 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
     }
   }
   async function start(retry = false) {
-    if (!metadata || (retry && !run)) return;
+    if (!metadata || busy || loading || loadFailed || (retry ? !run : working)) return;
     setBusy(true);
     setError('');
     const key = retry
       ? `retry:${run.id}`
       : `${metadata.id}:${locale}:${mode}:${ai?.provider || 'rules'}:${ai?.model || ''}`;
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
+    saveAuditView(storageKey, { locale, mode, runId: '' });
     try {
       const next = await api<AuditRun>(
         retry ? moduleUrl(workspace.id, 'aso', `runs/${run.id}/retry/`) : base,
@@ -340,7 +379,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
             ...(!retry && {
               snapshot_id: metadata.id,
               locale,
-              ...(mode === 'screenshots' ? { mode } : {}),
+              ...(mode !== 'listing' ? { mode } : {}),
               ...(ai || {}),
             }),
           }),
@@ -398,10 +437,10 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       if (alive.current) setBusy(false);
     }
   }
-  if (app.platform !== 'ios')
+  if (app.platform !== 'ios' && !(project && app.platform === 'undecided'))
     return (
       <p className="notice">
-        Audits currently support App Store listings. Google Play is coming later.
+        {t('Audits currently support App Store listings. Google Play is coming later.')}
       </p>
     );
   const checks = run?.report?.checks || [];
@@ -415,30 +454,43 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const passed = checks.filter((check) => check.status === 'passed');
   return (
     <>
-      <nav className="aso-tabs" aria-label="ASO views">
+      {project && (
+        <p className="notice">
+          {t(
+            'Start with your idea. ASO analyzes its positioning and suggests a first App Store listing: name, subtitle, description, keywords and promotional text. You do not need to write these first.',
+          )}
+        </p>
+      )}
+      <nav className="aso-tabs" aria-label={t('ASO views')}>
         <button
           aria-current={tab === 'overview' ? 'page' : undefined}
           onClick={() => void switchTab('overview')}
         >
-          Audit
+          {t('Audit')}
+        </button>
+        <button
+          aria-current={tab === 'compare' ? 'page' : undefined}
+          onClick={() => void switchTab('compare')}
+        >
+          {t('Compare')}
         </button>
         <button
           aria-current={tab === 'drafts' ? 'page' : undefined}
           onClick={() => void switchTab('drafts')}
         >
-          Drafts
+          {t('Drafts')}
         </button>
         <button
           aria-current={tab === 'sources' ? 'page' : undefined}
           onClick={() => void switchTab('sources')}
         >
-          Sources
+          {t('Sources')}
         </button>
       </nav>
       {tab === 'drafts' ? (
         <>
           <label className="compact-label aso-draft-kind">
-            Draft type
+            {t('Draft type ')}
             <select
               value={draftKind}
               onChange={async (event) => {
@@ -449,8 +501,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                 setDraftKind(next);
               }}
             >
-              <option value="listing">Listing text</option>
-              <option value="screenshots">Screenshot briefs</option>
+              <option value="listing">{t('Listing text')}</option>
+              <option value="screenshots">{t('Screenshot briefs')}</option>
             </select>
           </label>
           {draftKind === 'screenshots' ? (
@@ -470,11 +522,28 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
             />
           )}
         </>
+      ) : tab === 'compare' ? (
+        <CompareAudits
+          key={storageKey}
+          runs={runs}
+          preferredId={run?.id}
+          storageKey={`${storageKey}:comparison`}
+          loading={loading}
+          error={loadFailed ? error : ''}
+          canWrite={canWrite}
+          onRefresh={() => void refresh(true)}
+          onCompose={(seed, selectedLocale) => {
+            setDraftSeed(seed);
+            setLocale(selectedLocale);
+            setDraftKind('listing');
+            setTab('drafts');
+          }}
+        />
       ) : tab === 'sources' ? (
         <Sources
           key={run?.id || 'current'}
           workspaceId={workspace.id}
-          mode={run?.mode ?? mode}
+          mode={(run?.mode ?? mode) === 'screenshots' ? 'screenshots' : 'listing'}
           saved={
             run?.ai
               ? {
@@ -488,7 +557,9 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       ) : (
         <>
           <AIOptions
-            suggestions={modelSuggestions}
+            moduleContext="aso"
+            emptyLabel={project ? 'Choose an AI provider' : 'Rules only · No AI'}
+            capability={mode === 'screenshots' ? 'vision' : 'text'}
             workspaceId={workspace.id}
             owner={workspace.role === 'owner' && !previewMode}
             disabled={!canWrite || busy || working}
@@ -497,42 +568,52 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
               setAILoading(loading);
             }}
           />
-          <section className="aso-toolbar" aria-label="Audit settings">
+          <section className="aso-toolbar" aria-label={t('Audit settings')}>
             <label className="compact-label">
-              Review
+              {t('Review ')}
               <select
                 value={mode}
                 disabled={busy || working}
-                onChange={(event) => setMode(event.target.value as 'listing' | 'screenshots')}
+                onChange={(event) =>
+                  setMode(event.target.value as 'listing' | 'screenshots' | 'project')
+                }
               >
-                <option value="listing">Listing text</option>
-                <option value="screenshots">Screenshots</option>
+                {project ? (
+                  <option value="project">{t('Idea and first listing')}</option>
+                ) : (
+                  <option value="listing">{t('Listing text')}</option>
+                )}
+                <option value="screenshots" disabled={!!project}>
+                  {t('Screenshots')}
+                </option>
               </select>
             </label>
             <label className="compact-label">
-              Language
+              {t('Language ')}
               <select
                 value={locale}
-                disabled={busy || !locales.length}
+                disabled={busy || loading || !historyLocales.length}
                 onChange={(event) => {
                   setLocale(event.target.value);
                   setRunId('');
                 }}
               >
-                {locales.map((item) => (
+                {historyLocales.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </select>
             </label>
             <div className="aso-import-date">
-              <span>Imported listing</span>
-              <strong>{metadata ? date(metadata.captured_at) : 'No metadata yet'}</strong>
+              <span>{project ? t('Project description') : t('Imported listing')}</span>
+              <strong>{metadata ? date(metadata.captured_at) : t('No metadata yet')}</strong>
             </div>
             <button
               className="button primary"
               disabled={
                 !canWrite ||
                 !locale ||
+                !locales.includes(locale) ||
+                (!!project && !ai) ||
                 !metadata ||
                 busy ||
                 working ||
@@ -545,82 +626,148 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
               onClick={() => start()}
             >
               {busy
-                ? 'Starting…'
+                ? t('Starting…')
                 : working
-                  ? 'Audit in progress…'
+                  ? t('Audit in progress…')
                   : mode === 'screenshots'
-                    ? 'Review screenshots'
-                    : 'Run audit'}
+                    ? t('Review screenshots')
+                    : project
+                      ? t('Analyze idea and suggest listing')
+                      : t('Run audit')}
             </button>
           </section>
           <p className="aso-scope">
-            {mode === 'screenshots'
-              ? screenshotCount
-                ? `${screenshotCount} screenshots imported for ${locale} · Choose an AI model. Up to 10 images and listing text are sent twice to your provider; usage is billed there.`
-                : `No screenshots imported for ${locale}. ${metadata?.data.screenshots_locale ? `Images are available for ${metadata.data.screenshots_locale}.` : 'Refresh the app import in My apps.'}`
-              : ai
-                ? 'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.'
-                : 'Apple metadata checks · No AI call'}
+            {project
+              ? t(
+                  'Your project description is sent to the selected AI provider for analysis, writing and evidence review. Up to 2 model calls, billed by your provider. No existing listing is required.',
+                )
+              : mode === 'screenshots'
+                ? screenshotCount
+                  ? t(
+                      '{0} screenshots imported for {1} · Choose an AI model. Up to 10 images and listing text are sent twice to your provider; usage is billed there.',
+                      screenshotCount,
+                      locale,
+                    )
+                  : t(
+                      'No screenshots imported for {0}. {1}',
+                      locale,
+                      metadata?.data.screenshots_locale
+                        ? t('Images are available for {0}.', metadata.data.screenshots_locale)
+                        : t('Refresh the app import in My apps.'),
+                    )
+                : ai
+                  ? t(
+                      'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.',
+                    )
+                  : t('Apple metadata checks · No AI call')}
           </p>
           {error && (
             <p className="error" role="alert">
-              {error}
+              {t(error)}
+            </p>
+          )}
+          {!loading && runs.length > 0 && (
+            <>
+              <div className="aso-history">
+                <h2>{t('Audit activity')}</h2>
+                <label className="compact-label">
+                  {t('History ')}
+                  <select
+                    value={run?.id || ''}
+                    disabled={busy}
+                    onChange={(event) => {
+                      const selected = runs.find((item) => item.id === event.target.value);
+                      if (selected) openAudit(selected);
+                    }}
+                  >
+                    {!run && <option value="">{t('Choose a saved audit')}</option>}
+                    {runs.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {date(item.created_at)} · {item.locale} ·{' '}
+                        {item.mode === 'project'
+                          ? t('Idea and first listing')
+                          : item.mode === 'screenshots'
+                            ? t('Screenshots')
+                            : t('Listing text')}{' '}
+                        · {t(item.status === 'succeeded' ? 'Completed' : item.status)} ·{' '}
+                        {item.ai?.model || t('Rules only')}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => void refresh(true)}
+                >
+                  {t('Refresh audits')}
+                </button>
+              </div>
+              <p className="note">
+                {t(
+                  'Audits are saved automatically. You can leave this page and return to your history without starting another audit.',
+                )}
+              </p>
+            </>
+          )}
+          {activeRun && activeRun.id !== run?.id && (
+            <p className="notice" role="status">
+              {t('An audit is in progress for {0}.', activeRun.locale)}{' '}
+              <button className="text-button" onClick={() => openAudit(activeRun)}>
+                {t('View current audit')}
+              </button>
             </p>
           )}
           {loading ? (
-            <p role="status">Loading audits…</p>
-          ) : loadFailed ? (
+            <p role="status">{t('Loading audits…')}</p>
+          ) : loadFailed && !run ? (
             <div>
               <p>
-                Audit history could not be loaded. Check the saved audits before starting another
-                one.
+                {t(
+                  'Audit history could not be loaded. Check the saved audits before starting another one.',
+                )}
               </p>
               <button className="button secondary" onClick={() => void refresh(true)}>
-                Retry loading audits
+                {t('Retry loading audits')}
               </button>
             </div>
           ) : !run ? (
             <section className="aso-empty">
               <img src="/modules/audit-aso.webp" alt="" />
-              <h2>Review your store listing</h2>
+              <h2>
+                {project
+                  ? t('Your first listing starts with your idea')
+                  : t('Review your store listing')}
+              </h2>
               <p>
-                Choose a model for editorial recommendations, or run Apple metadata checks without
-                AI.
+                {t(
+                  project
+                    ? 'Choose an AI model to analyze your project and propose its first listing. Your saved idea is enough to start.'
+                    : 'Choose a model for editorial recommendations, or run Apple metadata checks without AI.',
+                )}
               </p>
               {!metadata && (
                 <button className="button secondary" onClick={() => navigate('app_catalog')}>
-                  Open My apps
+                  {t('Open My apps')}
                 </button>
               )}
             </section>
           ) : (
             <>
-              <div className="aso-history">
-                <h2>Audit activity</h2>
-                <label className="compact-label">
-                  History
-                  <select
-                    value={run.id}
-                    disabled={busy}
-                    onChange={(event) => setRunId(event.target.value)}
-                  >
-                    {history.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {date(item.created_at)} ·{' '}
-                        {item.mode === 'screenshots' ? 'Screenshots · ' : ''}
-                        {item.status === 'succeeded' ? 'Completed' : item.status} ·{' '}
-                        {item.ai?.model || 'Rules only'}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
               {run.snapshot_id !== metadata?.id && (
                 <p className="notice">
-                  This audit uses an earlier import. Run again to check the latest listing.
+                  {run.source === 'project.manual'
+                    ? t(
+                        'This audit uses an earlier project version. Its saved results remain available.',
+                      )
+                    : t(
+                        'This audit uses an earlier import. Run again to check the latest listing.',
+                      )}
                 </p>
               )}
-              {run.is_demo && <p className="notice">This audit uses fictional demo metadata.</p>}
+              {run.is_demo && (
+                <p className="notice">{t('This audit uses fictional demo metadata.')}</p>
+              )}
               <WorkflowPanel
                 key={run.workflow_id}
                 workspaceId={workspace.id}
@@ -635,14 +782,39 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                 }}
               />
               {run.report && (
-                <section className="aso-report" aria-label="Audit findings">
+                <section className="aso-report" aria-label={t('Audit findings')}>
                   <div className="aso-report-heading">
-                    <h2>{run.report.visual ? 'Screenshot review' : 'Recommendations'}</h2>
+                    <h2>
+                      {run.report.project
+                        ? t('Your ASO proposal')
+                        : run.report.visual
+                          ? t('Screenshot review')
+                          : t('Recommendations')}
+                    </h2>
                     <span className="note">
-                      {run.locale} · Imported {date(run.captured_at)}
+                      {run.locale}
+                      {run.source === 'project.manual' ? t(' · Draft saved ') : t(' · Imported ')}
+                      {date(run.captured_at)}
                     </span>
                   </div>
-                  {run.report.visual ? (
+                  {run.report.project ? (
+                    <ProjectProposal
+                      report={run.report.project}
+                      onUse={
+                        canWrite && !busy
+                          ? () => {
+                              setDraftSeed({
+                                audit_id: run.id,
+                                check_id: 'project.listing',
+                                name: t('First App Store listing'),
+                              });
+                              setDraftKind('listing');
+                              setTab('drafts');
+                            }
+                          : undefined
+                      }
+                    />
+                  ) : run.report.visual ? (
                     <Screenshots
                       report={run.report.visual}
                       onCreateBrief={canWrite && !busy ? createScreenshotBrief : undefined}
@@ -652,47 +824,64 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                       {run.report.editorial && (
                         <p className="notice">
                           {run.report.editorial.resolved_model} ·{' '}
-                          {run.report.editorial.accepted_proposals} AI proposals ·{' '}
-                          {run.report.editorial.usage.input_tokens ?? '—'} input /{' '}
-                          {run.report.editorial.usage.output_tokens ?? '—'} output tokens
+                          {run.report.editorial.accepted_proposals}
+                          {t(' AI proposals ·')} {run.report.editorial.usage.input_tokens ?? '—'}
+                          {t(' input /')} {run.report.editorial.usage.output_tokens ?? '—'}
+                          {t(' output tokens ')}
                           {!!run.report.editorial.usage.reasoning_tokens &&
-                            ` + ${run.report.editorial.usage.reasoning_tokens} reasoning tokens`}
+                            t(
+                              ' + {0} reasoning tokens',
+                              run.report.editorial.usage.reasoning_tokens,
+                            )}
                           {run.report.editorial.rejected_proposals > 0 &&
-                            ` · ${run.report.editorial.rejected_proposals} proposals excluded by validation.`}
+                            t(
+                              ' · {0} proposals excluded by validation.',
+                              run.report.editorial.rejected_proposals,
+                            )}
                         </p>
                       )}
                       {run.report.editorial?.grounding ? (
                         <p className="note">
-                          Evidence review · {run.report.editorial.grounding.reviewed_items} items
-                          checked
+                          {t('Evidence review · ')}
+                          {run.report.editorial.grounding.reviewed_items}
+                          {t(' items checked')}
                           {' · '}
                           {run.report.editorial.grounding.withheld_observations}{' '}
                           {run.report.editorial.grounding.withheld_observations === 1
-                            ? 'observation'
-                            : 'observations'}{' '}
-                          and {run.report.editorial.grounding.withheld_proposals}{' '}
+                            ? t('observation')
+                            : t('observations')}{' '}
+                          {t('and ')}
+                          {run.report.editorial.grounding.withheld_proposals}{' '}
                           {run.report.editorial.grounding.withheld_proposals === 1
-                            ? 'proposal'
-                            : 'proposals'}{' '}
-                          withheld
+                            ? t('proposal')
+                            : t('proposals')}{' '}
+                          {t('withheld')}
                           {' · '}
-                          {run.report.editorial.grounding.usage.input_tokens ?? '—'} input /{' '}
-                          {run.report.editorial.grounding.usage.output_tokens ?? '—'} output tokens
+                          {run.report.editorial.grounding.usage.input_tokens ?? '—'}
+                          {t(' input /')}{' '}
+                          {run.report.editorial.grounding.usage.output_tokens ?? '—'}
+                          {t(' output tokens ')}
                           {!!run.report.editorial.grounding.usage.reasoning_tokens &&
-                            ` + ${run.report.editorial.grounding.usage.reasoning_tokens} reasoning tokens`}
+                            t(
+                              ' + {0} reasoning tokens',
+                              run.report.editorial.grounding.usage.reasoning_tokens,
+                            )}
                         </p>
                       ) : run.report.editorial ? (
                         <p className="notice">
-                          This earlier audit did not include the separate evidence review. Run a new
-                          AI audit to check its claims.
+                          {t(
+                            'This earlier audit did not include the separate evidence review. Run a new AI audit to check its claims.',
+                          )}
                         </p>
                       ) : null}
-                      <h3>Content review</h3>
+                      <h3>{t('Content review')}</h3>
                       {assessments ? (
                         <>
                           <p className="note">
-                            {run.report.editorial?.reviewed_fields} of {assessments.length} fields
-                            reviewed · AI assessment
+                            {run.report.editorial?.reviewed_fields}
+                            {t(' of ')}
+                            {assessments.length}
+                            {t(' fields reviewed · AI assessment')}
                           </p>
                           {assessments.map((assessment) => {
                             const proposal = checks.find(
@@ -728,11 +917,17 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                       ) : (
                         <p className="note">
                           {run.ai
-                            ? 'This earlier audit did not record a review for each field. Run a new AI audit to see them.'
-                            : 'Content was not reviewed by AI. Choose a provider and model to review each field.'}
+                            ? t(
+                                'This earlier audit did not record a review for each field. Run a new AI audit to see them.',
+                              )
+                            : t(
+                                'Content was not reviewed by AI. Choose a provider and model to review each field.',
+                              )}
                         </p>
                       )}
-                      <h3>{assessments || !run.ai ? 'Apple checks' : 'Saved recommendations'}</h3>
+                      <h3>
+                        {assessments || !run.ai ? t('Apple checks') : t('Saved recommendations')}
+                      </h3>
                       {actionable.length ? (
                         actionable.map((check) => (
                           <Finding
@@ -745,26 +940,32 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                         ))
                       ) : (
                         <p className="aso-no-issues">
-                          No changes identified by these metadata checks.
+                          {t('No changes identified by these metadata checks.')}
                         </p>
                       )}
-                      <h3>Still to assess</h3>
+                      <h3>{t('Still to assess')}</h3>
                       {coverage.map((check) => (
                         <Finding key={`${run.id}:${check.id}`} check={check} />
                       ))}
                       {!!passed.length && (
                         <details className="aso-passed-group">
-                          <summary>{passed.length} Apple checks passed</summary>
+                          <summary>
+                            {passed.length}
+                            {t(' Apple checks passed')}
+                          </summary>
                           {passed.map((check) => (
                             <Finding key={`${run.id}:${check.id}`} check={check} />
                           ))}
                         </details>
                       )}
                       <p className="aso-report-footnote">
-                        No changes have been sent to Apple.{' '}
-                        {run.ai ? 'AI proposals require review. ' : 'Editorial AI was not used. '}
-                        Competitor research, screenshot analysis and download measurement are not
-                        included.
+                        {t('No changes have been sent to Apple.')}{' '}
+                        {run.ai
+                          ? t('AI proposals require review. ')
+                          : t('Editorial AI was not used. ')}
+                        {t(
+                          ' Competitor research, screenshot analysis and download measurement are not included.',
+                        )}
                       </p>
                     </>
                   )}
@@ -783,10 +984,10 @@ export default function ASO(props: ModuleProps) {
   return (
     <>
       <div className="page-heading heading-split">
-        <h1>ASO</h1>
+        <h1>{t('ASO')}</h1>
         {!!apps.length && (
           <label className="compact-label">
-            App
+            {t('App ')}
             <select
               value={selectedApp?.id || ''}
               onChange={(event) => {
@@ -794,7 +995,7 @@ export default function ASO(props: ModuleProps) {
                 if (app) selectApp(app);
               }}
             >
-              {!selectedApp && <option value="">Choose an app</option>}
+              {!selectedApp && <option value="">{t('Choose an app')}</option>}
               {apps.map((app) => (
                 <option key={app.id} value={app.id}>
                   {app.name}
@@ -809,9 +1010,9 @@ export default function ASO(props: ModuleProps) {
       ) : (
         <section className="catalog-empty">
           <img src="/modules/audit-aso.webp" alt="" />
-          <h2>Choose an app to audit</h2>
+          <h2>{t('Choose an app to audit')}</h2>
           <button className="button primary" onClick={() => navigate('app_catalog')}>
-            Open My apps
+            {t('Open My apps')}
           </button>
         </section>
       )}

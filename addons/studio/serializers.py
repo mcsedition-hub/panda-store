@@ -93,6 +93,7 @@ class RunSerializer(serializers.ModelSerializer):
         return {
             "mode": obj.inputs.get("mode", "legacy"),
             "snapshot_id": obj.inputs["snapshot_id"],
+            **({"app_context": obj.inputs["app_context"]} if obj.inputs.get("app_context") else {}),
             "brief": obj.inputs["brief"],
             "research_id": obj.inputs["research_id"],
             "sources": obj.inputs["sources"],

@@ -1,8 +1,11 @@
+import { t } from './i18n';
 import { Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, setCsrfToken } from './api';
 import type { MobileApp, ModuleInfo, Session, Workspace } from './contracts';
 import { moduleViews } from './modules';
 import Setup from './Setup';
+import LanguagePicker from './i18n/LanguagePicker';
+import { setLanguage, useLanguage } from './i18n';
 
 function Login({ onLogin }: { onLogin: (session: Session) => void }) {
   const [error, setError] = useState('');
@@ -28,25 +31,26 @@ function Login({ onLogin }: { onLogin: (session: Session) => void }) {
   }
   return (
     <main className="auth-layout">
-      <img className="brand" src="/brand/logo-light.svg" alt="Panda Store" />
+      <img className="brand" src="/brand/logo-light.svg" alt={t('Panda Store')} />
       <section className="auth-panel">
-        <h1>Sign in</h1>
+        <LanguagePicker />
+        <h1>{t('Sign in')}</h1>
         <form onSubmit={submit}>
           <label>
-            Username
+            {t('Username ')}
             <input name="username" autoComplete="username" required autoFocus />
           </label>
           <label>
-            Password
+            {t('Password ')}
             <input name="password" type="password" autoComplete="current-password" required />
           </label>
           {error && (
             <p className="error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <button className="button primary full" disabled={busy}>
-            {busy ? 'Signing in…' : 'Sign in'}
+            {busy ? t('Signing in…') : t('Sign in')}
           </button>
         </form>
         <a
@@ -55,7 +59,7 @@ function Login({ onLogin }: { onLogin: (session: Session) => void }) {
           target="_blank"
           rel="noreferrer"
         >
-          GitHub
+          {t('GitHub')}
         </a>
       </section>
     </main>
@@ -91,57 +95,64 @@ function ModuleManager({
   return (
     <>
       <div className="page-heading">
-        <h1>Modules</h1>
+        <h1>{t('Modules')}</h1>
       </div>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       <div className="module-grid">
-        {modules.map((module) => (
-          <article className={`module-card ${module.family}`} key={module.id}>
-            <div className="module-card-top">
-              <img src={`/modules/${module.icon}.webp`} alt="" />
-              <span className={`module-status ${module.enabled ? 'enabled' : ''}`}>
-                {module.availability === 'planned'
-                  ? 'Planned'
-                  : module.enabled
-                    ? 'Enabled'
-                    : 'Disabled'}
-              </span>
-            </div>
-            <h2>{module.name}</h2>
-            <p>{module.description}</p>
-            <button
-              className="button secondary"
-              disabled={
-                !!busy ||
-                module.required ||
-                module.availability === 'planned' ||
-                workspace.role !== 'owner'
-              }
-              onClick={() => toggle(module)}
-            >
-              {busy === module.id
-                ? 'Updating…'
-                : module.availability === 'planned'
-                  ? 'Not available yet'
-                  : module.required
-                    ? 'Core module'
+        {modules
+          .filter((module) => module.id !== 'example')
+          .map((module) => (
+            <article className={`module-card ${module.family}`} key={module.id}>
+              <div className="module-card-top">
+                <img src={`/modules/${module.icon}.webp`} alt="" />
+                <span className={`module-status ${module.enabled ? 'enabled' : ''}`}>
+                  {module.availability === 'planned'
+                    ? t('Planned')
                     : module.enabled
-                      ? 'Disable'
-                      : 'Enable module'}
-            </button>
-          </article>
-        ))}
+                      ? t('Enabled')
+                      : t('Disabled')}
+                </span>
+              </div>
+              <h2>{t(module.name)}</h2>
+              <p>{t(module.description)}</p>
+              <button
+                className="button secondary"
+                disabled={
+                  !!busy ||
+                  module.required ||
+                  module.availability === 'planned' ||
+                  workspace.role !== 'owner'
+                }
+                onClick={() => toggle(module)}
+              >
+                {busy === module.id
+                  ? t('Updating…')
+                  : module.availability === 'planned'
+                    ? t('Not available yet')
+                    : module.required
+                      ? t('Core module')
+                      : module.enabled
+                        ? t('Disable')
+                        : t('Enable module')}
+              </button>
+            </article>
+          ))}
       </div>
     </>
   );
 }
 
 export default function App() {
+  useLanguage();
   const [session, setSession] = useState<Session | null>(null);
+  const acceptSession = useCallback((next: Session) => {
+    if (next.language) setLanguage(next.language);
+    setSession(next);
+  }, []);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspaceId, setWorkspaceId] = useState('');
   const workspaceRef = useRef(workspaceId);
@@ -152,6 +163,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState('');
   const [current, setCurrent] = useState('app_catalog');
   const [detailAppId, setDetailAppId] = useState('');
+  const [modulePage, setModulePage] = useState('');
   const leaveGuard = useRef<(() => Promise<boolean>) | null>(null);
   const leaving = useRef(false);
   const registerLeaveGuard = useCallback((guard: () => Promise<boolean>) => {
@@ -173,10 +185,11 @@ export default function App() {
       leaving.current = false;
     }
   }
-  function navigate(module: string, appId = '') {
+  function navigate(module: string, appId = '', page = '') {
     void leave(() => {
       setCurrent(module);
       setDetailAppId(appId);
+      setModulePage(page);
     });
   }
   const [error, setError] = useState('');
@@ -192,7 +205,7 @@ export default function App() {
         const data = await api<Session>('/api/session/', { signal: controller.signal });
         if (!active) return;
         setCsrfToken(data.csrf_token);
-        setSession(data);
+        acceptSession(data);
       } catch (err) {
         if (active) setError((err as Error).message);
       } finally {
@@ -257,6 +270,7 @@ export default function App() {
     setModules([]);
     setSelectedId('');
     setDetailAppId('');
+    setModulePage('');
     setError('');
     Promise.all([
       refreshModules(),
@@ -292,33 +306,34 @@ export default function App() {
   if (loading)
     return (
       <div className="boot" role="status">
-        Loading…
+        {t('Loading…')}
       </div>
     );
   if (!session)
     return (
       <main className="boot">
-        <h1>Unable to connect</h1>
-        <p role="alert">{error}</p>
+        <h1>{t('Unable to connect')}</h1>
+        <p role="alert">{t(error)}</p>
         <button className="button secondary" onClick={() => window.location.reload()}>
-          Try again
+          {t('Try again')}
         </button>
       </main>
     );
-  if (session.setup_required) return <Setup onComplete={setSession} />;
-  if (!session.user) return <Login onLogin={setSession} />;
+  if (session.setup_required) return <Setup onComplete={acceptSession} />;
+  if (!session.user) return <Login onLogin={acceptSession} />;
   const enabled = modules.filter((m) => m.enabled && m.availability !== 'planned');
+  const navigationModules = enabled.filter((module) => module.id !== 'example');
   const activeModule = enabled.find((m) => m.id === current);
   const ModuleView = activeModule ? moduleViews[current] : null;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
-        Skip to content
+        {t('Skip to content')}
       </a>
       <aside className="sidebar">
-        <img className="brand" src="/brand/logo-dark.svg" alt="Panda Store" />
+        <img className="brand" src="/brand/logo-dark.svg" alt={t('Panda Store')} />
         <div className="workspace-picker">
-          <label htmlFor="workspace">Workspace</label>
+          <label htmlFor="workspace">{t('Workspace')}</label>
           <select
             id="workspace"
             value={workspaceId}
@@ -334,8 +349,8 @@ export default function App() {
             ))}
           </select>
         </div>
-        <nav aria-label="Modules">
-          {enabled.map((module) => (
+        <nav aria-label={t('Modules')}>
+          {navigationModules.map((module) => (
             <button
               key={module.id}
               className={`nav-item ${current === module.id ? 'active' : ''}`}
@@ -346,7 +361,7 @@ export default function App() {
               aria-current={current === module.id ? 'page' : undefined}
             >
               <img src={`/modules/${module.icon}.webp`} alt="" />
-              <span>{module.name}</span>
+              <span>{t(module.name)}</span>
             </button>
           ))}
           <button
@@ -355,32 +370,27 @@ export default function App() {
             aria-current={current === 'modules' ? 'page' : undefined}
           >
             <img src="/modules/extensions.webp" alt="" />
-            <span>Modules</span>
+            <span>{t('Modules')}</span>
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <span className="edition">Community · Alpha</span>
+          <span className="edition">{t('Community · Alpha')}</span>
           <a href="https://github.com/mcsedition-hub/panda-store" target="_blank" rel="noreferrer">
-            GitHub
+            {t('GitHub')}
           </a>
         </div>
       </aside>
       <div className="workspace-shell">
         <header className="topbar">
           <span className="breadcrumb">
-            {workspace?.name ?? 'Workspace'} <span>/</span>{' '}
-            {current === 'modules' ? 'Modules' : (activeModule?.name ?? 'Loading')}
+            {workspace?.name ?? t('Workspace')} <span>/</span>{' '}
+            {t(current === 'modules' ? t('Modules') : (activeModule?.name ?? t('Loading')))}
           </span>
           <div className="topbar-right">
-            {session.demo_mode && (
-              <span className="demo-tag">
-                {session.preview_mode ? 'Visual preview' : 'Demo apps available'}
-              </span>
-            )}
             <span className="user-name">{session.user.username}</span>
             {!session.preview_mode && (
               <button className="text-button" onClick={() => void leave(signOut)}>
-                Sign out
+                {t('Sign out')}
               </button>
             )}
           </div>
@@ -388,25 +398,27 @@ export default function App() {
         <main id="main" className="main-content">
           {session.preview_mode && (
             <p className="notice" role="status">
-              Read-only preview · Sample data
+              {t('Read-only preview · Sample data')}
             </p>
           )}
           {error && (
             <p className="error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           {!workspace && (
             <div className="empty">
-              <h1>No workspace access</h1>
-              <p>You do not have access to a workspace yet. Ask your administrator to add you.</p>
+              <h1>{t('No workspace access')}</h1>
+              <p>
+                {t('You do not have access to a workspace yet. Ask your administrator to add you.')}
+              </p>
             </div>
           )}
           {workspace && current === 'modules' && (
             <ModuleManager modules={modules} workspace={workspace} reload={refreshModules} />
           )}
           {workspace && current !== 'modules' && ModuleView && (
-            <Suspense fallback={<p role="status">Opening module…</p>}>
+            <Suspense fallback={<p role="status">{t('Opening module…')}</p>}>
               <ModuleView
                 key={`${workspaceId}:${current}`}
                 workspace={workspace}
@@ -416,6 +428,7 @@ export default function App() {
                 registerLeaveGuard={registerLeaveGuard}
                 navigate={navigate}
                 detailAppId={detailAppId}
+                page={modulePage}
                 availableModules={enabled.map((module) => module.id)}
                 refreshApps={refreshApps}
                 demoMode={session.demo_mode}
@@ -426,15 +439,15 @@ export default function App() {
           {workspace && current !== 'modules' && !ModuleView && (
             <p role="status">
               {modules.length
-                ? 'This module is not enabled in this workspace.'
-                : 'Loading modules…'}
+                ? t('This module is not enabled in this workspace.')
+                : t('Loading modules…')}
             </p>
           )}
         </main>
         <footer className="app-footer">
-          <span>Panda Store</span>
+          <span>{t('Panda Store')}</span>
           <a href="https://www.gnu.org/licenses/lgpl-3.0.html" target="_blank" rel="noreferrer">
-            Open source · LGPLv3
+            {t('Open source · LGPLv3')}
           </a>
         </footer>
       </div>

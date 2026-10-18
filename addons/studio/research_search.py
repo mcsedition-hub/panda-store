@@ -3,7 +3,9 @@
 import json
 from urllib.parse import urlsplit, urlunsplit
 
-from panda_store.ai.providers import ProviderError, request, supported
+from panda_store.ai.context import project_instruction
+from panda_store.ai.language import response_instruction
+from panda_store.ai.providers import ProviderError, check_capabilities, request
 
 VERSION = "research-2026-10-17.1"
 REFERENCES = [
@@ -58,9 +60,9 @@ def public_url(value):
         return None
 
 
-def search(provider, key, model, context):
-    if not supported(provider, model):
-        raise ProviderError("Choose a supported research model.")
+def search(provider, key, model, context, *, response_language="en"):
+    check_capabilities(provider, model, web_search=True)
+    instruction = response_instruction(project_instruction(INSTRUCTION, context), response_language)
     prompt = json.dumps(context, ensure_ascii=False)
     sources, queries, warnings = [], [], []
     widget = ""
@@ -72,7 +74,7 @@ def search(provider, key, model, context):
             payload={
                 "model": model,
                 "store": False,
-                "instructions": INSTRUCTION,
+                "instructions": instruction,
                 "input": prompt,
                 "tools": [{"type": "web_search", "search_context_size": "medium"}],
                 "tool_choice": "required",
@@ -104,7 +106,7 @@ def search(provider, key, model, context):
             key,
             f"/models/{model}:generateContent",
             payload={
-                "systemInstruction": {"parts": [{"text": INSTRUCTION}]},
+                "systemInstruction": {"parts": [{"text": instruction}]},
                 "contents": [{"role": "user", "parts": [{"text": prompt}]}],
                 "tools": [{"google_search": {}}],
                 "generationConfig": {"maxOutputTokens": 6000},
@@ -141,7 +143,7 @@ def search(provider, key, model, context):
             "/messages",
             payload={
                 "model": model,
-                "system": INSTRUCTION,
+                "system": instruction,
                 "max_tokens": 6000,
                 "messages": [{"role": "user", "content": prompt}],
                 "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],

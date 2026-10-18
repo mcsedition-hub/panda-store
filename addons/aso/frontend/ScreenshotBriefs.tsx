@@ -1,3 +1,4 @@
+import { t } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
@@ -213,7 +214,7 @@ function Editor({
     }
   }
   return (
-    <section className="screenshot-brief-editor" aria-label="Screenshot brief">
+    <section className="screenshot-brief-editor" aria-label={t('Screenshot brief')}>
       <div className="heading-split">
         <button
           className="text-button"
@@ -222,26 +223,32 @@ function Editor({
             if (await save()) onBack();
           }}
         >
-          ← Screenshot briefs
+          {t('← Screenshot briefs')}
         </button>
         <span className="pill">
-          {dirty ? 'Unsaved changes' : saved.status === 'ready' ? 'Ready for design' : 'Draft'}
+          {dirty
+            ? t('Unsaved changes')
+            : saved.status === 'ready'
+              ? t('Ready for design')
+              : t('Draft')}
         </span>
       </div>
       <h2 ref={heading} tabIndex={-1}>
         {saved.name}
       </h2>
       <p className="note">
-        {saved.locale} · Revision {saved.version} · {when(saved.updated_at)}
+        {saved.locale}
+        {t(' · Revision ')}
+        {saved.version} · {when(saved.updated_at)}
       </p>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {conflict && (
         <div className="notice">
-          <p>Your changes are kept here. Compare the saved version before continuing.</p>
+          <p>{t('Your changes are kept here. Compare the saved version before continuing.')}</p>
           <button
             className="button secondary"
             disabled={busy}
@@ -256,7 +263,7 @@ function Editor({
               }
             }}
           >
-            Compare saved version
+            {t('Compare saved version')}
           </button>{' '}
           <button
             className="text-button"
@@ -277,45 +284,48 @@ function Editor({
               }
             }}
           >
-            Discard local edits and reload
+            {t('Discard local edits and reload')}
           </button>
         </div>
       )}
       <div className="screenshot-brief-columns">
         <aside className="screenshot-brief-reference">
-          <h3>Reference</h3>
+          <h3>{t('Reference')}</h3>
           {saved.reference_url ? (
             <a href={saved.reference_url} target="_blank" rel="noreferrer">
               <img
                 src={saved.reference_url}
-                alt={`Reference screenshot: ${saved.source.finding.name}`}
+                alt={t('Reference screenshot: {0}', saved.source.finding.name)}
               />
             </a>
           ) : (
-            <p className="notice">The reference image is no longer available.</p>
+            <p className="notice">{t('The reference image is no longer available.')}</p>
           )}
           <p className="note">
-            {saved.source.finding.name} · Imported {when(saved.source.imported_at)}
+            {saved.source.finding.name}
+            {t(' · Imported ')}
+            {when(saved.source.imported_at)}
           </p>
           <details>
-            <summary>Audit observation</summary>
+            <summary>{t('Audit observation')}</summary>
             <p>{saved.source.finding.observation}</p>
             <p>{saved.source.finding.recommendation}</p>
             <p className="note">
-              {saved.source.model} · AI suggestion, reviewed against the saved images.
+              {saved.source.model}
+              {t(' · AI suggestion, reviewed against the saved images.')}
             </p>
           </details>
           <details>
-            <summary>Imported listing</summary>
+            <summary>{t('Imported listing')}</summary>
             {Object.entries(saved.source.listing).map(([key, value]) => (
               <div key={key}>
-                <strong>{key.replaceAll('_', ' ')}</strong>
+                <strong>{t(key.replaceAll('_', ' '))}</strong>
                 <p>{value}</p>
               </div>
             ))}
           </details>
           <details>
-            <summary>Sources</summary>
+            <summary>{t('Sources')}</summary>
             {saved.source.finding.sources.map((source) => (
               <SourceReference key={source.id} source={source} />
             ))}
@@ -323,7 +333,7 @@ function Editor({
         </aside>
         <div className="screenshot-brief-form">
           <label>
-            Brief name
+            {t('Brief name ')}
             <input
               value={local.name}
               maxLength={120}
@@ -333,7 +343,7 @@ function Editor({
           </label>
           {fields.map(([key, label, rows]) => (
             <label key={key}>
-              {label}
+              {t(label)}
               <textarea
                 rows={rows}
                 maxLength={4000}
@@ -351,14 +361,14 @@ function Editor({
               disabled={!canWrite || busy || conflict || !dirty}
               onClick={() => void save()}
             >
-              Save brief
+              {t('Save brief')}
             </button>
             <button
               className="button secondary"
               disabled={busy || conflict}
               onClick={() => void exportBrief()}
             >
-              Export brief
+              {t('Export brief')}
             </button>
             <button
               className="text-button"
@@ -375,19 +385,21 @@ function Editor({
                 }
               }}
             >
-              Duplicate
+              {t('Duplicate')}
             </button>
           </div>
           <div className="screenshot-brief-ready">
             {saved.status === 'ready' && !dirty ? (
               <>
-                <p>Ready for design · Product claims were confirmed by a workspace member.</p>
+                <p>
+                  {t('Ready for design · Product claims were confirmed by a workspace member.')}
+                </p>
                 <button
                   className="text-button"
                   disabled={!canWrite || busy || conflict}
                   onClick={() => void mutate({ status: 'draft' }, 'Brief returned to draft.')}
                 >
-                  Return to draft
+                  {t('Return to draft')}
                 </button>
               </>
             ) : (
@@ -399,7 +411,7 @@ function Editor({
                     disabled={!canWrite || busy || dirty || conflict}
                     onChange={(e) => setConfirmed(e.target.checked)}
                   />
-                  I checked the proposed claims against the app.
+                  {t(' I checked the proposed claims against the app.')}
                 </label>
                 <button
                   className="button secondary"
@@ -413,10 +425,12 @@ function Editor({
                     )
                   }
                 >
-                  Mark ready for design
+                  {t('Mark ready for design')}
                 </button>
                 {!saved.can_mark_ready && (
-                  <p className="note">Describe the change and the screen to capture, then save.</p>
+                  <p className="note">
+                    {t('Describe the change and the screen to capture, then save.')}
+                  </p>
                 )}
               </>
             )}
@@ -441,23 +455,24 @@ function Editor({
           }
         }}
       >
-        {history ? 'Hide history' : 'Revision history'}
+        {history ? t('Hide history') : t('Revision history')}
       </button>
       {history && (
         <div className="screenshot-brief-history">
           {history.map((item) => (
             <details key={item.version}>
               <summary>
-                Revision {item.version} · {item.reason} · {when(item.created_at)}
+                {t('Revision ')}
+                {item.version} · {t(item.reason)} · {when(item.created_at)}
               </summary>
               <p className="note">
-                {item.author} · {item.status === 'ready' ? 'Ready for design' : 'Draft'}
+                {item.author} · {item.status === 'ready' ? t('Ready for design') : t('Draft')}
               </p>
               <strong>{item.name}</strong>
               {fields.map(([key, label]) => (
                 <div key={key}>
-                  <strong>{label}</strong>
-                  <p>{item.content[key] || 'Not specified.'}</p>
+                  <strong>{t(label)}</strong>
+                  <p>{item.content[key] || t('Not specified.')}</p>
                 </div>
               ))}
               <button
@@ -467,7 +482,8 @@ function Editor({
                   void mutate({ restore_version: item.version }, 'Revision restored as a draft.')
                 }
               >
-                Restore revision {item.version}
+                {t('Restore revision ')}
+                {item.version}
               </button>
             </details>
           ))}
@@ -539,17 +555,17 @@ export default function ScreenshotBriefs(
       />
     );
   return (
-    <section aria-label="Screenshot briefs">
-      <h2>Screenshot briefs</h2>
+    <section aria-label={t('Screenshot briefs')}>
+      <h2>{t('Screenshot briefs')}</h2>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {loading ? (
-        <p role="status">Loading briefs…</p>
+        <p role="status">{t('Loading briefs…')}</p>
       ) : !items.length ? (
-        <p className="note">Create a brief from a screenshot recommendation in Audit.</p>
+        <p className="note">{t('Create a brief from a screenshot recommendation in Audit.')}</p>
       ) : (
         <div className="draft-list">
           {items.map((item) => (
@@ -574,7 +590,7 @@ export default function ScreenshotBriefs(
             >
               <strong>{item.name}</strong>
               <span>
-                {item.locale} · {item.status === 'ready' ? 'Ready for design' : 'Draft'} ·{' '}
+                {item.locale} · {item.status === 'ready' ? t('Ready for design') : t('Draft')} ·{' '}
                 {when(item.updated_at)}
               </span>
             </button>

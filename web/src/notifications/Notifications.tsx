@@ -1,6 +1,8 @@
+import { t } from '../i18n';
 import { useEffect, useSyncExternalStore } from 'react';
 import { api, ApiError } from '../api';
 import type { WorkflowSnapshot } from '../workflows/types';
+import { useLanguage } from '../i18n';
 import {
   dismiss,
   finishWork,
@@ -23,8 +25,8 @@ function Toast({ notice }: { notice: Notice }) {
       <span className="notification-symbol" aria-hidden="true">
         {notice.kind === 'success' ? '✓' : notice.kind === 'error' ? '!' : '·'}
       </span>
-      <p role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.message}</p>
-      <button aria-label="Dismiss notification" onClick={() => dismiss(notice.id)}>
+      <p role={notice.kind === 'error' ? 'alert' : 'status'}>{t(notice.message)}</p>
+      <button aria-label={t('Dismiss notification')} onClick={() => dismiss(notice.id)}>
         ×
       </button>
     </div>
@@ -50,8 +52,8 @@ function WorkWatcher({ job }: { job: TrackedWork }) {
           notify(
             next.status === 'failed' ? 'error' : next.status === 'succeeded' ? 'success' : 'info',
             next.status === 'failed'
-              ? `${next.title} failed. ${next.error}`
-              : `${next.title} ${next.status === 'succeeded' ? 'completed.' : 'stopped.'}`,
+              ? t('{0} failed. {1}', t(next.title), t(next.error))
+              : t(next.status === 'succeeded' ? '{0} completed.' : '{0} stopped.', t(next.title)),
             `workflow:${job.id}`,
           );
           finishWork(job.id);
@@ -89,6 +91,7 @@ function WorkWatcher({ job }: { job: TrackedWork }) {
 }
 
 export default function Notifications() {
+  useLanguage();
   const notices = useSyncExternalStore(subscribe, getNotices);
   const work = useSyncExternalStore(subscribe, getWork);
   return (
@@ -96,7 +99,7 @@ export default function Notifications() {
       {work.map((job) => (
         <WorkWatcher key={job.id} job={job} />
       ))}
-      <aside className="notifications" aria-label="Notifications">
+      <aside className="notifications" aria-label={t('Notifications')}>
         {notices.map((notice) => (
           <Toast key={notice.id} notice={notice} />
         ))}

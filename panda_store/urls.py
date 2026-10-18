@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/setup/", auth.setup),
     path("api/session/login/", auth.sign_in),
     path("api/session/logout/", auth.sign_out),
+    path("api/session/preferences/", auth.preferences),
     path("api/workspaces/", views.workspaces),
     path("api/workspaces/<uuid:workspace_id>/ai/", ai_views.connections),
     path("api/workspaces/<uuid:workspace_id>/ai/<slug:provider>/", ai_views.connection),

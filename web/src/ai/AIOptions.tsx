@@ -1,16 +1,18 @@
+import { t } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import ModelGuide from './ModelGuide';
+import {
+  modelOptionLabel,
+  modelVision,
+  primaryModels,
+  recommendedModel,
+  type Model,
+  type ModuleContext,
+} from './modelProfiles';
 
 export type AIChoice = { provider: string; model: string } | null;
-type Model = { id: string; name: string; thinking?: boolean | null };
-export type ModelSuggestions = Record<
-  string,
-  {
-    label: string;
-    description: string;
-    models: { id: string; label: string; requiresThinking?: boolean }[];
-  }
->;
+type Capability = 'text' | 'vision' | 'web_search';
 type Provider = {
   id: string;
   name: string;
@@ -20,27 +22,42 @@ type Provider = {
   checked_at: string | null;
 };
 type Catalog = { providers: Provider[]; credentials_ready: boolean };
-const names = { openai: 'OpenAI', google: 'Google Gemini', anthropic: 'Anthropic Claude' };
+const names = {
+  openai: 'OpenAI',
+  google: 'Google Gemini',
+  anthropic: 'Anthropic Claude',
+  zai: 'Z.ai (GLM)',
+};
+function compatible(provider: string, model: Model, capability: Capability) {
+  if (provider === 'zai' && capability === 'web_search') return false;
+  if (capability !== 'vision') return true;
+  const vision = modelVision(provider, model);
+  // Preserve access to unreviewed models on existing adapters, but honor an
+  // explicit negative capability. Z.ai has a complete supported catalog.
+  return vision === true || (provider !== 'zai' && vision !== false);
+}
 
 export default function AIOptions({
   workspaceId,
   owner,
   disabled,
   onChange,
-  suggestions = {},
   emptyLabel = 'Rules only · No AI',
+  capability = 'text',
+  moduleContext,
 }: {
   workspaceId: string;
   owner: boolean;
   disabled: boolean;
   onChange: (choice: AIChoice, loading: boolean) => void;
-  suggestions?: ModelSuggestions;
   emptyLabel?: string;
+  capability?: Capability;
+  moduleContext?: ModuleContext;
 }) {
   const [catalog, setCatalog] = useState<Catalog>({ providers: [], credentials_ready: false });
   const [provider, setProvider] = useState('');
   const [model, setModel] = useState('');
-  const [showOtherModels, setShowOtherModels] = useState(false);
+  const [showAllModels, setShowAllModels] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [target, setTarget] = useState('openai');
@@ -53,22 +70,28 @@ export default function AIOptions({
   const alive = useRef(true);
   const callback = useRef(onChange);
   callback.current = onChange;
+  const requirement = useRef(capability);
+  requirement.current = capability;
   const endpoint = `/api/workspaces/${workspaceId}/ai/`;
   const selected = catalog.providers.find((item) => item.id === provider);
   const connection = catalog.providers.find((item) => item.id === target);
-  const suggestion = suggestions[provider];
-  const suggestedModels = (suggestion?.models ?? []).filter((item) =>
-    selected?.models.some(
-      (available) =>
-        available.id === item.id && (!item.requiresThinking || available.thinking === true),
-    ),
+  const availableModels = (selected?.models ?? []).filter((item) =>
+    compatible(provider, item, capability),
   );
-  const otherModels = (selected?.models ?? []).filter(
-    (item) => !suggestedModels.some((suggested) => suggested.id === item.id),
+  const recommendation = recommendedModel(
+    provider,
+    availableModels,
+    moduleContext,
+    capability === 'vision',
   );
-  // A refresh can change the shortlist. Keep an existing explicit choice visible.
-  const showingOthers =
-    showOtherModels || (!!model && otherModels.some((item) => item.id === model));
+  const primary = primaryModels(provider, availableModels, recommendation?.model);
+  const chosenOther = availableModels.find(
+    (item) => item.id === model && !primary.some((entry) => entry.id === model),
+  );
+  // Preserve a previously chosen extra model while keeping the compact list at five.
+  const visibleModels = showAllModels
+    ? availableModels
+    : [...primary.slice(0, chosenOther ? 4 : 5), ...(chosenOther ? [chosenOther] : [])];
 
   useEffect(() => {
     let active = true;
@@ -78,12 +101,17 @@ export default function AIOptions({
     setError('');
     setProvider('');
     setModel('');
+    setShowAllModels(false);
     callback.current(null, true);
     api<Catalog>(endpoint)
       .then((next) => {
         if (!active) return;
         setCatalog(next);
-        const first = next.providers.find((item) => item.connected && item.models.length);
+        const first = next.providers.find(
+          (item) =>
+            item.connected &&
+            item.models.some((model) => compatible(item.id, model, requirement.current)),
+        );
         if (first) {
           setProvider(first.id);
           // The user explicitly chooses a model before a paid analysis can start.
@@ -105,8 +133,15 @@ export default function AIOptions({
     };
   }, [endpoint, reload]);
 
+  useEffect(() => {
+    if (model && !availableModels.some((item) => item.id === model)) {
+      setModel('');
+      callback.current({ provider, model: '' }, false);
+    }
+  }, [capability, catalog, provider, model]);
+
   function choose(nextProvider: string, nextModel = '') {
-    if (nextProvider !== provider) setShowOtherModels(false);
+    if (nextProvider !== provider) setShowAllModels(false);
     setProvider(nextProvider);
     setModel(nextModel);
     callback.current(nextProvider ? { provider: nextProvider, model: nextModel } : null, false);
@@ -141,7 +176,9 @@ export default function AIOptions({
       setNotice(
         method === 'DELETE'
           ? 'Provider disconnected.'
-          : 'Connection checked. Available models updated.',
+          : target === 'zai'
+            ? 'Connection checked. Supported GLM models updated.'
+            : 'Connection checked. Available models updated.',
       );
     } catch (err) {
       if (alive.current) setError((err as Error).message);
@@ -150,63 +187,50 @@ export default function AIOptions({
     }
   }
   return (
-    <section className="ai-options" aria-label="AI options">
+    <section className="ai-options" aria-label={t('AI options')}>
       <div className="ai-choice-row">
         <label className="compact-label">
-          AI provider
+          {t('AI provider ')}
           <select
             value={provider}
             disabled={disabled || loading || busy || !!loadError}
             onChange={(e) => choose(e.target.value)}
           >
-            <option value="">{emptyLabel}</option>
+            <option value="">{t(emptyLabel)}</option>
             {Object.entries(names).map(([id, name]) => (
               <option
                 key={id}
                 value={id}
-                disabled={!catalog.providers.find((item) => item.id === id)?.connected}
+                disabled={
+                  !catalog.providers.find((item) => item.id === id)?.connected ||
+                  (id === 'zai' && capability === 'web_search')
+                }
               >
                 {name}
                 {!catalog.providers.find((item) => item.id === id)?.connected
-                  ? ' · Not connected'
-                  : ''}
+                  ? t(' · Not connected')
+                  : id === 'zai' && capability === 'web_search'
+                    ? t(' · Use browser research')
+                    : ''}
               </option>
             ))}
           </select>
         </label>
         {provider && (
-          <label className="compact-label">
-            Model
+          <label className="compact-label ai-model-choice">
+            {t('Model ')}
             <select
               value={model}
               disabled={disabled || loading || busy}
               onChange={(e) => choose(provider, e.target.value)}
             >
-              <option value="">Choose a model</option>
-              {!!suggestedModels.length && (
-                <optgroup label={suggestion.label}>
-                  {suggestedModels.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.id} · {item.label}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {suggestion && showingOthers && (
-                <optgroup label="Other compatible models">
-                  {otherModels.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.id}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {!suggestion &&
-                selected?.models.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.id}
-                  </option>
-                ))}
+              <option value="">{t('Choose a model')}</option>
+              {visibleModels.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {modelOptionLabel(provider, item)}
+                  {recommendation?.model.id === item.id ? ` · ${t(recommendation.label)}` : ''}
+                </option>
+              ))}
             </select>
           </label>
         )}
@@ -215,58 +239,77 @@ export default function AIOptions({
           aria-expanded={editing}
           onClick={() => setEditing(!editing)}
         >
-          AI settings
+          {t('AI settings')}
         </button>
       </div>
-      {suggestion && !loading && (
-        <div className="ai-model-guide">
+      {primary.length < availableModels.length && (
+        <div className="ai-model-list-toggle">
           <span className="note">
-            {suggestedModels.length
-              ? suggestion.description
-              : 'No suggested models in this catalog. Refresh models in AI settings or browse others.'}
+            {t('Five main models at most. More choices are available in the full list.')}
           </span>
-          {!!otherModels.length && (
-            <button
-              className="text-button"
-              disabled={disabled || busy}
-              aria-expanded={showingOthers}
-              onClick={() => {
-                if (showingOthers && otherModels.some((item) => item.id === model))
-                  choose(provider);
-                setShowOtherModels(!showingOthers);
-              }}
-            >
-              {showingOthers ? 'Show suggested models' : 'Show other models'}
-            </button>
-          )}
+          <button
+            className="text-button"
+            disabled={disabled || loading || busy}
+            aria-expanded={showAllModels}
+            onClick={() => setShowAllModels(!showAllModels)}
+          >
+            {showAllModels
+              ? t('Show main models')
+              : t('See more ({0} models)', availableModels.length)}
+          </button>
         </div>
+      )}
+      {provider === 'zai' && (
+        <p className="note">
+          {capability === 'vision' ? t('Only GLM models that accept images are shown. ') : ''}
+          {t(
+            ' Listed-free models follow Z.ai pricing; account access and rate limits still apply.',
+          )}{' '}
+          <a href="https://docs.z.ai/guides/overview/pricing" target="_blank" rel="noreferrer">
+            {t('Check current pricing')}
+          </a>
+          .
+        </p>
+      )}
+      {provider && !loading && !loadError && (
+        <ModelGuide
+          key={provider}
+          provider={provider}
+          models={visibleModels}
+          selectedId={model}
+          recommendation={recommendation}
+          disabled={disabled || busy}
+          onChoose={(id) => choose(provider, id)}
+        />
       )}
       {loading && (
         <p role="status" className="note">
-          Loading AI providers…
+          {t('Loading AI providers…')}
         </p>
       )}
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {loadError && (
         <div>
           <p className="error" role="alert">
-            AI connections could not be loaded. {loadError}
+            {t('AI connections could not be loaded. ')}
+            {t(loadError)}
           </p>
           <button className="button secondary" onClick={() => setReload((value) => value + 1)}>
-            Retry loading AI connections
+            {t('Retry loading AI connections')}
           </button>
         </div>
       )}
       {editing && (
         <div className="ai-settings">
-          <h3>Workspace AI connections</h3>
+          <h3>{t('Workspace AI connections')}</h3>
           <p className="note">
-            Keys are stored encrypted on your server. Analyses use your provider account and
-            billing.
+            {t(
+              'Keys are stored encrypted on your server. Analyses use your provider account and billing.',
+            )}
           </p>
           {!loading && !loadError && (
             <>
@@ -275,7 +318,7 @@ export default function AIOptions({
                 disabled={busy}
                 onClick={() => setReload((value) => value + 1)}
               >
-                Reload AI connections
+                {t('Reload AI connections')}
               </button>
               <div className="ai-provider-status">
                 {Object.entries(names).map(([id, name]) => (
@@ -283,8 +326,8 @@ export default function AIOptions({
                     {name}{' '}
                     <strong>
                       {catalog.providers.find((item) => item.id === id)?.connected
-                        ? 'Connected'
-                        : 'Not connected'}
+                        ? t('Connected')
+                        : t('Not connected')}
                     </strong>
                   </span>
                 ))}
@@ -297,7 +340,7 @@ export default function AIOptions({
                   }}
                 >
                   <label>
-                    Provider
+                    {t('Provider ')}
                     <select
                       value={target}
                       disabled={busy}
@@ -315,8 +358,23 @@ export default function AIOptions({
                       ))}
                     </select>
                   </label>
+                  {target === 'zai' && (
+                    <p className="note">
+                      {t('Create a Standard API Key in')}{' '}
+                      <a
+                        href="https://z.ai/manage-apikey/apikey-list"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {t('Z.ai')}
+                      </a>
+                      {t(
+                        '. Connecting or refreshing sends a short check to GLM-4.7-Flash, listed as free by Z.ai, without app data. The supported model list is maintained by Panda Store; access to other models is checked when used.',
+                      )}
+                    </p>
+                  )}
                   <label>
-                    API key
+                    {t('API key ')}
                     <input
                       type="password"
                       autoComplete="off"
@@ -325,15 +383,16 @@ export default function AIOptions({
                       onChange={(e) => setKey(e.target.value)}
                       placeholder={
                         connection?.connected
-                          ? 'Enter a new key to replace the saved one'
-                          : 'Paste your API key'
+                          ? t('Enter a new key to replace the saved one')
+                          : t('Paste your API key')
                       }
                     />
                   </label>
                   {!catalog.credentials_ready && (
                     <p className="error">
-                      Credential storage is unavailable. Ask the administrator to configure
-                      PANDA_CREDENTIAL_KEYS.
+                      {t(
+                        'Credential storage is unavailable. Ask the administrator to configure PANDA_CREDENTIAL_KEYS.',
+                      )}
                     </p>
                   )}
                   <div className="action-group">
@@ -342,10 +401,10 @@ export default function AIOptions({
                       disabled={busy || key.trim().length < 10 || !catalog.credentials_ready}
                     >
                       {busy
-                        ? 'Checking…'
+                        ? t('Checking…')
                         : connection?.connected
-                          ? 'Replace key'
-                          : 'Connect provider'}
+                          ? t('Replace key')
+                          : t('Connect provider')}
                     </button>
                     {connection?.connected && (
                       <>
@@ -355,7 +414,7 @@ export default function AIOptions({
                           disabled={busy}
                           onClick={() => void update('POST')}
                         >
-                          Refresh models
+                          {t('Refresh models')}
                         </button>
                         <button
                           type="button"
@@ -363,15 +422,15 @@ export default function AIOptions({
                           disabled={busy}
                           onClick={() => void update('DELETE')}
                         >
-                          Disconnect provider
+                          {t('Disconnect provider')}
                         </button>
                       </>
                     )}
                   </div>
-                  {notice && <p role="status">{notice}</p>}
+                  {notice && <p role="status">{t(notice)}</p>}
                 </form>
               ) : (
-                <p>Ask the workspace owner to connect or update a provider.</p>
+                <p>{t('Ask the workspace owner to connect or update a provider.')}</p>
               )}
             </>
           )}

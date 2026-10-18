@@ -112,6 +112,63 @@
     }
     return null;
   };
+  const instagramId = (raw) => {
+    const url = direct(raw);
+    return url?.startsWith('https://www.instagram.com/') ? url.split('/').at(-1) : null;
+  };
+  function instagramOwner(root, id) {
+    // The dated permalink identifies the author even on layouts without a header.
+    for (const link of root.querySelectorAll('a[href]')) {
+      if (!visible(link) || !link.querySelector('time') || instagramId(link.href) !== id) continue;
+      const owner = new URL(link.href).pathname.match(/^\/([\w.]+)\/(?:p|reel)\//)?.[1];
+      if (owner) return owner;
+    }
+    const header = first('header a[href]', root);
+    if (header) {
+      const url = new URL(header.href, location.href);
+      if (url.origin === location.origin && /^\/[\w.]+\/?$/.test(url.pathname))
+        return url.pathname.split('/')[1];
+    }
+    return '';
+  }
+  function instagramViews(requestedUrl) {
+    const result = { blocked_reason: blocked(), metric: null, source_url: location.href };
+    if (
+      result.blocked_reason ||
+      location.hostname !== 'www.instagram.com' ||
+      !/^\/[\w.]+\/reels\/?$/.test(location.pathname)
+    )
+      return result;
+    const id = instagramId(requestedUrl);
+    if (!id) return result;
+    for (const link of document.querySelectorAll('main a[href]')) {
+      if (instagramId(link.href) !== id) continue;
+      // The same shortcode can appear as /p/ or /reel/. Match the exact post,
+      // then its labelled view icon, never neighbouring cards or hover likes.
+      link.scrollIntoView({ block: 'center', inline: 'nearest' });
+      for (const icon of link.querySelectorAll('svg[aria-label]')) {
+        const label = icon.getAttribute('aria-label') || '';
+        if (
+          !visible(icon) ||
+          !/^(?:View Count Icon|Views?|Icône d[’']affichage des vues|Vues)$/i.test(label)
+        )
+          continue;
+        const count =
+          icon.parentElement?.querySelector('span') ||
+          (icon.parentElement?.nextElementSibling?.matches('span')
+            ? icon.parentElement.nextElementSibling
+            : null);
+        const raw = text(count);
+        if (!visible(count) || !/^[0-9][0-9.,\sKMBkmb]*$/.test(raw)) continue;
+        result.metric = {
+          raw,
+          quote: `Instagram Reel ${id} · ${label}: ${raw} · ${location.href}`,
+        };
+        return result;
+      }
+    }
+    return result;
+  }
   function blocked() {
     const challenge = first('iframe[src*="captcha"], [id*="captcha"], [class*="Captcha"]');
     if (challenge) return 'A verification challenge needs your attention in the browser.';
@@ -330,25 +387,45 @@
       capture.caption = (text(caption) || (facebookReel() ? '' : description)).slice(0, 10000);
       capture.author = text(first(instagram ? 'header a' : 'h3 a, h2 a', root)).slice(0, 200);
       const publicationTime = [...root.querySelectorAll('a[href] time')].find(
-        (time) => visible(time) && direct(time.closest('a').href) === url,
+        (time) =>
+          visible(time) &&
+          (instagram
+            ? instagramId(time.closest('a').href) === instagramId(url)
+            : direct(time.closest('a').href) === url),
       );
       capture.published_at = publicationTime?.getAttribute('datetime') || '';
+      if (instagram) {
+        capture.author = instagramOwner(root, instagramId(url)) || capture.author;
+        if (capture.author)
+          capture.instagram_profile = `https://www.instagram.com/${capture.author}/reels/`;
+      }
       capture.format = first('button[aria-label="Next"], button[aria-label="Suivant"]', root)
         ? 'carousel'
         : first('video', root) || /\/(reel|videos|watch)/.test(location.pathname)
           ? 'video'
-          : !instagram &&
-              !!caption &&
-              !first('[role="group"][aria-label="Video player"]', root) &&
-              ![...root.querySelectorAll('img')].some(
+          : instagram &&
+              root.tagName !== 'MAIN' &&
+              [...root.querySelectorAll('img')].some(
                 (el) =>
                   visible(el) &&
+                  el.complete &&
+                  el.naturalWidth > 150 &&
                   el.getBoundingClientRect().width > 150 &&
                   el.getBoundingClientRect().height > 150,
-              ) &&
-              !first('a[href*="/photo/"], a[href*="/photo.php"]', root)
-            ? 'text'
-            : 'unknown';
+              )
+            ? 'image'
+            : !instagram &&
+                !!caption &&
+                !first('[role="group"][aria-label="Video player"]', root) &&
+                ![...root.querySelectorAll('img')].some(
+                  (el) =>
+                    visible(el) &&
+                    el.getBoundingClientRect().width > 150 &&
+                    el.getBoundingClientRect().height > 150,
+                ) &&
+                !first('a[href*="/photo/"], a[href*="/photo.php"]', root)
+              ? 'text'
+              : 'unknown';
       // Read counter controls, never numbers asserted in captions, metadata or comments.
       const toolbar = instagram ? instagramToolbar(root) : null;
       const counters = [...root.querySelectorAll('button, [role="button"], a[href]')].filter(
@@ -421,7 +498,10 @@
       }
       capture.ready =
         root !== document.body &&
-        (!!caption || !!toolbar || (facebookReel() && !!capture.author && !!first('video', root)));
+        (!!caption ||
+          !!toolbar ||
+          (facebookReel() && !!capture.author && !!first('video', root))) &&
+        (!instagram || capture.format !== 'unknown');
     }
     if (capture.caption && !capture.text.includes(capture.caption))
       capture.text += '\n' + capture.caption;
@@ -432,6 +512,7 @@
     discover,
     facebookTarget,
     facebookCloseTarget,
+    instagramViews,
     read,
     blocked,
     scroll() {

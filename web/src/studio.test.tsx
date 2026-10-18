@@ -1,15 +1,20 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import Studio from '../../addons/studio/frontend';
 import { api } from './api';
-import type { Creative, MobileApp, ModuleProps, Run } from './contracts';
+import type { Brief, Creative, MobileApp, ModuleProps, Run } from './contracts';
+
+const socialResearch = vi.hoisted(() => vi.fn());
 
 vi.mock('./api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./api')>()),
   api: vi.fn(),
 }));
 vi.mock('../../addons/studio/frontend/SocialResearch', () => ({
-  default: () => <p>Social research</p>,
+  default: (props: { initialBrief?: Brief }) => {
+    socialResearch(props);
+    return <p>Social research</p>;
+  },
 }));
 vi.mock('../../addons/studio/frontend/Research', () => ({
   default: () => <p>Research workspace</p>,
@@ -48,8 +53,99 @@ const run: Run = {
 
 beforeEach(() => {
   mockApi.mockReset();
+  socialResearch.mockClear();
 });
 afterEach(cleanup);
+
+it('offers new research from Scripts and opens the search form without a paid request', async () => {
+  mockApi.mockImplementation(async (path) => (path.endsWith('brief/') ? brief : [run]));
+  render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
+  await screen.findByLabelText('Hook — Angle 1');
+  const button = screen.getByRole('button', { name: 'New research' }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  act(() => socialResearch.mock.calls.at(-1)![0].onNewResearchAvailabilityChange(true));
+  expect(button.disabled).toBe(false);
+  fireEvent.click(button);
+  expect(screen.getByRole('button', { name: 'Research' }).getAttribute('aria-current')).toBe(
+    'page',
+  );
+  expect(socialResearch).toHaveBeenLastCalledWith(
+    expect.objectContaining({ newResearchRequest: 1 }),
+  );
+  expect(mockApi.mock.calls.some(([, options]) => options?.method)).toBe(false);
+});
+
+it('opens research and scripts for an idea without imported store features', async () => {
+  const idea = {
+    ...app,
+    is_demo: false,
+    origin: 'project',
+    metadata: {
+      id: 'idea-snapshot',
+      data: {
+        name: 'Meal idea',
+        project: {
+          origin: 'project',
+          name: 'Meal idea',
+          stage: 'idea',
+          specification: 'Plan meals from leftovers.',
+          audience: 'Busy households',
+          available_features: '',
+          listing_ready: false,
+        },
+      },
+    },
+  } as MobileApp;
+  mockApi.mockImplementation(async (path) => {
+    if (path.endsWith('brief/')) return brief;
+    if (path.endsWith('runs/')) return [];
+    if (path.endsWith('/ai/')) return { providers: [], credentials_ready: true };
+    throw new Error('Unexpected request');
+  });
+  render(<Studio {...props} apps={[idea]} selectedApp={idea} demoMode={false} />);
+  expect(screen.getByText('Social research')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
+  expect(await screen.findByLabelText('Audience')).toBeTruthy();
+  expect(screen.getByText(/Create launch-ready content from your app description/)).toBeTruthy();
+  expect(mockApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+});
+
+it('never prefills social research with the previous app brief while the new one loads', async () => {
+  let resolveBrief!: (value: Brief) => void;
+  const nextBrief = {
+    ...brief,
+    audience: 'Households',
+    product_facts: 'Plan meals from leftovers.',
+  };
+  mockApi.mockImplementation(async (path) => {
+    if (path.includes('app-two/brief/'))
+      return new Promise((resolve) => {
+        resolveBrief = resolve;
+      });
+    if (path.endsWith('brief/')) return brief;
+    if (path.endsWith('runs/')) return [];
+    if (path.endsWith('/ai/')) return { providers: [], credentials_ready: true };
+    throw new Error('Unexpected request');
+  });
+  const view = render(<Studio {...props} />);
+  await waitFor(() =>
+    expect(socialResearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ initialBrief: brief }),
+    ),
+  );
+  socialResearch.mockClear();
+  const other = { ...app, id: 'app-two', name: 'Meal idea' };
+  view.rerender(<Studio {...props} apps={[app, other]} selectedApp={other} />);
+  expect(socialResearch.mock.calls.length).toBeGreaterThan(0);
+  expect(socialResearch.mock.calls.every(([value]) => value.initialBrief === undefined)).toBe(true);
+  resolveBrief(nextBrief);
+  await waitFor(() =>
+    expect(socialResearch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ initialBrief: nextBrief }),
+    ),
+  );
+});
 
 it('saves the brief before generation, then lets the user edit and approve separately', async () => {
   mockApi.mockImplementation(async (path, options) => {

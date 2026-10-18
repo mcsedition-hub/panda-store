@@ -1,3 +1,4 @@
+import { t } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import VideoExports from './VideoExports';
@@ -426,8 +427,10 @@ function Editor({
         <div>
           <h2>{saved.source.angle}</h2>
           <p className="note">
-            {scenes.length} shots · {total}s ·{' '}
-            {dirty ? 'Unsaved changes' : `Saved · v${saved.version}`}
+            {scenes.length}
+            {t(' shots · ')}
+            {total}
+            {t('s ·')} {dirty ? t('Unsaved changes') : t('Saved · v{0}', saved.version)}
           </p>
         </div>
         <button
@@ -435,29 +438,32 @@ function Editor({
           disabled={!canWrite || busy || importing || conflict || (!dirty && !uncertain)}
           onClick={() => save()}
         >
-          {busy ? 'Saving…' : uncertain ? 'Retry save' : 'Save storyboard'}
+          {busy ? t('Saving…') : uncertain ? t('Retry save') : t('Save storyboard')}
         </button>
       </div>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {conflict && (
         <button className="text-button" disabled={busy} onClick={reload}>
-          Discard local edits and reload saved version
+          {t('Discard local edits and reload saved version')}
         </button>
       )}
       {uncertain && (
-        <p className="notice">The save could not be confirmed. Retry the same save to check it.</p>
+        <p className="notice">
+          {t('The save could not be confirmed. Retry the same save to check it.')}
+        </p>
       )}
       {scriptChanged && (
         <p className="notice">
-          The script has changed since this storyboard was created. Your scenes are preserved;
-          review the updated script in Scripts before changing them.
+          {t(
+            'The script has changed since this storyboard was created. Your scenes are preserved; review the updated script in Scripts before changing them.',
+          )}
         </p>
       )}
-      <div className="scene-strip" aria-label="Storyboard shots">
+      <div className="scene-strip" aria-label={t('Storyboard shots')}>
         {scenes.map((row, index) => {
           const image = library.assets.find((item) => item.id === row.asset_id);
           const start = scenes.slice(0, index).reduce((n, item) => n + item.duration, 0);
@@ -470,7 +476,7 @@ function Editor({
             >
               <span className="scene-thumb">
                 {image?.kind === 'video' ? (
-                  <span>Recording</span>
+                  <span>{t('Recording')}</span>
                 ) : image ? (
                   <img src={image.url} alt="" />
                 ) : (
@@ -479,7 +485,8 @@ function Editor({
               </span>
               <strong>{row.title}</strong>
               <span>
-                {clock(start)} · {row.duration}s
+                {clock(start)} · {row.duration}
+                {t('s')}
               </span>
             </button>
           );
@@ -503,7 +510,7 @@ function Editor({
               setElapsed(total);
             }}
           >
-            + Add shot
+            {t('+ Add shot')}
           </button>
         )}
       </div>
@@ -512,7 +519,7 @@ function Editor({
           <fieldset disabled={frozen}>
             <div className="scene-field-pair">
               <label>
-                Shot name
+                {t('Shot name ')}
                 <input
                   maxLength={80}
                   value={current.title}
@@ -520,7 +527,7 @@ function Editor({
                 />
               </label>
               <label>
-                Duration (seconds)
+                {t('Duration (seconds)')}
                 <input
                   type="number"
                   min={1}
@@ -538,7 +545,7 @@ function Editor({
               </label>
             </div>
             <label>
-              Visual direction
+              {t('Visual direction ')}
               <textarea
                 rows={3}
                 maxLength={1500}
@@ -547,7 +554,7 @@ function Editor({
               />
             </label>
             <label>
-              Voiceover
+              {t('Voiceover ')}
               <textarea
                 rows={3}
                 maxLength={6000}
@@ -556,7 +563,7 @@ function Editor({
               />
             </label>
             <label>
-              On-screen text
+              {t('On-screen text ')}
               <textarea
                 rows={2}
                 maxLength={500}
@@ -567,7 +574,7 @@ function Editor({
             {selectedVisual?.kind === 'video' && (
               <>
                 <label>
-                  Recording starts at (seconds)
+                  {t('Recording starts at (seconds)')}
                   <input
                     type="number"
                     min={0}
@@ -580,8 +587,9 @@ function Editor({
                   />
                 </label>
                 <p className="note">
-                  Recording: {selectedVisual.duration?.toFixed(1)}s. The shot must end within the
-                  recording.
+                  {t('Recording: ')}
+                  {selectedVisual.duration?.toFixed(1)}
+                  {t(' s. The shot must end within the recording.')}
                 </p>
                 <label className="scene-audio-toggle">
                   <input
@@ -590,22 +598,23 @@ function Editor({
                     disabled={frozen || !!current.audio_asset_id || !selectedVisual.has_audio}
                     onChange={(event) => edit({ original_audio: event.target.checked })}
                   />
-                  Keep recording audio
+                  {t(' Keep recording audio')}
                 </label>
               </>
             )}
             <label>
-              Voiceover recording
+              {t('Voiceover recording ')}
               <select
                 value={current.audio_asset_id ?? ''}
                 onChange={(event) =>
                   edit({ audio_asset_id: event.target.value || null, audio_start: 0 })
                 }
               >
-                <option value="">No voiceover file</option>
+                <option value="">{t('No voiceover file')}</option>
                 {audioAssets.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} · {item.duration?.toFixed(1)}s
+                    {item.name} · {item.duration?.toFixed(1)}
+                    {t('s')}
                   </option>
                 ))}
               </select>
@@ -613,7 +622,7 @@ function Editor({
             {selectedAudio && (
               <>
                 <label>
-                  Voiceover starts at (seconds)
+                  {t('Voiceover starts at (seconds)')}
                   <input
                     type="number"
                     min={0}
@@ -627,8 +636,9 @@ function Editor({
                 </label>
                 <audio ref={audioPreview} src={selectedAudio.url} controls preload="metadata" />
                 <p className="note">
-                  Voiceover replaces recording audio. Audio is trimmed to the shot; shorter files
-                  end in silence. Written voiceover is not synthesized.
+                  {t(
+                    'Voiceover replaces recording audio. Audio is trimmed to the shot; shorter files end in silence. Written voiceover is not synthesized.',
+                  )}
                 </p>
               </>
             )}
@@ -638,14 +648,14 @@ function Editor({
                 disabled={frozen || scenes[0].id === current.id}
                 onClick={() => move(-1)}
               >
-                Move earlier
+                {t('Move earlier')}
               </button>
               <button
                 className="text-button"
                 disabled={frozen || scenes[scenes.length - 1].id === current.id}
                 onClick={() => move(1)}
               >
-                Move later
+                {t('Move later')}
               </button>
               <button
                 className="text-button"
@@ -657,26 +667,26 @@ function Editor({
                   setElapsed(0);
                 }}
               >
-                Remove shot
+                {t('Remove shot')}
               </button>
             </div>
           </fieldset>
-          <section className="scene-library" aria-label="App visuals">
+          <section className="scene-library" aria-label={t('App visuals')}>
             <div className="storyboard-toolbar">
-              <h3>App visuals</h3>
+              <h3>{t('App visuals')}</h3>
               {current.asset_id && (
                 <button
                   className="text-button"
                   disabled={frozen}
                   onClick={() => edit({ asset_id: null })}
                 >
-                  Remove visual
+                  {t('Remove visual')}
                 </button>
               )}
             </div>
-            <p className="note">Choose an image or screen recording for this shot.</p>
+            <p className="note">{t('Choose an image or screen recording for this shot.')}</p>
             <label className="media-upload">
-              Upload media
+              {t('Upload media ')}
               <input
                 type="file"
                 accept=".mp4,.mp3,.m4a,.wav,.png,.jpg,.jpeg,.webp"
@@ -688,19 +698,19 @@ function Editor({
                 }}
               />
               <span className="note">
-                Up to 25 MB · H.264 MP4, MP3, M4A, WAV or images · Recordings up to 120s
+                {t('Up to 25 MB · H.264 MP4, MP3, M4A, WAV or images · Recordings up to 120s')}
               </span>
             </label>
-            {libraryLoading && <p role="status">Loading app visuals…</p>}
-            {importing && <p role="status">Importing media…</p>}
+            {libraryLoading && <p role="status">{t('Loading app visuals…')}</p>}
+            {importing && <p role="status">{t('Importing media…')}</p>}
             {libraryError && (
               <p className="error" role="alert">
-                {libraryError}
+                {t(libraryError)}
               </p>
             )}
             {libraryError && (
               <button className="text-button" onClick={loadLibrary}>
-                Reload visuals
+                {t('Reload visuals')}
               </button>
             )}
             {!libraryLoading &&
@@ -708,8 +718,9 @@ function Editor({
               !library.candidates.length &&
               !library.assets.length && (
                 <p className="note">
-                  Upload a recording or image, or refresh the app connection to import store
-                  screenshots.
+                  {t(
+                    'Upload a recording or image, or refresh the app connection to import store screenshots.',
+                  )}
                 </p>
               )}
             <div className="scene-assets">
@@ -719,7 +730,7 @@ function Editor({
                   <button
                     key={`${item.snapshot_id}:${item.position}`}
                     disabled={frozen}
-                    aria-label={`Use ${item.name}`}
+                    aria-label={t('Use {0}', item.name)}
                     aria-pressed={!!item.asset_id && current.asset_id === item.asset_id}
                     onClick={() => importAsset(item)}
                   >
@@ -743,7 +754,7 @@ function Editor({
                   <button
                     key={item.id}
                     disabled={frozen}
-                    aria-label={`Use ${item.name}`}
+                    aria-label={t('Use {0}', item.name)}
                     aria-pressed={current.asset_id === item.id}
                     onClick={() =>
                       edit({ asset_id: item.id, video_start: 0, original_audio: false })
@@ -751,9 +762,10 @@ function Editor({
                   >
                     {item.kind === 'video' ? (
                       <span className="media-file-tile">
-                        MP4
+                        {t('MP4')}
                         <br />
-                        {item.duration?.toFixed(1)}s
+                        {item.duration?.toFixed(1)}
+                        {t('s')}
                       </span>
                     ) : (
                       <img src={item.url} alt={item.name} />
@@ -764,9 +776,9 @@ function Editor({
             </div>
             {canWrite && library.assets.length > 0 && (
               <details className="media-library-manage">
-                <summary>Manage library files</summary>
+                <summary>{t('Manage library files')}</summary>
                 <p className="note">
-                  Only files unused by saved storyboard versions can be deleted.
+                  {t('Only files unused by saved storyboard versions can be deleted.')}
                 </p>
                 {library.assets.map((item) => (
                   <div key={item.id}>
@@ -776,7 +788,8 @@ function Editor({
                       disabled={frozen}
                       onClick={() => removeAsset(item)}
                     >
-                      Delete {item.name}
+                      {t('Delete ')}
+                      {item.name}
                     </button>
                   </div>
                 ))}
@@ -784,10 +797,10 @@ function Editor({
             )}
           </section>
         </div>
-        <aside className="scene-preview" aria-label="Storyboard preview">
+        <aside className="scene-preview" aria-label={t('Storyboard preview')}>
           <div className="scene-preview-heading">
-            <h3>Preview</h3>
-            <span>9:16 · Muted</span>
+            <h3>{t('Preview')}</h3>
+            <span>{t('9:16 · Muted')}</span>
           </div>
           <div className="scene-stage">
             {asset?.kind === 'video' ? (
@@ -802,7 +815,7 @@ function Editor({
               <img src={asset.url} alt={asset.name} />
             ) : (
               <div className="scene-placeholder">
-                <span>Visual to prepare</span>
+                <span>{t('Visual to prepare')}</span>
                 <p>{preview.visual || preview.title}</p>
               </div>
             )}
@@ -816,14 +829,14 @@ function Editor({
                 setPlaying(!playing);
               }}
             >
-              {playing ? 'Pause' : 'Play preview'}
+              {playing ? t('Pause') : t('Play preview')}
             </button>
             <span>
               {clock(elapsed)} / {clock(total)}
             </span>
           </div>
           <input
-            aria-label="Preview position"
+            aria-label={t('Preview position')}
             type="range"
             min={0}
             max={total}
@@ -836,19 +849,19 @@ function Editor({
           />
           <p className="scene-voiceover">{preview.voiceover}</p>
           <p className="note">
-            Muted timeline preview. Check the rendered MP4 for the final sound and timing.
+            {t('Muted timeline preview. Check the rendered MP4 for the final sound and timing.')}
           </p>
         </aside>
       </div>
       <footer className="scene-export">
         <div>
-          <h3>Editing package</h3>
+          <h3>{t('Editing package')}</h3>
           <p className="note">
-            Shot list, timings, script and selected media. ZIP for external editing.
+            {t('Shot list, timings, script and selected media. ZIP for external editing.')}
           </p>
         </div>
         <label>
-          Saved version
+          {t('Saved version ')}
           <select
             value={exportVersion}
             onChange={(event) => setExportVersion(Number(event.target.value))}
@@ -856,7 +869,8 @@ function Editor({
             {Array.from({ length: Math.min(saved.version, 100) }, (_, i) => saved.version - i).map(
               (version) => (
                 <option key={version} value={version}>
-                  v{version}
+                  {t('v')}
+                  {version}
                 </option>
               ),
             )}
@@ -867,7 +881,7 @@ function Editor({
           disabled={busy || importing || uncertain || conflict || (dirty && !canWrite)}
           onClick={exportBoard}
         >
-          {dirty && exportVersion === saved.version ? 'Save & export' : 'Export package'}
+          {dirty && exportVersion === saved.version ? t('Save & export') : t('Export package')}
         </button>
       </footer>
       {!previewMode && (
@@ -880,7 +894,7 @@ function Editor({
         />
       )}
       <details className="script-context">
-        <summary>Source script</summary>
+        <summary>{t('Source script')}</summary>
         <p>{saved.source.hook}</p>
         <pre>{saved.source.script}</pre>
         <p>{saved.source.cta}</p>
@@ -935,19 +949,19 @@ export default function Scenes(props: Props) {
       if (alive.current) setBusy(false);
     }
   }
-  if (loading) return <p role="status">Loading storyboard…</p>;
+  if (loading) return <p role="status">{t('Loading storyboard…')}</p>;
   if (board) return <Editor {...props} initial={board} />;
   return (
     <section className="storyboard-empty">
-      <h2>Plan the shots</h2>
-      <p>Start from the saved script, then choose visuals and adjust the timing.</p>
+      <h2>{t('Plan the shots')}</h2>
+      <p>{t('Start from the saved script, then choose visuals and adjust the timing.')}</p>
       {error && (
         <>
           <p className="error" role="alert">
-            {error}
+            {t(error)}
           </p>
           <button className="text-button" onClick={load}>
-            Reload storyboard
+            {t('Reload storyboard')}
           </button>
         </>
       )}
@@ -956,11 +970,12 @@ export default function Scenes(props: Props) {
         disabled={props.workspace.role === 'viewer' || props.previewMode || busy}
         onClick={create}
       >
-        {busy ? 'Preparing…' : 'Create storyboard'}
+        {busy ? t('Preparing…') : t('Create storyboard')}
       </button>
       <p className="note">
-        No AI call. Existing scene labels are preserved; other scripts start as one editable shot,
-        with an opening and closing.
+        {t(
+          'No AI call. Existing scene labels are preserved; other scripts start as one editable shot, with an opening and closing.',
+        )}
       </p>
     </section>
   );

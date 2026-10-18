@@ -8,8 +8,11 @@
   },
   "family": "frost",
   "icon": "connexions",
-  "description": "Connect Apple accounts and import iOS store listings.",
+  "description": "Connect App Store Connect and Google Play to import and refresh store listings.",
   "capabilities": [
+    "stores.google_play_connect",
+    "stores.google_play_import",
+    "stores.google_play_sync",
     "stores.apple_connect",
     "stores.apple_import",
     "stores.apple_sync",

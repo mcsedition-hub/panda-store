@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { t, getLocale, getLanguage } from '../../../web/src/i18n';
+import { useEffect, useId, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import type { Brief, MobileApp, Run, Workspace } from '../../../web/src/contracts';
@@ -57,7 +58,20 @@ type Candidate = {
   search_views?: string; // Older connectors used this name for an ambiguous card counter.
 };
 const platforms = ['tiktok', 'instagram', 'facebook', 'google'];
-const connectorVersions = new Set(['0.1.5']);
+const referenceOrder: Record<string, number> = { qualified: 0, metrics_pass: 1, unqualified: 2 };
+const initialQualifiedLimit = 4;
+type ConnectorInfo = { version?: string; protocol?: number };
+const compatibleConnector = (info: ConnectorInfo) =>
+  info.protocol === 1 || (info.protocol == null && info.version === '0.1.7');
+const connectorUpdateMessage = 'Update Panda SMM Browser to 0.1.8, then check the connection.';
+const connectorReloadMessage =
+  'Browser connector was reloaded. Refresh Panda Store and resume research.';
+const unavailablePostReasons = new Set([
+  'The post content did not become ready. Open it in the browser and resume.',
+  'The requested page did not become ready. Check the research tab and resume.',
+  'The platform returned an error. Retry in the research tab, then resume.',
+]);
+const skippedPostMessage = 'Skipped a post whose content could not be loaded.';
 const names: Record<string, string> = {
   tiktok: 'TikTok',
   instagram: 'Instagram',
@@ -65,16 +79,33 @@ const names: Record<string, string> = {
   google: 'Google',
 };
 
+function browserMessage(message: string) {
+  if (!/^(TikTok|Instagram|Facebook|Google|Post): /.test(message)) return t(message);
+  return message
+    .split(/(?=(?:TikTok|Instagram|Facebook|Google|Post): )/)
+    .map((part) => {
+      const translated = t(part.trim());
+      if (translated !== part.trim()) return translated;
+      const match = part.trim().match(/^(TikTok|Instagram|Facebook|Google|Post): ([\s\S]*)$/);
+      return match ? `${t(match[1])}: ${t(match[2])}` : t(part.trim());
+    })
+    .join('\n');
+}
+
 export default function SocialResearch({
   workspace,
   app,
   onGenerated,
   initialBrief,
+  newResearchRequest = 0,
+  onNewResearchAvailabilityChange,
 }: {
   workspace: Workspace;
   app: MobileApp;
   onGenerated: (run: Run) => void;
   initialBrief?: Brief;
+  newResearchRequest?: number;
+  onNewResearchAvailabilityChange?: (available: boolean) => void;
 }) {
   const base = moduleUrl(workspace.id, 'studio');
   const endpoint = base + `apps/${app.id}/social-research/`;
@@ -83,26 +114,34 @@ export default function SocialResearch({
   const [historyError, setHistoryError] = useState('');
   const [historyReload, setHistoryReload] = useState(0);
   const [session, setSession] = useState<SocialSession | null>(null);
-  const [topic, setTopic] = useState(`${app.name} — similar apps and niche content`);
+  const [topic, setTopic] = useState(t('{0} — similar apps and niche content', app.name));
   const [market, setMarket] = useState(app.metadata?.data.locale || 'en-US');
   const [selectedPlatforms, setPlatforms] = useState(['tiktok']);
   const [views, setViews] = useState(10000);
   const [likes, setLikes] = useState(500);
-  const [audience, setAudience] = useState(app.metadata?.data.audience || '');
-  const [facts, setFacts] = useState((app.metadata?.data.features || []).join('\n'));
-  const [language, setLanguage] = useState('English');
+  const project = app.metadata?.data.project;
+  const [audience, setAudience] = useState(project?.audience || app.metadata?.data.audience || '');
+  const [facts, setFacts] = useState(
+    (project?.specification || (app.metadata?.data.features || []).join('\n')).slice(0, 4000),
+  );
+  const [language, setLanguage] = useState(getLanguage() === 'fr' ? 'Français' : 'English');
   const [confirmed, setConfirmed] = useState(false);
   const [choice, setChoice] = useState<AIChoice>(null);
   const [aiLoading, setAiLoading] = useState(true);
   const [connector, setConnector] = useState(false);
   const [connectorVersion, setConnectorVersion] = useState('');
-  const [checkingConnector, setCheckingConnector] = useState(false);
-  const outdatedConnector = !!connectorVersion && !connectorVersions.has(connectorVersion);
+  const [connectorError, setConnectorError] = useState('');
+  const [checkingConnector, setCheckingConnector] = useState(true);
+  const connectionCheck = useRef<Promise<void> | null>(null);
+  const outdatedConnector = !!connectorVersion && !connector;
   const [busy, setBusy] = useState(false);
   const [browsing, setBrowsing] = useState(false);
   const [error, setError] = useState('');
   const [activity, setActivity] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+  const [referencePlatform, setReferencePlatform] = useState('all');
+  const [showAllQualified, setShowAllQualified] = useState(false);
+  const [showOtherReferences, setShowOtherReferences] = useState(false);
   const [library, setLibrary] = useState<{
     sessionId: string;
     posts: Post[];
@@ -116,12 +155,28 @@ export default function SocialResearch({
   const pendingAdapt = useRef<{ id: string; body: string } | null>(null);
   const currentSession = useRef('');
   const autoBrowse = useRef('');
-  const touched = useRef(false);
+  const requirementsId = useId();
+  const referenceListId = useId();
+  const setupTitleId = useId();
+  const setupDialog = useRef<HTMLDialogElement>(null);
+  const researchForm = useRef<HTMLDetailsElement>(null);
+  const topicInput = useRef<HTMLInputElement>(null);
+  const handledNewResearch = useRef(newResearchRequest);
+  const focusNewResearch = useRef(false);
+  const touched = useRef({ facts: false, audience: false, language: false });
   useEffect(() => {
-    if (touched.current || !initialBrief) return;
-    if (initialBrief.product_facts) setFacts(initialBrief.product_facts);
-    if (initialBrief.audience) setAudience(initialBrief.audience);
-    if (initialBrief.language) setLanguage(initialBrief.language);
+    setReferencePlatform('all');
+    setShowAllQualified(false);
+    setShowOtherReferences(false);
+  }, [session?.id]);
+  useEffect(() => {
+    if (!initialBrief) return;
+    if (!touched.current.facts && initialBrief.product_facts) {
+      setFacts(initialBrief.product_facts);
+      setConfirmed(false);
+    }
+    if (!touched.current.audience && initialBrief.audience) setAudience(initialBrief.audience);
+    if (!touched.current.language && initialBrief.language) setLanguage(initialBrief.language);
   }, [initialBrief?.product_facts, initialBrief?.audience, initialBrief?.language]);
   useEffect(() => {
     if (session?.status === 'ready' && autoBrowse.current === session.id) {
@@ -135,19 +190,105 @@ export default function SocialResearch({
     browsing ||
     checkingConnector ||
     ['planning', 'analyzing'].includes(session?.status || '');
+  const canOpenNewResearch =
+    canWrite &&
+    !working &&
+    session?.status !== 'collecting' &&
+    !loadingHistory &&
+    !historyError &&
+    !pendingStart.current &&
+    !pendingAdapt.current;
+  useEffect(() => {
+    onNewResearchAvailabilityChange?.(canOpenNewResearch);
+    return () => onNewResearchAvailabilityChange?.(false);
+  }, [canOpenNewResearch, onNewResearchAvailabilityChange]);
+  useEffect(() => {
+    if (handledNewResearch.current === newResearchRequest) return;
+    handledNewResearch.current = newResearchRequest;
+    if (!canOpenNewResearch) return;
+    // Keep saved sessions and form choices. A new search needs a fresh scope
+    // confirmation and must not inherit a late history response or adaptation.
+    currentSession.current = '';
+    autoBrowse.current = '';
+    setSession(null);
+    setSelected([]);
+    setLibrary({ sessionId: '', posts: [], loading: false, error: '' });
+    setConfirmed(false);
+    setError('');
+    setActivity('');
+    focusNewResearch.current = true;
+  }, [newResearchRequest, canOpenNewResearch]);
+  useEffect(() => {
+    if (session || !focusNewResearch.current) return;
+    focusNewResearch.current = false;
+    topicInput.current?.focus({ preventScroll: true });
+    researchForm.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [session, newResearchRequest]);
+  const requirements: string[] = [];
+  const connectionRequirement = connectorError
+    ? t(connectorError)
+    : t('Connect Panda SMM Browser to search in your browser.');
+  if (loadingHistory) requirements.push(t('Loading saved research…'));
+  if (historyError) requirements.push(t('Reload saved research using the retry button above.'));
+  if (!connector) requirements.push(connectionRequirement);
+  if (!app.metadata)
+    requirements.push(t('Add a project description or import app details in My apps.'));
+  if (topic.trim().length < 5)
+    requirements.push(t('Enter a research topic of at least 5 characters.'));
+  if (!market.trim()) requirements.push(t('Enter the market to research.'));
+  if (!audience.trim()) requirements.push(t('Specify who this app is for in Target audience.'));
+  if (!language.trim()) requirements.push(t('Choose the content language.'));
+  if (facts.trim().length < 10 || facts.trim().length > 4000)
+    requirements.push(
+      project
+        ? t('Describe the project scope in 10 to 4,000 characters.')
+        : t('Describe the app features in 10 to 4,000 characters.'),
+    );
+  if (!confirmed)
+    requirements.push(
+      project
+        ? t('Check the confirmation box after reviewing the project scope.')
+        : t('Check the confirmation box after reviewing the app features.'),
+    );
+  if (!selectedPlatforms.length) requirements.push(t('Select at least one platform to search.'));
+  if (!Number.isInteger(views) || views < 100 || views > 1000000000)
+    requirements.push(
+      t('Set minimum video views to a whole number between 100 and 1,000,000,000.'),
+    );
+  if (!Number.isInteger(likes) || likes < 10 || likes > 100000000)
+    requirements.push(t('Set minimum likes to a whole number between 10 and 100,000,000.'));
+  if (aiLoading || !choice?.model)
+    requirements.push(t('Select a connected AI provider and a model that can analyze images.'));
   useEffect(() => {
     alive.current = true;
     let active = true;
     setLoadingHistory(true);
     setHistoryError('');
-    void browserCommand<{ version?: string }>('ping', {}, 1500)
-      .then((info) => {
-        if (active) {
-          setConnectorVersion(info.version || '');
-          setConnector(connectorVersions.has(info.version || ''));
-        }
-      })
-      .catch(() => {});
+    const reconnect = () => {
+      if (!active) return;
+      void checkConnection()
+        .then(() => {
+          if (active)
+            setError((old) =>
+              old === connectorReloadMessage || old === connectorUpdateMessage ? '' : old,
+            );
+        })
+        .catch(() => {});
+    };
+    const ready = (event: MessageEvent) => {
+      if (
+        event.source === window &&
+        event.origin === location.origin &&
+        event.data?.channel === 'panda-smm-ready'
+      )
+        reconnect();
+    };
+    const visible = () => {
+      if (document.visibilityState === 'visible') reconnect();
+    };
+    window.addEventListener('message', ready);
+    document.addEventListener('visibilitychange', visible);
+    reconnect();
     void api<SocialSession[]>(endpoint)
       .then((list) => {
         if (!active) return;
@@ -162,6 +303,8 @@ export default function SocialResearch({
       });
     return () => {
       active = false;
+      window.removeEventListener('message', ready);
+      document.removeEventListener('visibilitychange', visible);
       alive.current = false;
       stop.current = true;
       void browserCommand('stop', {}, 1500).catch(() => {});
@@ -211,7 +354,7 @@ export default function SocialResearch({
         setError('');
       }
     } catch (e) {
-      if (alive.current) setError((e as Error).message);
+      if (alive.current && currentSession.current === id) setError((e as Error).message);
     }
   }
   async function action(id: string, actionName: string, extra = {}) {
@@ -224,6 +367,7 @@ export default function SocialResearch({
     return next;
   }
   async function start() {
+    if (!canWrite || working || requirements.length) return;
     setBusy(true);
     setError('');
     try {
@@ -268,22 +412,33 @@ export default function SocialResearch({
       if (alive.current) setBusy(false);
     }
   }
-  async function checkConnection() {
+  function checkConnection(): Promise<void> {
+    if (connectionCheck.current) return connectionCheck.current;
     setCheckingConnector(true);
-    try {
-      const info = await browserCommand<{ version?: string }>('ping', {}, 2000);
-      if (!alive.current) return;
-      setConnectorVersion(info.version || '');
-      const compatible = connectorVersions.has(info.version || '');
-      setConnector(compatible);
-      if (!compatible)
-        throw new Error('Update Panda SMM Browser to 0.1.5, then refresh Panda Store.');
-    } catch (e) {
-      if (alive.current) setConnector(false);
-      throw e;
-    } finally {
-      if (alive.current) setCheckingConnector(false);
-    }
+    const request = Promise.resolve()
+      .then(async () => {
+        try {
+          const info = await browserCommand<ConnectorInfo>('ping', {}, 5000);
+          if (!alive.current) return;
+          setConnectorVersion(info.version || '');
+          if (!compatibleConnector(info)) throw new Error(connectorUpdateMessage);
+          setConnector(true);
+          setConnectorError('');
+        } catch (e) {
+          if (alive.current) {
+            setConnector(false);
+            setConnectorError((e as Error).message);
+            if ((e as Error).message !== connectorUpdateMessage) setConnectorVersion('');
+          }
+          throw e;
+        }
+      })
+      .finally(() => {
+        connectionCheck.current = null;
+        if (alive.current) setCheckingConnector(false);
+      });
+    connectionCheck.current = request;
+    return request;
   }
   async function browse() {
     if (!session?.plan.queries) return;
@@ -292,6 +447,30 @@ export default function SocialResearch({
       if (stop.current || !alive.current || currentSession.current !== id)
         throw new Error('Browser collection stopped.');
     };
+    async function browserRead<T>(
+      command: string,
+      payload: Record<string, unknown>,
+      timeout = 60000,
+    ): Promise<T> {
+      for (let attempt = 0; ; attempt++) {
+        check();
+        try {
+          return await browserCommand<T>(command, payload, timeout);
+        } catch (error) {
+          if (
+            attempt >= 2 ||
+            !(error instanceof Error) ||
+            error.message !== 'The research tab is navigating. Wait for the page, then resume.'
+          )
+            throw error;
+          // TikTok can commit another navigation after the page first becomes
+          // readable. Retry only this explicit transient failure, never an
+          // uncertain timeout, login gate or verification challenge.
+          setActivity('Waiting for the social page to finish loading…');
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    }
     stop.current = false;
     setBrowsing(true);
     setError('');
@@ -312,7 +491,7 @@ export default function SocialResearch({
         const message = `Searching ${names[query.platform]}: ${query.query}`;
         setActivity(message);
         await action(id, 'event', { message });
-        const result = await browserCommand<{
+        const result = await browserRead<{
           candidates: Candidate[];
           blocked_reason: string;
         }>('search', { session: id, ...query }, query.platform === 'facebook' ? 90000 : 60000);
@@ -357,6 +536,7 @@ export default function SocialResearch({
           if (!queue.length) byNetwork.delete(network);
         }
       }
+      let attempted = 0;
       for (const candidate of ordered) {
         if (captured.has(candidate.url)) continue;
         const platform = platforms.find(
@@ -365,14 +545,31 @@ export default function SocialResearch({
         if (platform && blockedPlatforms.has(platform)) continue;
         if (captured.size >= 12) break;
         check();
+        // Bound work even when many individual posts are unavailable. Only a
+        // completed connector response can be skipped; uncertain commands,
+        // sign-in and verification failures retain the existing pause behavior.
+        if (attempted >= 24) {
+          await action(id, 'event', { message: 'Collection stopped after checking 24 posts.' });
+          break;
+        }
+        attempted++;
         setActivity(`Reading ${candidate.url}`);
         await action(id, 'event', { message: `Opening ${candidate.url}` });
-        const observation = await browserCommand<Record<string, unknown>>('read', {
-          session: id,
-          url: candidate.url,
-        });
+        const observation = await browserRead<Record<string, unknown>>(
+          'read',
+          {
+            session: id,
+            url: candidate.url,
+          },
+          platform === 'instagram' ? 90000 : 60000,
+        );
         check();
         if (observation.blocked_reason) {
+          if (unavailablePostReasons.has(String(observation.blocked_reason))) {
+            setActivity('Skipping an unavailable post. Checking the next result…');
+            await action(id, 'event', { message: skippedPostMessage, url: candidate.url });
+            continue;
+          }
           if (platform) blockedPlatforms.set(platform, String(observation.blocked_reason));
           await action(id, 'event', {
             message: `${names[platform || ''] || 'Post'}: ${observation.blocked_reason}`,
@@ -392,7 +589,7 @@ export default function SocialResearch({
         throw new Error(
           [...blockedPlatforms]
             .map(([platform, reason]) => `${names[platform]}: ${reason}`)
-            .join(' '),
+            .join('\n'),
         );
       if (!captured.size)
         throw new Error(
@@ -461,104 +658,182 @@ export default function SocialResearch({
   }
   const posts = session?.posts || [];
   const qualified = posts.filter((p) => p.qualification.status === 'qualified');
+  const pending = posts.filter((p) => p.qualification.status === 'metrics_pass');
+  const excluded = posts.filter((p) => p.qualification.status === 'unqualified');
+  const hasSkippedPosts = session?.events.some((event) => event.message === skippedPostMessage);
   const reusable = library.sessionId === session?.id ? library.posts : [];
   const available = qualified.length + reusable.length;
+  const allReferences = [...posts, ...reusable];
+  const referencePlatforms = platforms.filter((platform) =>
+    allReferences.some((post) => post.evidence.platform === platform),
+  );
+  const platformReferences = allReferences
+    .filter((post) => referencePlatform === 'all' || post.evidence.platform === referencePlatform)
+    .sort(
+      (a, b) =>
+        (referenceOrder[a.qualification.status] ?? 3) -
+        (referenceOrder[b.qualification.status] ?? 3),
+    );
+  const qualifiedReferences = platformReferences.filter(
+    (post) => post.qualification.status === 'qualified',
+  );
+  const otherReferences = platformReferences.filter(
+    (post) => post.qualification.status !== 'qualified',
+  );
+  const otherReferenceCount = otherReferences.length;
+  const visibleReferences = [
+    ...(showAllQualified
+      ? qualifiedReferences
+      : qualifiedReferences.slice(0, initialQualifiedLimit)),
+    ...(showOtherReferences ? otherReferences : []),
+  ];
+  const hiddenSelected = selected.filter(
+    (id) => !platformReferences.some((post) => post.id === id),
+  ).length;
+  const collapsedSelected = selected.filter(
+    (id) =>
+      platformReferences.some((post) => post.id === id) &&
+      !visibleReferences.some((post) => post.id === id),
+  ).length;
   return (
-    <section className="smm-research" aria-label="Social research">
+    <section className="smm-research" aria-label={t('Social research')}>
       <div className="smm-intro">
         <div>
-          <h2>Find content worth adapting</h2>
+          <h2>{t('Find content worth adapting')}</h2>
           <p>
-            Research similar apps and your niche. Compare observed performance, then adapt three
-            different references to your app.
+            {t(
+              'Research similar apps and your niche. Compare observed performance, then adapt one to three references to your app.',
+            )}
           </p>
         </div>
-        <span className={`pill ${connector ? 'approved' : ''}`}>
-          {connector
-            ? 'Browser connected'
-            : outdatedConnector
-              ? 'Browser connector update needed'
-              : 'Browser connector needed'}
-        </span>
-        <button
-          className="text-button"
-          disabled={working}
-          onClick={() =>
-            void checkConnection()
-              .then(() => setError(''))
-              .catch((e) => setError(e.message))
-          }
-        >
-          {checkingConnector ? 'Checking connection…' : 'Check connection'}
-        </button>
+        <div className="smm-connection-actions">
+          <span className={`pill ${connector ? 'approved' : ''}`}>
+            {checkingConnector
+              ? t('Checking connection…')
+              : connector
+                ? t('Browser connected')
+                : outdatedConnector
+                  ? t('Browser connector update needed')
+                  : connectorError === connectorReloadMessage
+                    ? t('Refresh Panda Store to reconnect')
+                    : t('Browser connector needed')}
+          </span>
+          <button
+            className="text-button"
+            disabled={working}
+            onClick={() =>
+              void checkConnection()
+                .then(() => setError(''))
+                .catch((e) => setError(e.message))
+            }
+          >
+            {checkingConnector ? t('Checking connection…') : t('Check connection')}
+          </button>
+          <button
+            className="button secondary"
+            aria-haspopup="dialog"
+            onClick={() => setupDialog.current?.showModal()}
+          >
+            {t('Connection instructions')}
+          </button>
+        </div>
       </div>
-      {!connector && (
-        <details className="smm-setup" open>
-          <summary>
+      <dialog
+        ref={setupDialog}
+        className="smm-setup smm-setup-dialog"
+        aria-labelledby={setupTitleId}
+      >
+        <div className="smm-setup-heading">
+          <h2 id={setupTitleId}>
             {outdatedConnector
-              ? 'Update Panda SMM Browser to 0.1.5'
-              : 'Connect your Chrome browser'}
-          </summary>
-          {outdatedConnector && (
-            <p>
-              This version fixes Facebook Reel navigation and keeps each video’s evidence separate.
-              Replace the installed connector files with the new download, click Reload in
-              chrome://extensions, then refresh Panda Store. If you loaded the project folder
-              directly, just reload the extension.
-            </p>
-          )}
+              ? t('Update Panda SMM Browser to 0.1.8')
+              : t('Connect your Chrome browser')}
+          </h2>
+          <button
+            type="button"
+            className="text-button"
+            autoFocus
+            onClick={() => setupDialog.current?.close()}
+          >
+            {t('Close instructions')}
+          </button>
+        </div>
+        {connectorError && <p className="notice">{t(connectorError)}</p>}
+        {outdatedConnector && (
           <p>
-            Install Panda SMM Browser once. Research opens in a visible tab using your social
-            sign-ins.
+            {t(
+              'Panda SMM Browser 0.1.8 reconnects open Panda Store tabs automatically after an extension update, without reloading the page or losing your form. For a folder installation, replace the files and reload the extension once. Later Chrome Web Store releases can update automatically.',
+            )}
           </p>
-          <p className="note">
-            Local dashboards: localhost or 127.0.0.1, ports 5173, 8000 or 8080. Docker Compose and
-            development dashboards require connector 0.1.5.
-          </p>
-          <ol>
-            <li>
-              <button
-                className="text-button"
-                onClick={() => void download(base + 'social/extension/', 'panda-smm-browser.zip')}
-              >
-                Download browser connector
-              </button>{' '}
-              and extract the ZIP.
-            </li>
-            <li>
-              Open <code>chrome://extensions</code>, enable Developer mode and choose{' '}
-              <strong>Load unpacked</strong>. Select the extracted <code>panda-smm</code> folder.
-            </li>
-            <li>Refresh this page. Keep Panda Store open while collecting.</li>
-          </ol>
-          <p className="note">
-            Chrome requests access to the supported social sites and debugging for viewport captures
-            and public Facebook post navigation in the research tab. No passwords or cookies are
-            copied.
-          </p>
-        </details>
-      )}
+        )}
+        <p>
+          {t(
+            'Install Panda SMM Browser once. Research opens in a visible tab using your social sign-ins.',
+          )}
+        </p>
+        <p className="note">
+          {t(
+            'Local dashboards: localhost or 127.0.0.1, ports 5173, 8000 or 8080. Connector 0.1.7 remains compatible; version 0.1.8 adds automatic reconnection.',
+          )}
+        </p>
+        <ol>
+          <li>
+            <button
+              className="text-button"
+              onClick={() => void download(base + 'social/extension/', 'panda-smm-browser.zip')}
+            >
+              {t('Download browser connector')}
+            </button>{' '}
+            {t('and extract the ZIP.')}
+          </li>
+          <li>
+            {t('Open ')}
+            <code>{t('chrome://extensions')}</code>
+            {t(', enable Developer mode and choose')} <strong>{t('Load unpacked')}</strong>
+            {t('. Select the extracted ')}
+            <code>{t('panda-smm')}</code>
+            {t(' folder.')}
+          </li>
+          <li>
+            {t(
+              'Return to Panda Store; the connection is detected automatically. Keep Panda Store open while collecting.',
+            )}
+          </li>
+        </ol>
+        <p className="note">
+          {t(
+            'Chrome requests access to the supported social sites and debugging for viewport captures and public Facebook post navigation in the research tab. No passwords or cookies are copied.',
+          )}
+        </p>
+      </dialog>
       {historyError && (
         <div>
           <p className="error" role="alert">
-            Saved research could not be loaded. {historyError}
+            {t('Saved research could not be loaded. ')}
+            {t(historyError)}
           </p>
           <button
             className="button secondary"
             disabled={working || loadingHistory}
             onClick={() => setHistoryReload((value) => value + 1)}
           >
-            Retry loading research
+            {t('Retry loading research')}
           </button>
         </div>
       )}
       {canWrite && (
-        <details className="smm-brief" open={!session}>
-          <summary>App context and new research</summary>
+        <details ref={researchForm} className="smm-brief" open={!session}>
+          <summary>{t('App context and new research')}</summary>
+          {!session && sessions.length > 0 && (
+            <p className="note">
+              {t('Prepare a new search below. Your previous research and scripts stay in history.')}
+            </p>
+          )}
           <div className="smm-fields">
             <label>
-              Research topic
+              {t('Research topic ')}
               <input
+                ref={topicInput}
                 value={topic}
                 maxLength={500}
                 disabled={working}
@@ -566,7 +841,7 @@ export default function SocialResearch({
               />
             </label>
             <label>
-              Market
+              {t('Market ')}
               <input
                 value={market}
                 maxLength={100}
@@ -575,55 +850,76 @@ export default function SocialResearch({
               />
             </label>
             <label>
-              Target audience
+              {t('Target audience ')}
               <input
                 value={audience}
                 maxLength={500}
                 disabled={working}
                 onChange={(e) => {
-                  touched.current = true;
+                  touched.current.audience = true;
                   setAudience(e.target.value);
                 }}
               />
             </label>
             <label>
-              Content language
+              {t('Content language ')}
               <input
                 value={language}
                 maxLength={40}
                 disabled={working}
                 onChange={(e) => {
-                  touched.current = true;
+                  touched.current.language = true;
                   setLanguage(e.target.value);
                 }}
               />
             </label>
             <label className="smm-wide">
-              Confirmed app features
+              {project ? t('Confirmed project scope ') : t('Confirmed app features ')}
               <textarea
                 value={facts}
                 maxLength={4000}
                 rows={4}
                 disabled={working}
                 onChange={(e) => {
-                  touched.current = true;
+                  touched.current.facts = true;
                   setFacts(e.target.value);
                   setConfirmed(false);
                 }}
               />
             </label>
           </div>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={confirmed}
-              disabled={working}
-              onChange={(e) => setConfirmed(e.target.checked)}
-            />
-            I checked these features for this app.
-          </label>
+          {project && (
+            <>
+              <p className="note">
+                {t(
+                  'Your project description prefills this scope. You can adjust it for this research. The complete description is also included in the AI context; no store import is needed.',
+                )}
+              </p>
+              {project.specification.length > 4000 && (
+                <p className="note">
+                  {t(
+                    'The editable scope contains the first 4,000 characters. The AI also receives the complete project description.',
+                  )}
+                </p>
+              )}
+              {!facts && (
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={working}
+                  onClick={() => {
+                    touched.current.facts = true;
+                    setFacts(project.specification.slice(0, 4000));
+                    setConfirmed(false);
+                  }}
+                >
+                  {t('Use project description')}
+                </button>
+              )}
+            </>
+          )}
           <fieldset disabled={working}>
-            <legend>Where to search</legend>
+            <legend>{t('Where to search')}</legend>
             <div className="smm-platforms">
               {platforms.map((p) => (
                 <label key={p}>
@@ -643,7 +939,7 @@ export default function SocialResearch({
           </fieldset>
           <div className="smm-fields">
             <label>
-              Minimum video views
+              {t('Minimum video views ')}
               <input
                 type="number"
                 min={100}
@@ -654,7 +950,7 @@ export default function SocialResearch({
               />
             </label>
             <label>
-              Minimum likes
+              {t('Minimum likes ')}
               <input
                 type="number"
                 min={10}
@@ -666,11 +962,13 @@ export default function SocialResearch({
             </label>
           </div>
           <p className="note">
-            These are adjustable research filters, not universal definitions of virality. Video
-            requires both counters; carousel and text require likes. Missing counters cannot pass.
-            Google discovers social posts.
+            {t(
+              'These are adjustable research filters, not universal definitions of virality. Video requires both counters; carousel, image and text require likes. Missing counters cannot pass. Google discovers social posts.',
+            )}
           </p>
           <AIOptions
+            moduleContext="smm"
+            capability="vision"
             workspaceId={workspace.id}
             owner={workspace.role === 'owner'}
             disabled={working}
@@ -681,47 +979,95 @@ export default function SocialResearch({
             }}
           />
           <p className="note">
-            Up to 12 posts. One AI planning call, up to two analysis calls per eligible post, then
-            two calls for adaptations. Your provider bills usage. Captured text and viewport samples
-            are shared with the selected provider; complete video and audio are not analyzed.
+            {t(
+              'Up to 12 posts. One AI planning call, up to two analysis calls per eligible post, then two calls for adaptations. Your provider bills usage. Captured text and viewport samples are shared with the selected provider; complete video and audio are not analyzed.',
+            )}
           </p>
-          <button
-            className="button primary"
-            disabled={
-              working ||
-              loadingHistory ||
-              !!historyError ||
-              !connector ||
-              !app.metadata ||
-              !confirmed ||
-              facts.trim().length < 10 ||
-              !audience.trim() ||
-              !choice?.model ||
-              aiLoading ||
-              !selectedPlatforms.length
-            }
-            onClick={() => void start()}
-          >
-            {pendingStart.current ? 'Retry research start' : 'Start social research'}
-          </button>
+          <div className="smm-launch">
+            {!working && requirements.length > 0 && (
+              <div className="notice" id={requirementsId} aria-live="polite">
+                <strong>{t('Before starting research')}</strong>
+                <ul>
+                  {requirements.map((requirement) => (
+                    <li key={requirement}>
+                      {requirement}
+                      {!connector && requirement === connectionRequirement && (
+                        <div className="smm-reconnect-actions">
+                          <button
+                            type="button"
+                            className="text-button"
+                            disabled={checkingConnector}
+                            onClick={() =>
+                              void checkConnection()
+                                .then(() => setError(''))
+                                .catch(() => {})
+                            }
+                          >
+                            {t('Retry browser connection')}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-button"
+                            aria-haspopup="dialog"
+                            onClick={() => setupDialog.current?.showModal()}
+                          >
+                            {t('Show connection instructions')}
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <label className={`check-label smm-confirmation ${confirmed ? 'confirmed' : ''}`}>
+              <input
+                type="checkbox"
+                checked={confirmed}
+                disabled={working}
+                onChange={(e) => {
+                  touched.current.facts = true;
+                  setConfirmed(e.target.checked);
+                }}
+              />
+              <span>
+                {project
+                  ? t('I checked this project scope, including which features are still planned.')
+                  : t('I checked these features for this app.')}
+              </span>
+            </label>
+            <button
+              className="button primary"
+              disabled={working || requirements.length > 0}
+              aria-describedby={!working && requirements.length ? requirementsId : undefined}
+              onClick={() => void start()}
+            >
+              {pendingStart.current ? t('Retry research start') : t('Start social research')}
+            </button>
+          </div>
         </details>
       )}
       {error && (
         <p role="alert" className="error">
-          {error}
+          {browserMessage(error)}
         </p>
       )}
       {!!sessions.length && (
         <label className="compact-label">
-          Research session
+          {t('Research session ')}
           <select
             disabled={working}
             value={session?.id || ''}
             onChange={(e) => void load(e.target.value)}
           >
+            {!session && (
+              <option value="" disabled>
+                {t('New research')}
+              </option>
+            )}
             {sessions.map((s) => (
               <option value={s.id} key={s.id}>
-                {new Date(s.created_at).toLocaleString()} · {s.topic}
+                {new Date(s.created_at).toLocaleString(getLocale())} · {s.topic}
               </option>
             ))}
           </select>
@@ -731,24 +1077,28 @@ export default function SocialResearch({
         <>
           <div className="smm-session-heading">
             <h3>{session.topic}</h3>
-            <span className="pill">{session.status}</span>
+            <span className="pill">{t(session.status)}</span>
           </div>
           {session.error && (
             <p className="error" role="alert">
-              {session.error}
+              {browserMessage(session.error)}
             </p>
           )}
           {session.plan.strategy && <p>{session.plan.strategy}</p>}
           {session.status === 'stopped' && !!session.plan.queries?.length && (
             <p className="notice" role="status">
-              Collection paused. Saved posts and captures are kept. Resolve any sign-in or
-              verification request in the research tab, then resume browser research.
-              {posts.length > 0 && ' You can also analyze the posts already collected.'}
+              {t('Collection paused. Saved posts and captures are kept.')}
+              {posts.length > 0 &&
+                t(' You can analyze the saved posts now, without resuming browser collection.')}
             </p>
           )}
           {!!session.plan.queries?.length && (
             <details>
-              <summary>Search plan · {session.plan.queries.length} queries</summary>
+              <summary>
+                {t('Search plan · ')}
+                {session.plan.queries.length}
+                {t(' queries')}
+              </summary>
               <ul>
                 {session.plan.queries.map((q, i) => (
                   <li key={i}>
@@ -766,27 +1116,27 @@ export default function SocialResearch({
               ['ready', 'collecting', 'stopped'].includes(session.status) &&
               !!session.plan.queries?.length && (
                 <button
-                  className="button primary"
+                  className={`button ${posts.length ? 'secondary' : 'primary'}`}
                   disabled={working || !connector}
                   onClick={() => void browse()}
                 >
                   {posts.length || session.status === 'stopped'
-                    ? 'Resume browser research'
-                    : 'Search in my browser'}
+                    ? t('Resume browser research')
+                    : t('Search in my browser')}
                 </button>
               )}
             {canWrite && ['collecting', 'stopped'].includes(session.status) && posts.length > 0 && (
               <button
-                className="button secondary"
+                className="button primary"
                 disabled={working}
                 onClick={() => void analyzeCollected()}
               >
-                Analyze collected posts
+                {t('Analyze collected posts')}
               </button>
             )}
             {canWrite && (working || session.status === 'collecting') && (
               <button className="button secondary" onClick={() => void stopResearch()}>
-                Stop research
+                {t('Stop research')}
               </button>
             )}
             {canWrite &&
@@ -797,13 +1147,13 @@ export default function SocialResearch({
                   disabled={working}
                   onClick={() => void action(session.id, 'retry').catch((e) => setError(e.message))}
                 >
-                  Retry unfinished research
+                  {t('Retry unfinished research')}
                 </button>
               )}
           </div>
           {activity && ['collecting', 'analyzing'].includes(session.status) && (
             <p role="status" className="note">
-              {activity}
+              {t(activity)}
             </p>
           )}
           {['planning', 'analyzing', 'failed', 'canceled'].includes(session.status) &&
@@ -823,68 +1173,172 @@ export default function SocialResearch({
             <div className="smm-results">
               <div className="smm-session-heading">
                 <h3>
-                  References · {qualified.length} qualified / {posts.length} collected
+                  {t('References · ')}
+                  {!pending.length && (
+                    <>
+                      {qualified.length}
+                      {t(' qualified / ')}
+                    </>
+                  )}
+                  {posts.length}
+                  {t(' collected')}
                 </h3>
                 <span className="note">
-                  Filters: {session.inputs.min_views.toLocaleString()} views ·{' '}
-                  {session.inputs.min_likes.toLocaleString()} likes
+                  {t('Filters: ')}
+                  {session.inputs.min_views.toLocaleString(getLocale())}
+                  {t(' views ·')} {session.inputs.min_likes.toLocaleString(getLocale())}
+                  {t(' likes')}
                 </span>
               </div>
+              {pending.length > 0 && (
+                <div className="notice" role="status">
+                  <p>
+                    {t(
+                      '{0} awaiting AI review · {1} qualified · {2} excluded',
+                      pending.length,
+                      qualified.length,
+                      excluded.length,
+                    )}
+                  </p>
+                  <p className="note">
+                    {session.status === 'analyzing'
+                      ? t(
+                          'AI analysis is in progress. Relevance to your app and the captured evidence are being checked.',
+                        )
+                      : t(
+                          'Meeting the thresholds is the first step. AI still needs to check relevance to your app and verify the captured evidence.',
+                        )}
+                  </p>
+                </div>
+              )}
+              {hasSkippedPosts && (
+                <p className="note">
+                  {t('Unavailable posts were skipped. Their links are saved in Browser activity.')}
+                </p>
+              )}
+              {allReferences.length > 0 && (
+                <div className="smm-reference-filters">
+                  <div role="group" aria-label={t('Filter references by platform')}>
+                    {['all', ...referencePlatforms].map((platform) => (
+                      <button
+                        key={platform}
+                        type="button"
+                        aria-pressed={referencePlatform === platform}
+                        onClick={() => {
+                          setReferencePlatform(platform);
+                          setShowAllQualified(false);
+                          setShowOtherReferences(false);
+                        }}
+                      >
+                        {platform === 'all' ? t('All platforms') : names[platform]}
+                        <span>
+                          {platform === 'all'
+                            ? allReferences.length
+                            : allReferences.filter((post) => post.evidence.platform === platform)
+                                .length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="note" role="status">
+                    {t(
+                      '{0} of {1} references shown',
+                      visibleReferences.length,
+                      allReferences.length,
+                    )}
+                    {hiddenSelected > 0 && (
+                      <>
+                        {' · '}
+                        {t('{0} selected outside this filter', hiddenSelected)}
+                      </>
+                    )}
+                    {collapsedSelected > 0 && (
+                      <>
+                        {' · '}
+                        {t('{0} selected in hidden results', collapsedSelected)}
+                      </>
+                    )}
+                  </p>
+                  {canWrite && session.status === 'completed' && (
+                    <p className="note">
+                      {t(
+                        'Select one to three qualified references. Each selected reference creates one adaptation.',
+                      )}
+                    </p>
+                  )}
+                </div>
+              )}
               {session.status === 'completed' && (
                 <div className="smm-library">
-                  <h4>References from other research</h4>
+                  <h4>{t('References from other research')}</h4>
                   <p className="note">
-                    Reuse qualified posts for this app with the same confirmed features, audience,
-                    market and app import. These references also pass this session's performance
-                    filters. Counts remain those observed on the capture date.
+                    {t(
+                      "Reuse qualified posts for this app with the same confirmed features, audience, market and app import. These references also pass this session's performance filters. Counts remain those observed on the capture date.",
+                    )}
                   </p>
                   {library.sessionId === session.id && library.loading && (
-                    <p role="status">Loading saved references…</p>
+                    <p role="status">{t('Loading saved references…')}</p>
                   )}
                   {library.sessionId === session.id && library.error && (
                     <p role="alert">
-                      Could not load saved references. {library.error}{' '}
+                      {t('Could not load saved references. ')}
+                      {t(library.error)}{' '}
                       <button onClick={() => setLibraryRefresh((value) => value + 1)}>
-                        Retry saved references
+                        {t('Retry saved references')}
                       </button>
                     </p>
                   )}
                   {!library.loading && !library.error && (
                     <p>
-                      {reusable.length} additional qualified reference(s) · {available} available
-                      for three adaptations.
+                      {reusable.length}
+                      {t(' additional qualified reference(s) · ')}
+                      {available}
+                      {t(' available for adaptation.')}
                     </p>
                   )}
                   {session.inputs.brief && (
                     <details>
-                      <summary>Confirmed app context for these adaptations</summary>
+                      <summary>{t('Confirmed app context for these adaptations')}</summary>
                       <p>{session.inputs.brief.product_facts}</p>
                       <p className="note">
-                        Audience: {session.inputs.brief.audience} · Language:{' '}
-                        {session.inputs.brief.language}
+                        {t('Audience: ')}
+                        {session.inputs.brief.audience}
+                        {t(' · Language:')} {session.inputs.brief.language}
                       </p>
                     </details>
                   )}
                 </div>
               )}
-              {session.status === 'completed' && !library.loading && available < 3 && (
+              {session.status === 'completed' && !library.loading && available === 0 && (
                 <p className="notice">
-                  {3 - available} more qualified reference(s) needed. Refine the topic or search
-                  another platform in a new session. No generic references will fill the gap.
+                  {t(
+                    'No qualified references yet. Refine the topic or search another platform in a new session.',
+                  )}
                 </p>
               )}
-              <div className="smm-post-grid">
-                {[...posts, ...reusable].map((p) => (
+              {referencePlatform !== 'all' &&
+                !visibleReferences.length &&
+                otherReferenceCount > 0 && (
+                  <p className="note">{t('No qualified references on this platform.')}</p>
+                )}
+              <div className="smm-post-grid" id={referenceListId}>
+                {visibleReferences.map((p) => (
                   <article className="smm-post" key={p.id}>
                     <div className="smm-session-heading">
                       <span
                         className={`pill ${p.qualification.status === 'qualified' ? 'approved' : ''}`}
                       >
-                        {p.qualification.status.replaceAll('_', ' ')}
+                        {p.qualification.status === 'metrics_pass'
+                          ? t('Thresholds met · awaiting AI review')
+                          : t(p.qualification.status.replaceAll('_', ' '))}
                       </span>
                       <span className="note">
                         {p.evidence.platform && `${names[p.evidence.platform]} · `}
-                        {(p.analysis.format || p.evidence.format).replaceAll('_', ' ')}
+                        {t(
+                          (p.analysis.format || p.evidence.format) === 'unknown'
+                            ? 'Unknown format'
+                            : (p.analysis.format || p.evidence.format).replaceAll('_', ' '),
+                        )}
                       </span>
                     </div>
                     <h4>
@@ -893,40 +1347,51 @@ export default function SocialResearch({
                       </a>
                     </h4>
                     <p className="note">
-                      {p.evidence.author} · Observed {new Date(p.captured_at).toLocaleString()}
-                      {p.evidence.published_at && ` · Published ${p.evidence.published_at}`}
+                      {p.evidence.author}
+                      {t(' · Observed ')}
+                      {new Date(p.captured_at).toLocaleString(getLocale())}
+                      {p.evidence.published_at && t(' · Published {0}', p.evidence.published_at)}
                     </p>
-                    {p.research_topic && <p className="note">From research: {p.research_topic}</p>}
+                    {p.research_topic && (
+                      <p className="note">
+                        {t('From research: ')}
+                        {p.research_topic}
+                      </p>
+                    )}
                     <div className="smm-counters">
                       {['views', 'likes', 'comments', 'shares'].map((k) => (
                         <span key={k}>
                           <strong>
                             {p.metrics[k]
-                              ? `${p.metrics[k].approximate ? '≈ ' : ''}${p.metrics[k].value.toLocaleString()}`
-                              : 'Not observed'}
+                              ? `${p.metrics[k].approximate ? '≈ ' : ''}${p.metrics[k].value.toLocaleString(getLocale())}`
+                              : t('Not observed')}
                           </strong>
-                          {k}
+                          {t(k)}
                         </span>
                       ))}
                     </div>
                     {p.qualification.reasons.map((reason, i) => (
                       <p className="note" key={i}>
-                        {reason}
+                        {t(reason)}
                       </p>
                     ))}
                     {p.analysis.observation && <p>{p.analysis.observation}</p>}
                     {p.analysis.structure && (
                       <p>
-                        <strong>Structure:</strong> {p.analysis.structure}
+                        <strong>{t('Structure:')}</strong> {p.analysis.structure}
                       </p>
                     )}
                     {p.analysis.idea_to_test && (
                       <p>
-                        <strong>Adaptation idea:</strong> {p.analysis.idea_to_test}
+                        <strong>{t('Adaptation idea:')}</strong> {p.analysis.idea_to_test}
                       </p>
                     )}
                     <details>
-                      <summary>Evidence and coverage · {p.frame_count} frames</summary>
+                      <summary>
+                        {t('Evidence and coverage · ')}
+                        {p.frame_count}
+                        {t(' frames')}
+                      </summary>
                       <p>{p.evidence.caption}</p>
                       <div className="smm-evidence-frames">
                         {Array.from({ length: p.frame_count }, (_, i) => (
@@ -938,13 +1403,18 @@ export default function SocialResearch({
                           >
                             <img
                               src={base + `social-posts/${p.id}/frames/${i}/`}
-                              alt={`Observed viewport ${i + 1}`}
+                              alt={t('Observed viewport {0}', i + 1)}
                               loading="lazy"
                             />
                           </a>
                         ))}
                       </div>
-                      <p className="note">{p.evidence.coverage}</p>
+                      <p className="note">
+                        {p.evidence.coverage
+                          .split('\n')
+                          .map((line) => t(line))
+                          .join('\n')}
+                      </p>
                       {p.analysis.limitations?.map((line, i) => (
                         <p className="note" key={i}>
                           {line}
@@ -959,7 +1429,7 @@ export default function SocialResearch({
                             !canWrite ||
                             working ||
                             !!pendingAdapt.current ||
-                            (!selected.includes(p.id) && selected.length === 3)
+                            (!selected.includes(p.id) && selected.length >= 3)
                           }
                           checked={selected.includes(p.id)}
                           onChange={(e) =>
@@ -968,35 +1438,74 @@ export default function SocialResearch({
                             )
                           }
                         />
-                        Use this reference
+                        {t(' Use this reference')}
                       </label>
                     )}
                   </article>
                 ))}
               </div>
+              {(qualifiedReferences.length > initialQualifiedLimit || otherReferenceCount > 0) && (
+                <div className="action-group">
+                  {qualifiedReferences.length > initialQualifiedLimit && (
+                    <button
+                      type="button"
+                      className="button secondary"
+                      aria-expanded={showAllQualified}
+                      aria-controls={referenceListId}
+                      onClick={() => setShowAllQualified((shown) => !shown)}
+                    >
+                      {showAllQualified
+                        ? t('Show less')
+                        : t('Show more ({0})', qualifiedReferences.length - initialQualifiedLimit)}
+                    </button>
+                  )}
+                  {otherReferenceCount > 0 && (
+                    <button
+                      type="button"
+                      className="button secondary"
+                      aria-expanded={showOtherReferences}
+                      aria-controls={referenceListId}
+                      onClick={() => setShowOtherReferences((shown) => !shown)}
+                    >
+                      {showOtherReferences
+                        ? t('Hide other references')
+                        : t('Show other references ({0})', otherReferenceCount)}
+                    </button>
+                  )}
+                </div>
+              )}
               {canWrite && session.status === 'completed' && (
                 <button
                   className="button primary"
-                  disabled={working || selected.length !== 3}
+                  disabled={working || selected.length < 1 || selected.length > 3}
                   onClick={() => void generate()}
                 >
                   {pendingAdapt.current
-                    ? 'Retry adaptation start'
-                    : `Create three adaptations · ${selected.length}/3 selected`}
+                    ? t('Retry adaptation start')
+                    : selected.length === 0
+                      ? t('Create adaptations')
+                      : selected.length === 1
+                        ? t('Create 1 adaptation')
+                        : t('Create {0} adaptations', selected.length)}
                 </button>
               )}
             </div>
           )}
           <details className="smm-journal">
-            <summary>Browser activity · {session.events.length} events</summary>
+            <summary>
+              {t('Browser activity · ')}
+              {session.events.length}
+              {t(' events')}
+            </summary>
             <ol>
               {session.events.map((e, i) => (
                 <li key={i}>
-                  <time>{new Date(e.at).toLocaleTimeString()}</time> {e.message}
+                  <time>{new Date(e.at).toLocaleTimeString(getLocale())}</time>{' '}
+                  {browserMessage(e.message)}
                   {e.url && (
                     <a href={e.url} target="_blank" rel="noreferrer">
                       {' '}
-                      Source ↗
+                      {t('Source ↗')}
                     </a>
                   )}
                 </li>

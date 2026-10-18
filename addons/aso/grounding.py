@@ -63,9 +63,9 @@ Critical distinctions:
   Ordinary concise summaries need not restate every feature, but must not contradict scope.
 
 Return exactly one review per supplied candidate ID. For unsupported or uncertain, quote a
-verbatim problematic substring from candidate.content and give a short English reason tied
-to the missing/contradicting evidence. For supported use an empty unsupported_quote and a
-brief reason. Judge semantic support, not word overlap, formatting preferences or verbosity.
+verbatim problematic substring from candidate.content and give a short reason in the response
+language tied to the missing/contradicting evidence. For supported use an empty unsupported_quote
+and a brief reason. Judge semantic support, not word overlap, formatting preferences or verbosity.
 """
 
 

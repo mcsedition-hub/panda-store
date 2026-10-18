@@ -12,7 +12,7 @@ et éventuellement `frontend/index.tsx`. Le chargement est effectué au déploie
 L'activation dans un espace ouvre les fonctionnalités déjà installées.
 
 La première version publique communautaire retient deux modules métier : **ASO et SMM**.
-Le catalogue, les connexions Apple et IA et les workflows constituent le socle de ces
+Le catalogue, les connexions Apple, Google Play et IA et les workflows constituent le socle de ces
 parcours. Le module d'exemple sert au développement d'extensions. Les connexions sociales
 de publication, l'envoi et la programmation sont réservés à la future version cloud ;
 le connecteur navigateur utilisé pour la recherche fait partie de SMM communautaire.
@@ -71,6 +71,23 @@ une clé remplacée. Déconnecter conserve les apps et instantanés mais retire 
 liens de synchronisation. Les requêtes sont exclusivement GET vers l'API Apple.
 Le client vérifie les pages suivantes et limite les délais, tailles et requêtes.
 Le connecteur reste synchrone ; les gros imports et tâches planifiées viendront ensuite.
+
+Connections conserve l'identifiant technique `apple_store` pour préserver les
+installations existantes. Le sous-paquet `addons/apple_store/google_play` ajoute
+`Workspace → GooglePlayConnection → GooglePlayAppBinding → MobileApp`, sous les
+routes `apple_store/google-play/`. Les fiches Android conservent leur description
+courte distincte du sous-titre Apple. Les instantanés utilisent `google_play.api`
+et la synchronisation `google_play` ; l'interface dirige cette dernière vers le
+connecteur correspondant.
+
+Google Play nécessite une session d'édition temporaire pour lire une copie de la
+fiche déployée. Le client autorise seulement l'échange OAuth, la création de cette
+session, les lectures prévues et sa suppression. Il refuse les redirections et
+la publication. Un compte de service dédié évite d'invalider une session d'un autre
+outil. `GooglePlayLease`, partagé entre espaces et expirant après 90 secondes,
+empêche les imports simultanés de ce compte dans l'installation. L'import a un
+budget de 40 secondes et un nettoyage borné séparé. Une révision modifiée ou une
+connexion supprimée pendant la lecture empêche l'enregistrement des résultats.
 
 Une génération enregistre le brief et les métadonnées utilisés avant de lancer
 la tâche. Le couple espace/request_id protège contre les requêtes répétées ;
@@ -753,13 +770,13 @@ Parcours communautaire cible (étapes 1 à 5), suivi de l'extension cloud prévu
    texte, montage ou vidéo avec des personnes. Étudier les slides, l'accroche, le
    déroulé, les textes, les visuels, l'audio et l'appel à l'action selon le format.
    Indiquer les éléments effectivement consultés et ceux qui restent inaccessibles.
-5. **Proposer trois adaptations.** Utiliser trois contenus viraux distincts, pertinents
-   pour l'app, et conserver le lien entre chaque référence et son adaptation originale.
+5. **Proposer une à trois adaptations.** Utiliser les contenus qualifiés sélectionnés, pertinents
+   pour l'app, et produire une adaptation originale par référence sélectionnée (une à trois).
    Produire selon le cas un carrousel slide par slide, un script UGC ou de tournage,
    un plan de montage, ou le texte du post et son brief visuel. Les fonctionnalités
    annoncées doivent appartenir à l'app ; préciser les prises de vues humaines requises.
-   Si moins de trois références sont qualifiées, afficher ce manque et poursuivre la
-   recherche, sans compléter avec des exemples génériques présentés comme viraux.
+   Une ou deux références qualifiées suffisent pour créer autant d’adaptations. Si aucune
+   référence ne convient, poursuivre la recherche sans inventer d’exemples qualifiés.
 6. **Extension cloud : publier depuis SMM.** Connecter les comptes ou pages de l'utilisateur pour envoyer
    et programmer les contenus préparés. Prévoir les autorisations propres à chaque
    plateforme, l'aperçu, le contrôle de l'utilisateur, le statut d'envoi et la protection
@@ -891,11 +908,11 @@ Les modifications du script signalent un décalage, sans réécrire le storyboar
 Les visuels proviennent exclusivement d'une capture du snapshot de l'app désignée, jamais
 d'une URL libre ni des captures concurrentes. Le téléchargement et le décodage bornés sont
 partagés avec ASO dans `panda_store.core.images`, sans dépendance fonctionnelle à ce module.
-Téléchargement HTTPS sur hôtes Apple autorisés, sans redirection, 12 secondes/8 MB maximum ;
+Téléchargement HTTPS sur hôtes d'images Apple ou Google autorisés, sans redirection, 12 secondes/8 MB maximum ;
 raster fixe JPEG/PNG/WebP, 20 mégapixels maximum, dérivé JPEG de 2048 px et 1.5 MB maximum.
 Les lignes sont dédupliquées par snapshot/position, privées à l'app, et limitées à 60 par app.
 La liste des visuels ne charge pas leurs données binaires. Les miniatures non archivées viennent
-du CDN Apple sans referrer ; leur sélection archive une copie locale. L'activation SMM et
+des CDN Apple et Google sans referrer ; leur sélection archive une copie locale. L'activation SMM et
 les droits d'écriture sont revérifiés après le téléchargement avant la sauvegarde.
 
 Le preview React séquence les images en 9:16, sans recadrage, avec textes superposés et

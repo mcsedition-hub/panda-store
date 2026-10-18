@@ -2,10 +2,11 @@
 
 Le contrat de modules est expérimental pendant la série 0.1. Le dossier
 [`addons/example`](../addons/example) montre un module minimal complet.
-Il est installé mais désactivé par défaut. Activez-le depuis « Les modules ».
+Il sert de référence aux développeurs et reste masqué dans l’interface, y compris
+dans l’écran Modules. Copiez-le sous un nouvel identifiant pour créer votre extension.
 
 La première version publique comprend deux modules métier : **ASO** et **SMM**.
-Le catalogue, les connexions Apple et IA et les workflows fournissent leur socle ;
+Le catalogue, les connexions Apple, Google Play et IA et les workflows fournissent leur socle ;
 le module d'exemple illustre le contrat d'extension. La priorité est de finaliser
 ces deux parcours avant de retenir un troisième module métier.
 Les connexions de comptes sociaux pour publier et programmer sont réservées à la
@@ -86,6 +87,8 @@ doivent conserver les données ou fournir une migration explicite.
 
 Le composant reçoit `ModuleProps`, défini dans `web/src/contracts.ts` : espace,
 apps disponibles, app sélectionnée et callbacks de sélection/navigation.
+Le callback `navigate(module, appId?, page?)` permet aussi d'ouvrir une page du module,
+par exemple `import` pour Connections. Le composant la reçoit dans `page`.
 `web/src/api.ts` transmet la session et le jeton CSRF pour les appels à l'API.
 Les modules sont chargés à la demande dans la coque React, puis contrôlés
 indépendamment côté serveur.

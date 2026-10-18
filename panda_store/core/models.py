@@ -7,6 +7,9 @@ from django.db import models
 
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    language = models.CharField(
+        max_length=2, choices=[("en", "English"), ("fr", "Français")], default="en"
+    )
 
 
 class Workspace(models.Model):
@@ -69,6 +72,7 @@ class AIConnection(models.Model):
             ("openai", "OpenAI"),
             ("google", "Google Gemini"),
             ("anthropic", "Anthropic Claude"),
+            ("zai", "Z.ai (GLM)"),
         ],
     )
     encrypted_key = models.TextField()

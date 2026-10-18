@@ -1,8 +1,12 @@
+import { t } from './i18n';
 import { useState, type FormEvent } from 'react';
 import { api, setCsrfToken } from './api';
 import type { Session } from './contracts';
+import LanguagePicker from './i18n/LanguagePicker';
+import { useLanguage } from './i18n';
 
 export default function Setup({ onComplete }: { onComplete: (session: Session) => void }) {
+  const language = useLanguage();
   const [step, setStep] = useState(1);
   const [details, setDetails] = useState({
     organization_name: '',
@@ -39,7 +43,7 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
       const session = await api<Session>('/api/setup/', {
         method: 'POST',
         feedback: { success: 'Workspace created.' },
-        body: JSON.stringify(details),
+        body: JSON.stringify({ ...details, language }),
       });
       setCsrfToken(session.csrf_token);
       onComplete(session);
@@ -52,19 +56,20 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
 
   return (
     <main className="auth-layout">
-      <img className="brand" src="/brand/logo-light.svg" alt="Panda Store" />
+      <img className="brand" src="/brand/logo-light.svg" alt={t('Panda Store')} />
       <section className="auth-panel setup-panel">
-        <ol className="setup-progress" aria-label="Setup progress">
+        <LanguagePicker />
+        <ol className="setup-progress" aria-label={t('Setup progress')}>
           <li aria-current={step === 1 ? 'step' : undefined} className={step > 1 ? 'done' : ''}>
-            Organization
+            {t('Organization')}
           </li>
-          <li aria-current={step === 2 ? 'step' : undefined}>Your account</li>
+          <li aria-current={step === 2 ? 'step' : undefined}>{t('Your account')}</li>
         </ol>
-        <h1>{step === 1 ? 'Set up Panda Store' : 'Create your account'}</h1>
+        <h1>{step === 1 ? t('Set up Panda Store') : t('Create your account')}</h1>
         <form key={step} onSubmit={submit} aria-busy={busy}>
           {step === 1 ? (
             <label>
-              Organization name
+              {t('Organization name ')}
               <input
                 name="organization_name"
                 autoComplete="organization"
@@ -78,7 +83,7 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
           ) : (
             <>
               <label>
-                Username
+                {t('Username ')}
                 <input
                   name="username"
                   autoComplete="username"
@@ -91,7 +96,7 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
                 />
               </label>
               <label>
-                Email
+                {t('Email ')}
                 <input
                   name="email"
                   type="email"
@@ -105,7 +110,7 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
               </label>
               <div className="setup-passwords">
                 <label>
-                  Password
+                  {t('Password ')}
                   <input
                     name="password"
                     type="password"
@@ -120,7 +125,7 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
                   />
                 </label>
                 <label>
-                  Confirm password
+                  {t('Confirm password ')}
                   <input
                     name="password_confirmation"
                     type="password"
@@ -135,17 +140,17 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
                 </label>
               </div>
               <p className="field-hint" id="password-hint">
-                At least 8 characters.
+                {t('At least 8 characters.')}
               </p>
             </>
           )}
           {error && (
             <p className="error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <button className="button primary full" disabled={busy}>
-            {busy ? 'Creating account…' : step === 1 ? 'Continue' : 'Create account'}
+            {busy ? t('Creating account…') : step === 1 ? t('Continue') : t('Create account')}
           </button>
           {step === 2 && (
             <button
@@ -157,11 +162,11 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
                 setStep(1);
               }}
             >
-              Back
+              {t('Back')}
             </button>
           )}
         </form>
-        <p className="setup-footnote">Account data is stored on this server.</p>
+        <p className="setup-footnote">{t('Account data is stored on this server.')}</p>
       </section>
     </main>
   );

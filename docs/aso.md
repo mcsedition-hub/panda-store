@@ -12,6 +12,42 @@ Each result retains its inputs, sources and review date, with a persistent activ
 log. Running a new audit checks the latest imported snapshot; retrying an interrupted
 audit keeps its original inputs and completed checks.
 
+Leaving ASO does not erase an audit. Returning restores the last viewed report,
+language and audit type, or the active audit. **History** lists saved audits across
+languages. **Refresh audits** reloads saved results without starting another analysis.
+
+**Compare** displays two completed text analyses side by side, including positioning,
+field proposals, character counts, rationales and sources. Choose each field from A or B,
+then **Create draft from selection** to combine the saved texts without an AI call.
+The draft retains the source analysis and model for each selected field. For imported
+listings, unselected fields keep analysis A's saved listing. Idea proposals require all
+five fields. Different source versions are flagged; different languages or review types
+can be compared but cannot be combined. Rejected proposals cannot be selected. Review
+the combined copy and keyword repetitions in the draft before using it.
+
+For an unpublished app, use **My apps → Create a project** and describe the idea,
+or paste/import its Markdown document. Then open **ASO**, select an AI model and
+choose **Analyze idea and suggest listing**. No subtitle, description or keywords
+need to be written first. This App Store preparation works for iOS projects and
+projects whose target platform is still undecided.
+
+ASO analyzes the positioning, audience, possible search intents and missing details,
+then proposes all five listing fields. Text lengths, project quotes and source scope
+are checked before a second model reviews the claims. **Use this listing as a draft**
+opens an editable, versioned draft with the whole proposal. Editing and exporting
+make no AI calls. Unverified proposals are withheld. Keyword choices are hypotheses;
+there is no live keyword-volume or ranking research. The original project and its
+saved analysis remain separate from the proposed listing, and nothing is published.
+If verification is interrupted, retry reuses the saved writing step.
+The proposed fields use present-tense, publication-ready wording based on the described
+features, even for an idea. They do not announce a concept or development status. Missing
+details stay in the analysis. The Apple promotional text is a short marketing hook, limited
+to 170 characters. The app's internal stage and original specification remain unchanged.
+If structural validation rejects a proposal, the error identifies the failed field
+and rule. The rejected response remains in the private checkpoint; **Retry unfinished
+steps** requests a corrected proposal using that feedback, then verifies it. It keeps
+the original project, provider and model, and makes no automatic paid retries.
+
 The initial rules check name, subtitle, description and promotional-text lengths,
 the keyword budget, exact keyword repetition and comma spacing. A proposed cleanup
 can be copied for review and manual application in App Store Connect. Apple's
@@ -53,16 +89,25 @@ editing and export make no AI calls and never publish to a store.
 ### Choose an AI model
 
 Open **ASO → Audit → AI settings**. A workspace owner can connect OpenAI, Google
-Gemini or Anthropic Claude with their own API key. Keys are encrypted in this
+Gemini, Anthropic Claude or Z.ai (GLM) with their own API key. Keys are encrypted in this
 installation's database using `PANDA_CREDENTIAL_KEYS`, never returned to the browser
 or shared between workspaces. **Refresh models** reloads the provider's catalogue;
 text model families are filtered for this integration. Model access, quotas and
 endpoint compatibility are still subject to the provider; failures are explicit.
+For Z.ai, refreshing checks the connection and reloads Panda Store's supported
+catalogue. See [GLM connection and model selection](connections.md#zai-glm).
+
+The shared model guide explains writing, ideas, reasoning, speed and image
+analysis for all providers. Each provider shows up to five main models first;
+**See more** reveals the remaining catalogue. A **Recommended for ASO** label
+explains our starting choice for this module, without selecting it automatically.
+**Compare models by use** and each selected model's official source help you
+choose without starting an AI call.
 
 Select **AI provider**, **Model** and **Language**, then **Run audit**. The selected
 language's imported text is sent to that provider, using its account and billing.
 There is no provider fallback or automatic paid retry. **Rules only · No AI** keeps
-the original checks available without a key. All three adapters have automated
+the original checks available without a key. All four adapters have automated
 contract tests; OpenAI and Gemini have also been exercised with live accounts.
 
 Follow the six workflow steps, then read **Content review** below the activity.
@@ -129,7 +174,7 @@ Missing images and the ten-image cap are disclosed. Import order is **not** veri
 storefront order; downloaded images are **not** original upload files. Upload size
 compliance, readability on a real phone and conversion are not established by this
 review. The verifier is another model call, not a guarantee of visual correctness.
-OpenAI, Gemini and Claude image adapters have contract tests; live visual validation
+OpenAI, Gemini, Claude and GLM image adapters have contract tests; live visual validation
 is recorded in [the evaluation notes](aso-evaluation.md).
 
 Bounded JPEG derivatives are archived privately in the database, together with

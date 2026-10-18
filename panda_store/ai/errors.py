@@ -23,7 +23,7 @@ def retry_delay(value):
 
 
 def failure(provider, status, data, retry_after=None):
-    names = {"openai": "OpenAI", "google": "Gemini", "anthropic": "Claude"}
+    names = {"openai": "OpenAI", "google": "Gemini", "anthropic": "Claude", "zai": "Z.ai"}
     name = names[provider]
     error = data.get("error", {}) if isinstance(data, dict) else {}
     if not isinstance(error, dict):
@@ -42,6 +42,57 @@ def failure(provider, status, data, retry_after=None):
 
     def issue(code, message):
         return ProviderError(f"{name}: {message}", code=code)
+
+    if provider == "zai":
+        # Z.ai uses numeric business codes, sometimes encoded as strings.
+        business_code = str(error.get("code", ""))
+        if business_code == "1113":
+            return issue(
+                "credits_exhausted",
+                "The account has insufficient balance or no applicable resource package. "
+                "Check Z.ai billing and this model's access before retrying.",
+            )
+        if business_code == "1005":
+            return issue(
+                "account_configuration", "Complete the account verification required by Z.ai."
+            )
+        if business_code == "1315":
+            return issue(
+                "authentication",
+                "This key is restricted to a coding package. Create a Standard API Key "
+                "in Z.ai and replace it in AI settings.",
+            )
+        if business_code in {"1211", "1212", "1221", "1222", "1311"}:
+            return issue(
+                "model_unavailable",
+                "This model or API is unavailable for this key. Check its availability "
+                "in Z.ai and start a new task with a supported model.",
+            )
+        if business_code == "1261":
+            return issue("input_too_large", "The input exceeds this model's context limit.")
+        if business_code == "1301":
+            return issue(
+                "content_blocked", "The provider declined this content. Review it before retrying."
+            )
+        if business_code == "1305":
+            return issue(
+                "provider_unavailable",
+                "The service is temporarily overloaded. Wait before retrying.",
+            )
+        if business_code == "1302":
+            identifiers.add("rate_limit_exceeded")
+        if business_code in {
+            "1308",
+            "1310",
+            "1313",
+            "1316",
+            "1317",
+            "1318",
+            "1319",
+            "1320",
+            "1321",
+        }:
+            identifiers.add("quota_exceeded")
 
     if "credit_balance_exhausted" in identifiers:
         return issue(

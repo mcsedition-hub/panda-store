@@ -1,3 +1,4 @@
+import { t, getLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { WorkflowSnapshot, WorkflowStatus } from './types';
@@ -189,20 +190,24 @@ export default function WorkflowPanel({
   const visibleEvents =
     data?.events.filter((event) => !selected || event.step_key === selected) ?? [];
   return (
-    <section className="workflow-panel" aria-label="Workflow activity">
+    <section className="workflow-panel" aria-label={t('Workflow activity')}>
       <div className="workflow-heading">
         <div>
-          <h3>{data?.title ?? 'Workflow'}</h3>
+          <h3>{t(data?.title ?? t('Workflow'))}</h3>
           <p className="workflow-meta">
             <span role="status">
-              {data
-                ? labels[data.status]
-                : connectionError
-                  ? 'Activity unavailable'
-                  : 'Loading activity…'}
+              {t(
+                data
+                  ? labels[data.status]
+                  : connectionError
+                    ? t('Activity unavailable')
+                    : t('Loading activity…'),
+              )}
             </span>
-            {data?.started_at && <span>{duration(data.started_at, data.completed_at, now)}</span>}
-            <span>{connection}</span>
+            {data?.started_at && (
+              <span>{t(duration(data.started_at, data.completed_at, now))}</span>
+            )}
+            <span>{t(connection)}</span>
           </p>
         </div>
         <div className="workflow-actions">
@@ -212,18 +217,18 @@ export default function WorkflowPanel({
               disabled={busy || data.status === 'canceling'}
               onClick={() => action('cancel')}
             >
-              {data.status === 'canceling' ? 'Stopping…' : 'Stop'}
+              {data.status === 'canceling' ? t('Stopping…') : t('Stop')}
             </button>
           )}
           {canWrite && data && ['failed', 'canceled'].includes(data.status) && (
             <button className="button secondary" disabled={busy} onClick={() => action('retry')}>
-              {busy ? 'Retrying…' : 'Retry unfinished steps'}
+              {busy ? t('Retrying…') : t('Retry unfinished steps')}
             </button>
           )}
         </div>
       </div>
       {data && (
-        <ol className="workflow-steps" aria-label="Workflow steps">
+        <ol className="workflow-steps" aria-label={t('Workflow steps')}>
           {data.steps.map((item) => (
             <li key={item.key}>
               <button
@@ -241,12 +246,12 @@ export default function WorkflowPanel({
                           ? '◉'
                           : '○'}
                   </span>
-                  {item.title}
+                  {t(item.title)}
                 </span>
                 <span className="workflow-node-meta">
-                  {labels[item.status]}
+                  {t(labels[item.status])}
                   {item.reused_from_id
-                    ? ' · Reused'
+                    ? t(' · Reused')
                     : item.started_at
                       ? ` · ${duration(item.started_at, item.completed_at, now)}`
                       : ''}
@@ -258,34 +263,36 @@ export default function WorkflowPanel({
       )}
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {connectionError && (
         <div>
           <p className="error" role="alert">
-            {connectionError}
+            {t(connectionError)}
           </p>
           <p className="note">
-            Activity updates are unavailable. The task may still be running on the server. Reload
-            its status before starting another task.
+            {t(
+              'Activity updates are unavailable. The task may still be running on the server. Reload its status before starting another task.',
+            )}
           </p>
           <button className="button secondary" onClick={() => setReload((value) => value + 1)}>
-            Retry loading activity
+            {t('Retry loading activity')}
           </button>
         </div>
       )}
       {showError && data?.error && (
         <p className="error" role="alert">
-          {data.error}
+          {t(data.error)}
         </p>
       )}
       {data &&
         ['failed', 'canceled'].includes(data.status) &&
         data.steps.some((item) => item.kind === 'ai') && (
           <p className="note">
-            Retry keeps the original app, model and AI connection. After replacing an API key or
-            choosing another model, start a new task in this module. Saved results remain available.
+            {t(
+              'Retry keeps the original app, model and AI connection. After replacing an API key or choosing another model, start a new task in this module. Saved results remain available.',
+            )}
           </p>
         )}
       {data && (
@@ -294,28 +301,32 @@ export default function WorkflowPanel({
           open={!!pending || !!selected || data.status === 'failed'}
         >
           <summary>
-            {step ? step.title : 'Activity'} <span>{visibleEvents.length} events</span>
+            {t(step ? step.title : t('Activity'))}{' '}
+            <span>
+              {visibleEvents.length}
+              {t(' events')}
+            </span>
           </summary>
           {step && (
             <p className="workflow-step-summary">
-              {step.summary ||
+              {t(step.summary) ||
                 (data.status === 'queued' || !step.depends_on.length
-                  ? 'Waiting for a worker.'
-                  : 'Waiting for previous steps.')}
+                  ? t('Waiting for a worker.')
+                  : t('Waiting for previous steps.'))}
             </p>
           )}
           <ol
             className="workflow-events"
-            aria-label="Activity events"
+            aria-label={t('Activity events')}
             aria-live="polite"
             aria-relevant="additions"
           >
             {visibleEvents.map((event) => (
               <li key={event.sequence}>
                 <time dateTime={event.created_at}>
-                  {new Date(event.created_at).toLocaleTimeString('en-US', { hour12: false })}
+                  {new Date(event.created_at).toLocaleTimeString(getLocale(), { hour12: false })}
                 </time>
-                <span>{event.message}</span>
+                <span>{t(event.message)}</span>
               </li>
             ))}
           </ol>

@@ -12,7 +12,10 @@
     window !== window.top
   )
     return;
-  window.addEventListener('message', async (event) => {
+  // Re-injection must replace the bridge, never duplicate a research command.
+  if (globalThis.pandaSmmBridgeListener)
+    window.removeEventListener('message', globalThis.pandaSmmBridgeListener);
+  const receive = async (event) => {
     if (
       event.source !== window ||
       event.origin !== location.origin ||
@@ -22,6 +25,7 @@
       return;
     const { id, command, payload } = event.data;
     try {
+      if (!chrome.runtime.id) return;
       const response = await chrome.runtime.sendMessage({ command, payload });
       window.postMessage({ channel: 'panda-smm-response', id, ...response }, location.origin);
     } catch {
@@ -34,5 +38,8 @@
         location.origin,
       );
     }
-  });
+  };
+  globalThis.pandaSmmBridgeListener = receive;
+  window.addEventListener('message', receive);
+  window.postMessage({ channel: 'panda-smm-ready' }, location.origin);
 })();

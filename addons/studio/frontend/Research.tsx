@@ -1,3 +1,4 @@
+import { t, getLocale } from '../../../web/src/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, moduleUrl } from '../../../web/src/api';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
@@ -60,7 +61,7 @@ export type ResearchRun = {
 };
 const activeStatus = (status: string) => ['queued', 'running', 'canceling'].includes(status);
 const stamp = (date: string) =>
-  new Date(date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  new Date(date).toLocaleString(getLocale(), { dateStyle: 'medium', timeStyle: 'short' });
 
 function SourceCard({
   page,
@@ -80,8 +81,8 @@ function SourceCard({
         <div>
           <span className="note">
             {page.source.kind === 'reference'
-              ? `Cross-domain reference · ${page.source.domain}`
-              : 'Discovered source'}
+              ? t('Cross-domain reference · {0}', page.source.domain)
+              : t('Discovered source')}
           </span>
           <h3>
             <a href={page.final_url || page.source.url} target="_blank" rel="noreferrer">
@@ -91,7 +92,7 @@ function SourceCard({
           <span className="note">{stamp(page.captured_at)}</span>
         </div>
         <span className="status-pill">
-          {page.status === 'observed' ? 'Page captured' : 'Unavailable'}
+          {page.status === 'observed' ? t('Page captured') : t('Unavailable')}
         </span>
       </div>
       <div className="research-source-body">
@@ -101,7 +102,11 @@ function SourceCard({
               <img
                 loading="lazy"
                 src={page.images[frame]}
-                alt={`${page.source.title} · ${frame === 'top' ? 'first viewport' : 'after scrolling'}`}
+                alt={t(
+                  '{0} · {1}',
+                  page.source.title,
+                  frame === 'top' ? t('First view') : t('After scrolling'),
+                )}
               />
             </a>
             <div className="research-frame-controls">
@@ -110,7 +115,7 @@ function SourceCard({
                 aria-pressed={frame === 'top'}
                 onClick={() => setFrame('top')}
               >
-                First view
+                {t('First view')}
               </button>
               {page.images.scroll && (
                 <button
@@ -118,7 +123,7 @@ function SourceCard({
                   aria-pressed={frame === 'scroll'}
                   onClick={() => setFrame('scroll')}
                 >
-                  After scrolling
+                  {t('After scrolling')}
                 </button>
               )}
             </div>
@@ -135,26 +140,27 @@ function SourceCard({
                     disabled={selection.disabled}
                     onChange={selection.toggle}
                   />
-                  Select for brief
+                  {t(' Select for brief')}
                 </label>
               )}
               <span className="note">
-                {finding.content_type.replaceAll('_', ' ')} · AI observation · Review before use
+                {t(finding.content_type.replaceAll('_', ' '))}
+                {t(' · AI observation · Review before use')}
               </span>
               <p>{finding.observation}</p>
               {finding.hook_quote && (
                 <>
-                  <h4>Visible opening</h4>
+                  <h4>{t('Visible opening')}</h4>
                   <blockquote>{finding.hook_quote}</blockquote>
                 </>
               )}
-              <h4>Structure</h4>
+              <h4>{t('Structure')}</h4>
               <p>{finding.structure}</p>
-              <h4>Idea to test</h4>
+              <h4>{t('Idea to test')}</h4>
               <p>{finding.idea_to_test}</p>
               {finding.metrics.length ? (
                 <>
-                  <h4>Visible metrics</h4>
+                  <h4>{t('Visible metrics')}</h4>
                   <ul>
                     {finding.metrics.map((metric, i) => (
                       <li key={i}>
@@ -164,10 +170,10 @@ function SourceCard({
                   </ul>
                 </>
               ) : (
-                <p className="note">No performance metrics retained.</p>
+                <p className="note">{t('No performance metrics retained.')}</p>
               )}
               <details>
-                <summary>Quoted evidence</summary>
+                <summary>{t('Quoted evidence')}</summary>
                 {finding.evidence_quotes.map((quote, i) => (
                   <blockquote key={i}>{quote}</blockquote>
                 ))}
@@ -176,30 +182,30 @@ function SourceCard({
           ) : (
             <p>
               {withheld
-                ? `Observation withheld: ${withheld}`
+                ? t('Observation withheld: {0}', t(withheld))
                 : page.status === 'observed'
-                  ? 'No observation retained.'
-                  : page.reason}
+                  ? t('No observation retained.')
+                  : t(page.reason)}
             </p>
           )}
           <details>
-            <summary>Visit details</summary>
-            <p className="note">{page.reason}</p>
+            <summary>{t('Visit details')}</summary>
+            <p className="note">{t(page.reason)}</p>
             <a href={page.source.url} target="_blank" rel="noreferrer">
-              Original source ↗
+              {t('Original source ↗')}
             </a>
             <ul>
               {page.trace.map((event, i) => (
                 <li key={i}>
-                  {event.action}
+                  {t(event.action)}
                   {event.frame ? ` · ${event.frame}` : ''}
-                  {event.y !== undefined ? ` · ${event.y}px` : ''} · {stamp(event.at)}
+                  {event.y !== undefined ? t(' · {0}px', event.y) : ''} · {stamp(event.at)}
                 </li>
               ))}
             </ul>
             <details>
-              <summary>Saved page text</summary>
-              <p className="research-page-text">{page.text || 'No readable text saved.'}</p>
+              <summary>{t('Saved page text')}</summary>
+              <p className="research-page-text">{page.text || t('No readable text saved.')}</p>
             </details>
           </details>
         </div>
@@ -384,23 +390,23 @@ export default function Research({
   }
 
   return (
-    <section className="research-workspace" aria-label="Creative research">
+    <section className="research-workspace" aria-label={t('Creative research')}>
       <div className="research-setup">
-        <h2>Find examples before creating</h2>
+        <h2>{t('Find examples before creating')}</h2>
         <div className="research-inputs">
           <label>
-            Research topic
+            {t('Research topic ')}
             <textarea
               rows={2}
               maxLength={500}
               value={topic}
               disabled={!canWrite || busy || uncertain}
-              placeholder="Competitors, audience, or a use case to explore"
+              placeholder={t('Competitors, audience, or a use case to explore')}
               onChange={(e) => setTopic(e.target.value)}
             />
           </label>
           <label>
-            Language and market
+            {t('Language and market ')}
             <input
               maxLength={100}
               value={market}
@@ -411,6 +417,8 @@ export default function Research({
         </div>
         {!previewMode && (
           <AIOptions
+            moduleContext="smm"
+            capability="web_search"
             workspaceId={workspace.id}
             owner={workspace.role === 'owner'}
             disabled={!canWrite || busy || pending || uncertain}
@@ -438,50 +446,55 @@ export default function Research({
             }
             onClick={() => void start()}
           >
-            {busy ? 'Starting…' : 'Start research'}
+            {busy ? t('Starting…') : t('Start research')}
           </button>
           <span className="note">
-            Up to 6 discovered pages + 3 cross-domain references. Up to 3 model calls, plus provider
-            search fees.
+            {t(
+              'Up to 6 discovered pages + 3 cross-domain references. Up to 3 model calls, plus provider search fees.',
+            )}
           </span>
         </div>
         <p className="note">
-          Public pages and stills. Video and audio are not reviewed. Views do not establish
-          downloads.
+          {t(
+            'Public pages and stills. Video and audio are not reviewed. Views do not establish downloads.',
+          )}
         </p>
         {uncertain && (
           <p className="notice">
-            The start could not be confirmed. Retry with the same settings to recover this request,
-            or reload to check saved sessions.
+            {t(
+              'The start could not be confirmed. Retry with the same settings to recover this request, or reload to check saved sessions.',
+            )}
           </p>
         )}
         {!loading && !installed && !previewMode && (
           <p className="notice">
-            The research browser is not installed on this server. See the{' '}
+            {t('The research browser is not installed on this server. See the')}{' '}
             <a
               href="https://github.com/mcsedition-hub/panda-store#creative-research"
               target="_blank"
               rel="noreferrer"
             >
-              setup instructions ↗
+              {t('setup instructions ↗')}
             </a>
             .
           </p>
         )}
-        {previewMode && <p className="note">Live research is unavailable in the visual preview.</p>}
+        {previewMode && (
+          <p className="note">{t('Live research is unavailable in the visual preview.')}</p>
+        )}
       </div>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
-      {loading && <p role="status">Loading research…</p>}
+      {loading && <p role="status">{t('Loading research…')}</p>}
       {selected && (
         <>
           <div className="results-heading">
-            <h2>Research</h2>
+            <h2>{t('Research')}</h2>
             <label className="compact-label">
-              Session
+              {t('Session ')}
               <select
                 value={selected.id}
                 disabled={busy}
@@ -492,7 +505,7 @@ export default function Research({
               >
                 {runs.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {stamp(item.created_at)} · {item.status}
+                    {stamp(item.created_at)} · {t(item.status)}
                   </option>
                 ))}
               </select>
@@ -514,14 +527,14 @@ export default function Research({
           />
           {run?.discovery && (
             <details className="research-discovery">
-              <summary>Search trail</summary>
+              <summary>{t('Search trail')}</summary>
               <ul>
                 {run.discovery.queries.map((query, i) => (
                   <li key={i}>{query}</li>
                 ))}
               </ul>
               <p className="note">
-                Discovered links are candidates. Findings below use saved browser evidence.
+                {t('Discovered links are candidates. Findings below use saved browser evidence.')}
               </p>
               <ul>
                 {run.discovery.sources.map((source) => (
@@ -534,12 +547,12 @@ export default function Research({
               </ul>
               {run.discovery.warnings.map((warning, i) => (
                 <p className="note" key={i}>
-                  {warning}
+                  {t(warning)}
                 </p>
               ))}
               {run.discovery.search_widget && (
                 <iframe
-                  title="Google Search suggestions"
+                  title={t('Google Search suggestions')}
                   sandbox="allow-popups allow-popups-to-escape-sandbox"
                   referrerPolicy="no-referrer"
                   srcDoc={`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src https: data:; base-uri 'none'; form-action 'none'">${run.discovery.search_widget}`}
@@ -550,11 +563,23 @@ export default function Research({
           {run?.report && (
             <div className="research-coverage">
               <strong>
-                {run.report.coverage.observed} / {run.report.coverage.attempted} pages captured
+                {run.report.coverage.observed} / {run.report.coverage.attempted}
+                {t(' pages captured')}
               </strong>
-              <span>{run.report.coverage.references_observed} / 3 cross-domain references</span>
-              <span>{run.report.findings.length} findings retained</span>
-              {!!run.report.withheld.length && <span>{run.report.withheld.length} withheld</span>}
+              <span>
+                {run.report.coverage.references_observed}
+                {t(' / 3 cross-domain references')}
+              </span>
+              <span>
+                {run.report.findings.length}
+                {t(' findings retained')}
+              </span>
+              {!!run.report.withheld.length && (
+                <span>
+                  {run.report.withheld.length}
+                  {t(' withheld')}
+                </span>
+              )}
               {run.status === 'succeeded' &&
                 run.report.coverage.observed < run.report.coverage.attempted &&
                 canWrite && (
@@ -563,7 +588,7 @@ export default function Research({
                     disabled={busy || pending}
                     onClick={() => void retry().catch((err) => setError(err.message))}
                   >
-                    Retry unavailable sources
+                    {t('Retry unavailable sources')}
                   </button>
                 )}
             </div>
@@ -581,22 +606,27 @@ export default function Research({
                       onClick={() => void useInBrief()}
                     >
                       {usingBrief
-                        ? 'Saving selection…'
-                        : `Use ${selectedPages.length || ''} ${selectedPages.length === 1 ? 'observation' : 'observations'} in brief`}
+                        ? t('Saving selection…')
+                        : t(
+                            'Use {0} {1} in brief',
+                            selectedPages.length || '',
+                            selectedPages.length === 1 ? t('observation') : t('observations'),
+                          )}
                     </button>
-                    <span className="note">Select up to three observations below.</span>
+                    <span className="note">{t('Select up to three observations below.')}</span>
                   </div>
                 )}
               <p className="note">
-                Source claims are not independently verified. Confirm your app's features before
-                using an idea.
+                {t(
+                  "Source claims are not independently verified. Confirm your app's features before using an idea.",
+                )}
               </p>
               <label className="compact-label research-filter">
-                Sources
+                {t('Sources ')}
                 <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-                  <option value="all">All sources</option>
-                  <option value="discovered">Niche research</option>
-                  <option value="reference">Cross-domain references</option>
+                  <option value="all">{t('All sources')}</option>
+                  <option value="discovered">{t('Niche research')}</option>
+                  <option value="reference">{t('Cross-domain references')}</option>
                 </select>
               </label>
               <div className="research-sources">
@@ -636,22 +666,25 @@ export default function Research({
           )}
           {run?.report && (
             <details className="research-discovery">
-              <summary>Model usage</summary>
+              <summary>{t('Model usage')}</summary>
               {run.report.calls.map((call) => (
                 <p key={call.step}>
-                  {call.step} · {call.resolved_model || 'No model call'} ·{' '}
-                  {call.usage?.input_tokens ?? '—'} input tokens ·{' '}
-                  {call.usage?.output_tokens ?? '—'} output tokens
+                  {t(call.step)} · {call.resolved_model || t('No model call')} ·{' '}
+                  {call.usage?.input_tokens ?? '—'}
+                  {t(' input tokens ·')} {call.usage?.output_tokens ?? '—'}
+                  {t(' output tokens')}
                 </p>
               ))}
               <p className="note">
-                Provider search fees are separate. Retried or timed-out requests may also be billed.
+                {t(
+                  'Provider search fees are separate. Retried or timed-out requests may also be billed.',
+                )}
               </p>
             </details>
           )}
         </>
       )}
-      {!loading && !selected && <p className="results-empty">No research yet.</p>}
+      {!loading && !selected && <p className="results-empty">{t('No research yet.')}</p>}
     </section>
   );
 }

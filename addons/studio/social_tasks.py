@@ -8,6 +8,7 @@ from celery import shared_task
 from django.conf import settings
 from django.db import close_old_connections, connections
 
+from panda_store.ai.context import include_app_context
 from panda_store.ai.providers import ProviderError, generate
 from panda_store.core.credentials import CredentialsUnavailable, decrypt
 from panda_store.core.models import AIConnection
@@ -60,10 +61,14 @@ Decide relevance to the supplied app's niche and features; reject unrelated ente
 when popular. Use only supplied text and screenshot frames. Do not assume you watched the full
 video, heard audio, or saw every carousel slide. Explain actual coverage in limitations. A few
 frames may suggest an execution, but cannot establish its complete sequence or spoken script.
+If coverage identifies a creator-profile counter screenshot, use that frame only for the
+matching post's metric evidence. It is not a video frame or carousel slide; neighbouring
+posts, profile biography and follower counts are not this post's content or performance.
 Pagination dots or a next-slide control prove only that more slides exist, never what they show.
 For a single captured carousel frame, describe only that frame in observation and structure.
 Any proposed continuation belongs exclusively in idea_to_test, never in observed structure.
-Classify format: carousel, ugc, text, montage, human_video, video or unknown. UGC denotes an
+Classify format: carousel, image (one static photo or graphic), ugc, text, montage, human_video,
+video or unknown. UGC denotes an
 observed creator-style execution, not proof of a real customer's experience. Use generic video
 when the subtype is uncertain. For unknown, do not invent a format. Summarize the observable
 hook and structure, and one original structural idea to test with THIS app. Never copy a
@@ -111,11 +116,12 @@ def call(session, instruction, context, schema, images=None):
         key(session),
         choice["model"],
         instruction,
-        context,
+        include_app_context(session.inputs, {**context, "purpose": "smm_launch"}),
         schema,
         images=images,
         max_output_tokens=6000,
         output_name="smm_research",
+        response_language=session.inputs.get("response_language", "en"),
     )
 
 
@@ -163,7 +169,9 @@ def validate_analysis(result, evidence):
         if not isinstance(result[field], str) or len(result[field]) > 1500:
             raise ProviderError("The post analysis is invalid.")
     observed_format = evidence["format"]
-    if (observed_format in {"carousel", "text"} and result["format"] != observed_format) or (
+    if (
+        observed_format in {"carousel", "image", "text"} and result["format"] != observed_format
+    ) or (
         observed_format == "video"
         and result["format"] not in {"video", "ugc", "human_video", "montage"}
     ):

@@ -7,7 +7,7 @@
 [Installation](installation.md) explains how to run the application with Docker Compose
 or set up a local development environment.
 
-[Connections](connections.md) covers importing apps from Apple and connecting AI providers.
+[Connections](connections.md) covers App Store Connect, Google Play and AI providers.
 
 [ASO](aso.md) covers listing audits, screenshot reviews and editable drafts.
 

@@ -3,6 +3,7 @@
 import copy
 import re
 
+from panda_store.ai.context import include_app_context
 from panda_store.ai.providers import ProviderError, generate
 from panda_store.core.credentials import decrypt
 from panda_store.core.models import AIConnection
@@ -91,7 +92,8 @@ Use only supplied source IDs. Replacement must be the COMPLETE field in the list
 not a fragment, with no Markdown. Keep name <=30, subtitle <=30, description <=4000,
 promotional_text <=170 characters; keywords <=100 UTF-8 bytes. Preserve URLs and material
 privacy, payment and support qualifications when rewriting descriptions. Respect the app's
-name. Keyword ideas are hypotheses, never measured demand. Write rationales in English.
+name. Keyword ideas are hypotheses, never measured demand.
+Write rationales in the response language.
 Names and subtitles are reader-facing copy, not keyword lists. Use a natural, self-contained
 phrase in the listing language. Do not drop necessary nouns, connect unrelated objects with
 one verb, or pack every feature into the character budget. Prefer one clearly expressed use
@@ -102,7 +104,8 @@ An empty imported field can receive a proposal grounded in other fields; explain
 its assessment and use improve in that case. Never propose changes to fields not imported.
 If a deterministic finding already covers a weakness, mention it without duplicating its
 replacement. If evidence is missing or uncertain, abstain. Every proposal requires human review.
-Keep each assessment observation concise (one to three sentences) and write it in English.
+Keep each assessment observation concise (one to three sentences)
+and write it in the response language.
 """
 
 
@@ -204,9 +207,10 @@ def call(run, instruction, context, schema, *, max_output_tokens, images=None):
         decrypt(connection.encrypted_key),
         choice["model"],
         instruction,
-        context,
+        include_app_context(run.inputs, context),
         schema,
         max_output_tokens=max_output_tokens,
+        response_language=run.inputs.get("response_language", "en"),
         **({"images": images} if images is not None else {}),
     )
 

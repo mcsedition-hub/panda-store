@@ -2,15 +2,20 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { api, download } from './api';
 import Notifications from './notifications/Notifications';
+import { setLanguage } from './i18n';
 import { clearNotifications, getNotices, getWork, notify, trackWork } from './notifications/store';
 
-beforeEach(() => clearNotifications());
+beforeEach(() => {
+  clearNotifications();
+  setLanguage('en');
+});
 afterEach(() => {
   cleanup();
   clearNotifications();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   vi.useRealTimers();
+  setLanguage('en');
 });
 
 it('only confirms an export after receiving the file and reports download errors', async () => {
@@ -118,6 +123,28 @@ it('reports network failures without claiming success and leaves aborted request
     api('/api/example/', { method: 'POST', signal: controller.signal }),
   ).rejects.toThrow();
   expect(getNotices()).toEqual([]);
+});
+
+it('translates the task title and validation details in a French failure notification', async () => {
+  setLanguage('fr');
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      response({
+        id: 'run-one',
+        title: 'Prepare listing from app idea',
+        status: 'failed',
+        error:
+          'The proposed subtitle contains 31 characters; the limit is 30. Retry the unfinished step.',
+      }),
+    ),
+  );
+  trackWork('one', 'run-one');
+  render(<Notifications />);
+  await waitFor(() => expect(getWork()).toEqual([]));
+  expect(screen.getByRole('alert').textContent).toBe(
+    'Échec de Préparer une fiche à partir de l’idée. Le champ « Sous-titre » proposé contient 31 caractères ; la limite est de 30. Réessayez l’étape inachevée.',
+  );
 });
 
 it('clears pending tasks and prevents a late notification after sign out', async () => {

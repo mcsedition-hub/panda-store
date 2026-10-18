@@ -94,7 +94,9 @@ def generate(request, workspace_id, app_id):
             provider=operation["provider"],
             inputs={
                 "version": VERSION,
+                "response_language": request.user.language,
                 "snapshot_id": str(snapshot.pk),
+                "app_context": snapshot.data.get("project", {}),
                 "metadata": {
                     k: str(snapshot.data.get(k, ""))[:8000]
                     for k in ("name", "subtitle", "description", "category", "locale")

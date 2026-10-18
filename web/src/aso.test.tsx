@@ -67,6 +67,7 @@ function mockData(handler: (path: string, options?: RequestInit) => Promise<unkn
 }
 beforeEach(() => {
   mockApi.mockReset();
+  sessionStorage.clear();
 });
 afterEach(cleanup);
 
@@ -634,4 +635,69 @@ it('warns when a historical AI report predates the evidence review', async () =>
   render(<ASO {...props} />);
   await screen.findByText(/This earlier audit did not include the separate evidence review/);
   expect(screen.queryByText(/Evidence review ·/)).toBeNull();
+});
+
+it('restores a French audit after leaving ASO without starting it again', async () => {
+  const frenchRun = { ...run, id: 'french-audit', locale: 'fr-CA' };
+  mockData(async () => [frenchRun, run]);
+  const first = render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  expect((screen.getByLabelText('Language') as HTMLSelectElement).value).toBe('fr-CA');
+  expect((screen.getByLabelText('History') as HTMLSelectElement).value).toBe('french-audit');
+  fireEvent.change(screen.getByLabelText('History'), { target: { value: run.id } });
+  expect((screen.getByLabelText('Language') as HTMLSelectElement).value).toBe('en-US');
+  first.unmount();
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  expect((screen.getByLabelText('History') as HTMLSelectElement).value).toBe(run.id);
+  fireEvent.change(screen.getByLabelText('History'), { target: { value: 'french-audit' } });
+  expect((screen.getByLabelText('Language') as HTMLSelectElement).value).toBe('fr-CA');
+  expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+});
+
+it('reopens an active audit in another locale and blocks an accidental duplicate', async () => {
+  const current = { ...run, id: 'running-fr', locale: 'fr-CA', status: 'running', report: null };
+  mockData(async () => [run, current]);
+  render(<ASO {...props} />);
+  await screen.findByLabelText('History');
+  expect((screen.getByLabelText('History') as HTMLSelectElement).value).toBe(current.id);
+  fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'en-US' } });
+  expect(
+    (screen.getByRole('button', { name: 'Audit in progress…' }) as HTMLButtonElement).disabled,
+  ).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'View current audit' }));
+  expect((screen.getByLabelText('Language') as HTMLSelectElement).value).toBe('fr-CA');
+  expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+});
+
+it('keeps saved audits accessible even when the selected locale has no history', async () => {
+  mockData(async () => [run]);
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'fr-CA' } });
+  expect(screen.getByText('Review your store listing')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('History'), { target: { value: run.id } });
+  expect(screen.getByText('sort: already in subtitle')).toBeTruthy();
+  expect((screen.getByLabelText('Language') as HTMLSelectElement).value).toBe('en-US');
+});
+
+it('refreshes history without dropping saved results or starting a paid task', async () => {
+  let fail = false;
+  mockData(async () => {
+    if (fail) throw new Error('Temporary failure');
+    return [run];
+  });
+  render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  fail = true;
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh audits' }));
+  await screen.findByRole('alert');
+  expect(screen.getByText('sort: already in subtitle')).toBeTruthy();
+  expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
+    true,
+  );
+  fail = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh audits' }));
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  expect(mockApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
 });

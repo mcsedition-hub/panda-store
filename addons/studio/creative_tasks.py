@@ -63,7 +63,7 @@ def generate_ai_scripts(run_id):
             run.workflow_id,
             token,
             "scripts",
-            "Writing three original directions from the selected observations.",
+            "Writing original directions from the selected observations.",
         )
         if output is None:
             output = ai.call(run)
@@ -72,7 +72,7 @@ def generate_ai_scripts(run_id):
                 run.workflow_id,
                 token,
                 "scripts",
-                "Three proposals received. Source and claim quotes checked.",
+                "Proposals received. Source and claim quotes checked.",
                 output,
             )
         scripts = ai.validate_scripts(output, run.inputs)
@@ -84,7 +84,7 @@ def generate_ai_scripts(run_id):
         )
         if review is None:
             review = ai.call(run, scripts)
-            ai.validate_review(review)
+            ai.validate_review(review, len(scripts))
             services.complete_step(
                 run.workflow_id,
                 token,
@@ -92,7 +92,7 @@ def generate_ai_scripts(run_id):
                 "Automated review finished. Human approval remains separate.",
                 review,
             )
-        checks = ai.validate_review(review)
+        checks = ai.validate_review(review, len(scripts))
         with services.execution_lock(run.workflow_id, token):
             run.review = {
                 "rejected": any(not c["supported"] for c in checks),
@@ -113,7 +113,7 @@ def generate_ai_scripts(run_id):
                 "Read the review, adjust the brief and start a new generation."
             )
         services.start_step(
-            run.workflow_id, token, "save", "Saving three drafts with their research references."
+            run.workflow_id, token, "save", "Saving drafts with their research references."
         )
         with services.execution_lock(run.workflow_id, token):
             Creative.objects.bulk_create(
@@ -139,9 +139,9 @@ def generate_ai_scripts(run_id):
                 run.workflow_id,
                 token,
                 "save",
-                "Three editable scripts saved. Review before recording or publishing.",
+                "Editable scripts saved. Review before recording or publishing.",
             )
-            services.succeed(run.workflow_id, token, "Three scripts ready for your review.")
+            services.succeed(run.workflow_id, token, "Scripts ready for your review.")
     except services.ExecutionStopped:
         services.fail(run.workflow_id, "The worker stopped. Retry the unfinished steps.", token)
     except (ProviderError, CredentialsUnavailable) as exc:

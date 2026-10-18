@@ -13,7 +13,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
-from panda_store.ai.providers import PROVIDERS
+from panda_store.ai.providers import PROVIDERS, ProviderError, check_capabilities
 from panda_store.core.access import workspace_access
 from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows import services
@@ -162,6 +162,10 @@ def runs(request, workspace_id, app_id):
                 return Response({"error": "This request ID has already been used."}, status=409)
             return Response(serialize(existing))
         no_active(workspace)
+        try:
+            check_capabilities(values["provider"], values["model"], web_search=True)
+        except ProviderError as exc:
+            raise ValidationError(str(exc)) from None
         if not browser_ready():
             raise ValidationError(
                 "Install Chromium on the worker: python -m playwright install chromium."
@@ -176,7 +180,9 @@ def runs(request, workspace_id, app_id):
             )
         inputs = {
             "version": VERSION,
+            "response_language": request.user.language,
             "snapshot_id": str(snapshot.pk),
+            "app_context": snapshot.data.get("project", {}),
             "captured_at": snapshot.captured_at.isoformat(),
             "topic": values["topic"],
             "market": values["market"],

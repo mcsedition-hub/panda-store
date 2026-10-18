@@ -22,6 +22,7 @@ dependencies = [
   "Pillow>=12,<14",
   "playwright>=1.55,<2",
   "httpcore>=1.0.9,<1.1",
+  "jsonschema>=4.25,<5",
 ]
 
 [dependency-groups]

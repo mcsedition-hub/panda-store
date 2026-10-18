@@ -25,7 +25,7 @@ AI_VERSION = 1
 RUNNERS["studio.ai_scripts"] = (AI_VERSION, ai_execute)
 AI_STEPS = [
     {"key": "context", "title": "Check brief and sources", "kind": "validation", "depends_on": []},
-    {"key": "scripts", "title": "Write three directions", "kind": "ai", "depends_on": ["context"]},
+    {"key": "scripts", "title": "Write proposals", "kind": "ai", "depends_on": ["context"]},
     {
         "key": "verify",
         "title": "Review claims and originality",

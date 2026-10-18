@@ -135,7 +135,12 @@ def output():
 
 def test_connection_encryption_roles_rotation_and_refresh(api, workspace, owner):
     url = endpoint(workspace)
-    assert len(api.get(url).data["providers"]) == 3
+    assert {item["id"] for item in api.get(url).data["providers"]} == {
+        "openai",
+        "google",
+        "anthropic",
+        "zai",
+    }
     with patch("panda_store.ai.views.list_models", return_value=MODELS):
         response = api.put(url + "openai/", {"api_key": KEY}, format="json")
     assert response.status_code == 200 and KEY not in str(response.data)
@@ -187,7 +192,7 @@ def test_connection_cannot_be_resurrected_during_model_refresh(api, workspace, c
     assert response.status_code == 409 and not AIConnection.objects.exists()
 
 
-@pytest.mark.parametrize("provider", ["openai", "google", "anthropic"])
+@pytest.mark.parametrize("provider", ["openai", "google", "anthropic", "zai"])
 def test_adapter_uses_official_endpoint_and_discards_provider_errors(provider):
     def handler(request):
         assert str(request.url).startswith(providers.HOSTS[provider])
@@ -335,9 +340,18 @@ def test_structured_adapter_contract(provider, model, response):
             {"listing": "data"},
             editorial.SCHEMA,
             max_output_tokens=12000,
+            response_language="fr",
         )
     assert result["result"] == {"proposals": []} and result["usage"]["input_tokens"] == 20
     payload = call.call_args.kwargs["payload"]
+    instruction = (
+        payload["instructions"]
+        if provider == "openai"
+        else payload["system"]
+        if provider == "anthropic"
+        else payload["systemInstruction"]["parts"][0]["text"]
+    )
+    assert "Response language: French (fr)." in instruction
     if provider == "openai":
         assert payload["store"] is False and payload["text"]["format"]["strict"]
         assert payload["max_output_tokens"] == 12000

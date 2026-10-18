@@ -2,18 +2,25 @@
 
 Cette alpha est destinée aux démonstrations locales et au développement.
 Elle ne doit pas encore être exposée comme service public avec des données client.
-Les clés App Store Connect saisies dans Connections sont chiffrées en base avec
+Les clés App Store Connect, Google Play et les clés IA sont chiffrées en base avec
 Fernet et une clé propre à l'installation (`PANDA_CREDENTIAL_KEYS`), distincte de
-la clé de session Django. Aucune clé Google ou de fournisseur IA n'est encore gérée.
+la clé de session Django.
 
 Les contrôles présents incluent les sessions Django, CSRF, les rôles, les filtres
 par espace, les secrets locaux aléatoires et la validation des manifestes.
 Seul le propriétaire d'un espace peut ajouter, remplacer ou supprimer ses clés
-Apple. Elles ne sont jamais renvoyées par l'API ni placées dans le stockage navigateur.
-Le connecteur utilise des JWT ES256 de deux minutes limités aux requêtes GET.
+Apple, Google Play et IA. Elles ne sont jamais renvoyées par l'API ni placées dans le stockage navigateur.
+Le connecteur Apple utilise des JWT ES256 de deux minutes limités aux requêtes GET.
 Il refuse les redirections et les liens de pagination vers un autre hôte ou chemin.
 Une erreur d'import conserve le dernier instantané ; une modification ou suppression
 de connexion pendant un import empêche l'enregistrement de ses résultats périmés.
+
+Google Play utilise un compte de service dédié et un échange OAuth vers les hôtes
+Google fixes. La lecture des fiches nécessite la création puis la suppression d'une
+session d'édition temporaire. Aucune publication ni modification de fiche n'est
+envoyée. Une nouvelle session peut invalider une autre session du même compte :
+ne pas partager ce compte de service avec un outil de publication. Une réservation
+temporaire empêche les imports simultanés du même compte dans cette installation.
 
 Sauvegarder la base et les clés de chiffrement séparément. Ne pas remplacer une
 clé de chiffrement existante au redémarrage. Pour une rotation, placer la nouvelle

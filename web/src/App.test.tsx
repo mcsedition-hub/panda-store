@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { StrictMode, useEffect } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import App from './App';
+import { setLanguage } from './i18n';
 import { api, setCsrfToken } from './api';
 import type { ModuleProps } from './contracts';
 
@@ -28,6 +29,7 @@ const configured = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  setLanguage('en');
   guardMock.mockResolvedValue(true);
   mockApi.mockImplementation(async (path) => {
     if (path === '/api/session/') return initial;
@@ -39,7 +41,10 @@ beforeEach(() => {
     throw new Error(`Unexpected request: ${path}`);
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  setLanguage('en');
+});
 
 it('waits for module edits before navigation and stays put when saving fails', async () => {
   mockApi.mockImplementation(async (path) => {
@@ -95,6 +100,7 @@ it('configures organization and owner once, then opens the console immediately',
   expect(calls).toHaveLength(1);
   expect(calls[0][1]?.method).toBe('POST');
   expect(JSON.parse(calls[0][1]?.body as string)).toEqual({
+    language: 'en',
     organization_name: 'Northstar',
     username: 'northstar',
     email: 'owner@example.test',
@@ -190,4 +196,28 @@ it('shows module states and blocks navigation after disabling, including changes
   );
   expect(nav.queryByRole('button', { name: 'SMM' })).toBeNull();
   expect(screen.getByText('This module is not enabled in this workspace.')).toBeTruthy();
+});
+
+it('switches onboarding to French without losing inputs and submits the chosen language', async () => {
+  render(<App />);
+  await fillSetup();
+  fireEvent.change(screen.getByLabelText('Interface language'), { target: { value: 'fr' } });
+  expect((screen.getByLabelText('Nom d’utilisateur') as HTMLInputElement).value).toBe('northstar');
+  fireEvent.click(screen.getByRole('button', { name: 'Retour' }));
+  expect((screen.getByLabelText('Nom de l’organisation') as HTMLInputElement).value).toBe(
+    'Northstar',
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Continuer' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Créer le compte' }));
+  await screen.findByRole('heading', { name: 'Your apps' });
+  const request = mockApi.mock.calls.find(([path]) => path === '/api/setup/');
+  expect(JSON.parse(request![1]!.body as string).language).toBe('fr');
+});
+
+it('restores the signed-in account language even when the browser was set to English', async () => {
+  mockApi.mockResolvedValueOnce({ ...configured, language: 'fr' });
+  render(<App />);
+  await screen.findByRole('heading', { name: 'Your apps' });
+  expect(screen.getByRole('button', { name: 'Se déconnecter' })).toBeTruthy();
+  expect(document.documentElement.lang).toBe('fr');
 });

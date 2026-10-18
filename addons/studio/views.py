@@ -9,6 +9,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
+from panda_store.ai.language import language_name
 from panda_store.core.access import workspace_access
 from panda_store.core.models import Workspace
 from panda_store.workflows.models import WorkflowRun
@@ -48,17 +49,23 @@ def get_app(request, workspace_id, app_id, *, write=False):
     return get_object_or_404(MobileApp, workspace=workspace, pk=app_id)
 
 
-def default_brief(app):
+def default_brief(app, language="en"):
     snapshot = app.snapshots.first()
+    project = snapshot.data.get("project", {}) if snapshot else {}
     return {
-        "audience": snapshot.data.get("audience", "") if snapshot else "",
-        "goal": "Encourage people to try the app.",
-        "tone": "Clear and friendly",
+        "audience": project.get("audience", "")
+        or (snapshot.data.get("audience", "") if snapshot else ""),
+        "goal": (
+            "Donner envie d’essayer l’application."
+            if language == "fr"
+            else "Encourage people to try the app."
+        ),
+        "tone": "Clair et convivial" if language == "fr" else "Clear and friendly",
         "research": None,
         "research_page_ids": [],
         "research_sources": [],
-        "product_facts": "",
-        "language": "English",
+        "product_facts": project.get("specification", "")[:4000],
+        "language": language_name(language),
         "duration_seconds": 30,
     }
 
@@ -68,9 +75,15 @@ def brief(request, workspace_id, app_id):
     app = get_app(request, workspace_id, app_id, write=request.method == "PUT")
     existing = Brief.objects.filter(app=app).first()
     if request.method == "GET":
-        return Response(BriefSerializer(existing).data if existing else default_brief(app))
+        return Response(
+            BriefSerializer(existing).data
+            if existing
+            else default_brief(app, request.user.language)
+        )
     serializer = BriefSerializer(instance=existing, data=request.data, context={"app": app})
     serializer.is_valid(raise_exception=True)
+    if existing is None and "language" not in serializer.validated_data:
+        serializer.validated_data["language"] = language_name(request.user.language)
     serializer.save(app=app)
     return Response(serializer.data)
 
@@ -87,13 +100,21 @@ def runs(request, workspace_id, app_id):
         return Response(RunSerializer(recent, many=True).data)
     if not settings.PANDA_DEMO_MODE:
         raise PermissionDenied("The demo provider is disabled.")
+    if app.origin == "project":
+        raise ValidationError(
+            "Use AI generation for an unpublished project. Demo templates assume a published app."
+        )
     serializer = GenerateRequest(data=request.data)
     serializer.is_valid(raise_exception=True)
     snapshot = app.snapshots.first()
     if snapshot is None:
         raise ValidationError("Import app metadata before creating scripts.")
     saved_brief = Brief.objects.filter(app=app).first()
-    brief_data = BriefSerializer(saved_brief).data if saved_brief else default_brief(app)
+    brief_data = (
+        BriefSerializer(saved_brief).data
+        if saved_brief
+        else default_brief(app, request.user.language)
+    )
     inputs = {"metadata": snapshot.data, "snapshot_id": str(snapshot.pk), "brief": brief_data}
     with transaction.atomic():
         Workspace.objects.select_for_update().get(pk=app.workspace_id)
@@ -197,6 +218,20 @@ def export_run(request, workspace_id, run_id):
     social = run.inputs.get("mode") == "smm"
     title = "content adaptations" if social else "scripts"
     lines = [f"# {run.app.name} — {title}", "", mode, ""]
+    project = run.inputs.get("app_context", {})
+    if project.get("origin") == "project":
+        lines += [
+            "## Unpublished project context",
+            "",
+            f"Stage when generated: {project['stage']}",
+            "Planned scope is not proof of public availability or implemented features.",
+            "",
+            project["specification"],
+            "",
+            "Features declared implemented in a development build:",
+            project.get("available_features") or "None declared.",
+            "",
+        ]
     if run.provider != "demo_templates":
         lines += [
             "## Brief",
@@ -204,7 +239,7 @@ def export_run(request, workspace_id, run_id):
             f"Language: {run.inputs['brief']['language']}",
             f"Audience: {run.inputs['brief']['audience']}",
             f"Target duration: {run.inputs['brief']['duration_seconds']} seconds (estimate)"
-            + (" — video only; not applicable to carousel or text." if social else ""),
+            + (" — video only; not applicable to carousel, image or text." if social else ""),
             "",
             "Product facts confirmed by the author:",
             run.inputs["brief"]["product_facts"],

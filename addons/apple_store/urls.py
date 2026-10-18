@@ -1,8 +1,9 @@
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
 urlpatterns = [
+    path("google-play/", include("addons.apple_store.google_play.urls")),
     path("catalog/", views.catalog),
     path("import/", views.import_demo),
     path("connections/", views.connections),

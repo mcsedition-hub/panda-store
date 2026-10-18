@@ -46,6 +46,7 @@ def setup_available():
 
 
 class SetupSerializer(serializers.Serializer):
+    language = serializers.ChoiceField(choices=["en", "fr"], default="en")
     organization_name = serializers.CharField(max_length=100)
     username = serializers.CharField(max_length=150, validators=[UnicodeUsernameValidator()])
     email = serializers.EmailField(max_length=254)
@@ -82,6 +83,7 @@ def configure_installation(data):
     else:
         user = User(username=data["username"], email=data["email"])
         workspace = Workspace.objects.create(name=data["organization_name"])
+    user.language = data.get("language", "en")
     user.set_password(data["password"])
     user.save()
     Membership.objects.get_or_create(

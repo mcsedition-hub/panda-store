@@ -2,15 +2,33 @@
 
 1. Extract this ZIP. In Chrome, open `chrome://extensions`.
 2. Enable Developer mode, choose **Load unpacked**, and select the `panda-smm` folder.
-3. Refresh Panda Store at `http://127.0.0.1:5173` (development) or
-   `http://localhost:8080` (Docker Compose) and open SMM → Research.
+3. Return to Panda Store at `http://127.0.0.1:5173` (development) or
+   `http://localhost:8080` (Docker Compose) and open SMM → Research. The connection is detected automatically.
 
-Updating to **0.1.5**: replace the installed folder with this download, click **Reload**
-for Panda SMM Browser in `chrome://extensions`, then refresh Panda Store. If you loaded
+Updating to **0.1.8**: replace the installed folder with this download, click **Reload**
+for Panda SMM Browser in `chrome://extensions`. If you loaded
 `addons/studio/browser_extension` directly from the project, only the reload is needed.
-Version 0.1.5 fixes Facebook Reel closing when the banner covers the dialog control,
-and scopes evidence to the active video so preloaded neighbouring videos cannot supply
-its counters. Both development and Compose dashboards require this version.
+Version 0.1.8 reconnects already open dashboard tabs after installation, an extension
+reload/update, or browser startup. It preserves the dashboard form and never restarts
+a research command automatically. Version 0.1.7 remains compatible, but may require a
+dashboard refresh after reloading the extension. Protocol compatibility is checked
+independently of the patch version, so compatible updates do not block research.
+Unpacked installations still require replacing files and reloading the extension to
+apply code changes. Automatic distribution updates require a Chrome Web Store release;
+the local ZIP is not such a release.
+Version 0.1.7 checks missing Instagram video views on the creator's Reels grid. It
+matches the exact post shortcode and labelled view counter, saves its screenshot as
+the last of at most three evidence frames, then returns to the post. The lookup is
+bounded; missing, hidden or inaccessible counters remain unknown. Single static images
+are recognized and evaluated on likes, like carousels and text posts. Author and date
+extraction now also matches Instagram's `/p/` and `/reel/` aliases for the same post.
+Existing research keeps its original observations; run a new search to capture updated evidence.
+Version 0.1.6 preserves an already open research page when resuming and waits for
+transient platform errors within the existing loading timeout. Sign-in and verification
+requests still pause collection immediately. Both development and Compose dashboards
+support version 0.1.7 and protocol 1 connectors. Version 0.1.5 fixed Facebook Reel closing when the banner covers
+the dialog control and scoped evidence to the active video so preloaded neighbouring
+videos cannot supply its counters.
 Version 0.1.4 added the Compose dashboard on port 8080.
 
 Search waits for actual result links after the page shell loads. Missing results and
@@ -34,7 +52,7 @@ Sign in to social sites yourself if required, then resume from Panda Store. Keep
 Panda Store tab open during collection. Closing it stops collection; saved captures
 remain on your server and can be resumed. No social passwords or cookies are exported.
 
-Permissions: scripting reads posts on TikTok, Instagram, Facebook and Google; session
+Permissions: scripting reconnects the bridge on allowed local dashboard origins and reads posts on TikTok, Instagram, Facebook and Google; session
 storage remembers the connector-owned tab; debugger captures that tab's viewport for
 visual analysis and sends pointer input to public Facebook post dates and their dialog
 close controls. A Chrome debugging banner may appear. Commands are fixed (search,
@@ -45,7 +63,7 @@ The connector does not like, follow, comment, message, upload or publish anythin
 
 Only localhost/127.0.0.1 dashboard ports 5173, 8000 and 8080 can invoke it. A hosted deployment
 must explicitly add its trusted dashboard origin to `urls.js`, `bridge.js` and the
-manifest's content-script match list; do not use a wildcard dashboard origin.
+manifest's host permissions and content-script match list; do not use a wildcard dashboard origin.
 
 Collection is bounded to 12 posts, with up to three viewport samples each. Counters
 may be missing or rounded. Audio and complete videos/carousels are not captured;

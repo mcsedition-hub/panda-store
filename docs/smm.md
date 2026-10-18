@@ -2,7 +2,21 @@
 
 [Documentation](README.md)
 
-Research social content, adapt three qualified references to your app, then edit and export the results.
+Research social content, adapt one to three qualified references to your app, then edit and export the results.
+
+An app can start as an idea. In **My apps → Create a project**, write, paste or
+import its Markdown description and choose **Idea** or **In development**. SMM uses
+the full saved description, intended audience and separately declared implemented
+features. Confirm the scope relevant to the research before starting. Research and
+adaptation freeze this version even if you edit the project later. Scripts prepare
+finished launch copy: documented features use the present tense, even when the app
+is still an idea. Writing and review use the same convention. The internal stage
+does not force concept disclaimers or feedback requests into the ads. Production
+notes identify footage and screens to supply separately from the spoken and visible
+copy. Invented functionality, store availability, testimonials and results remain
+excluded. Earlier automatic concept-feedback goals are updated only when creating
+new adaptations; saved research and scripts retain their original context.
+Demo templates are unavailable for unpublished projects.
 
 ## Social research in your browser
 
@@ -12,19 +26,23 @@ server browser, which remains under **Public-page research (legacy)**.
 1. Apply migrations and restart the API and workflow worker.
 2. Download the connector from SMM, extract it, open `chrome://extensions`, enable
    Developer mode and load the extracted folder. For development, load
-   `addons/studio/browser_extension` directly. Refresh Panda Store.
+   `addons/studio/browser_extension` directly. Return to Panda Store; the connection is detected automatically.
 3. Check the app features and audience, choose platforms, performance filters and an
    AI provider/model, then choose **Start social research**. The model prepares search
    queries and the connector opens a dedicated visible tab in your current Chrome profile.
 4. Keep Panda Store open. Collection saves up to 12 posts, their observed counters,
-   dates, text and up to three viewport frames. Sign in yourself or resolve a site error
-   when necessary, then resume. A stopped session retains saved evidence. If a platform
+   dates, text and up to three viewport frames. An individual post that does not load
+   is skipped and its link remains in the activity log. Each collection attempt checks
+   at most 24 new posts, then analyzes the saved evidence. Sign-in and verification
+   requests still need your attention. A stopped session retains saved evidence. If a platform
    blocks collection, the other platforms can still be checked; the session then pauses.
    Resolve the block and resume, or explicitly choose **Analyze collected posts**.
    **Check connection** verifies the connector before starting or resuming collection.
-5. Review performance and relevance. Select exactly three qualified posts to create
-   three original adaptations, each tied to its own source and observed format.
-   Carousels produce slide plans, text posts produce copy, and videos produce filming
+5. Posts that meet the performance thresholds are marked as awaiting AI review until
+   relevance and captured evidence have been checked. Select one to three qualified posts to create
+   one original adaptation per selected post, each tied to its own source and observed format.
+   Carousels produce slide plans, single images produce a visual brief and caption,
+   text posts produce copy, and videos produce filming
    or editing scripts. Drafts stay editable and require separate approval.
    Qualified references from other completed research appear alongside the current posts
    when the app, metadata snapshot, confirmed features, audience and market match.
@@ -33,9 +51,22 @@ server browser, which remains under **Public-page research (legacy)**.
 
 The default 10,000 video views and 500 likes are editable filters, not a universal
 definition of virality. Missing or ambiguous counts cannot pass. Video requires both
-views and likes; text/carousel requires likes. Relevance and evidence undergo a separate
-AI review. Fewer than three qualified references blocks adaptation rather than filling
-the gap with generic examples. Google discovers posts on the supported social sites.
+views and likes; text/image/carousel requires likes. Relevance and evidence undergo a separate
+AI review. At least one qualified reference is required for adaptation; no extra generic examples
+are generated to fill a smaller selection. Google discovers posts on the supported social sites.
+
+Connector 0.1.8 reconnects open dashboard tabs automatically after extension installation,
+reload/update, or browser startup, preserving the form. Compatible patch versions no
+longer require an extension update just to start research; 0.1.7 remains supported.
+Unpacked installations still need a manual extension reload to apply new files.
+The local ZIP does not provide Chrome Web Store automatic updates.
+
+Connector 0.1.7 and later can verify missing Instagram video views on the creator's Reels grid.
+Only the exact post's labelled counter is accepted, with a screenshot and source URL.
+The last evidence frame then shows the counter, not another video sample. The lookup
+is bounded and pauses for sign-in or verification; unavailable counts remain unknown.
+Saved research keeps its original observations. Capture a new search after updating
+the connector to use these improvements.
 
 This local alpha supports only the configured localhost dashboard origins. Site layouts
 and access restrictions can interrupt collection. The connector samples visible frames;
@@ -46,25 +77,30 @@ account connections are planned for the cloud edition.
 
 Live validation and known limits are recorded in the [roadmap](roadmap.md).
 
+Z.ai (GLM) is supported in browser research with a vision model such as
+`glm-4.6v-flash`. Text-only GLM models remain available for script generation.
+See [GLM connection and model selection](connections.md#zai-glm).
+
 Run connector checks with `node --test tests/browser_extension.test.mjs`.
 See the [connector instructions](../addons/studio/browser_extension/README.md).
 
 ## Create scripts from research
 
-For browser research, select exactly three qualified posts and choose **Create three adaptations**.
+For browser research, select one to three qualified posts and choose **Create adaptations**.
+One selected post produces one draft, two produce two, and three produce three.
 Each draft retains its reference, observed format and confirmed app context.
 
 In **Public-page research (legacy)**, select one to three retained observations and choose **Use observations in brief**.
 SMM saves the selection and opens **Scripts**. Define the audience, goal, tone, language and
 target duration, then enter the product facts the script may use. Confirm those facts and select
-a model from your workspace's OpenAI, Gemini or Claude connection. **Create scripts** runs two
+a model from your workspace's OpenAI, Gemini, Claude or Z.ai connection. **Create scripts** runs two
 model calls: writing three directions and reviewing their claims, sources and distinctness.
 
 Each generation freezes the selected import, brief, source observations and connection revision.
 Research informs structure; it does not authorize copying competitor text or transferring features,
 prices or performance claims. Exact product fact quotes and source IDs are checked in code. The
 second model review can still miss errors, so scripts require human review before use. A rejected
-review withholds all three scripts and displays its reasons. Adjust the brief and start a new
+review withholds the batch of scripts and displays its reasons. Adjust the brief and start a new
 generation; retry is for interrupted work, not for repeatedly approving rejected content.
 
 When only the review times out, **Retry unfinished steps** reuses completed writing. No automatic

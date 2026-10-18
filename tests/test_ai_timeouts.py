@@ -8,7 +8,7 @@ from addons.aso.tasks import audit_listing
 from panda_store.ai import providers
 
 
-@pytest.mark.parametrize("provider", ["google", "openai", "anthropic"])
+@pytest.mark.parametrize("provider", ["google", "openai", "anthropic", "zai"])
 def test_generation_has_its_own_configurable_budget_without_slowing_catalogs(settings, provider):
     settings.PANDA_AI_TIMEOUT_SECONDS = 420
     timeouts = []

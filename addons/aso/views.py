@@ -10,17 +10,17 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
-from panda_store.ai.providers import PROVIDERS
+from panda_store.ai.providers import PROVIDERS, ProviderError, check_capabilities
 from panda_store.core.access import workspace_access
 from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows.models import WorkflowRun
 from panda_store.workflows.services import fail, recover
 
-from . import editorial, grounding, visual
+from . import editorial, grounding, project, visual
 from .models import AuditRun, ScreenshotEvidence
 from .rules import RULESET, localized_metadata
 from .tasks import audit_listing
-from .workflow import AI_VERSION, VERSION, VISUAL_VERSION, create_workflow
+from .workflow import AI_VERSION, PROJECT_VERSION, VERSION, VISUAL_VERSION, create_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ class AuditRequest(serializers.Serializer):
     snapshot_id = serializers.UUIDField()
     provider = serializers.ChoiceField(choices=list(PROVIDERS), required=False)
     model = serializers.CharField(max_length=120, required=False)
-    mode = serializers.ChoiceField(choices=["listing", "screenshots"], default="listing")
+    mode = serializers.ChoiceField(choices=["listing", "screenshots", "project"], default="listing")
 
     def validate(self, attrs):
         if ("provider" in attrs) != ("model" in attrs):
@@ -101,8 +101,15 @@ def runs(request, workspace_id, app_id):
     data = AuditRequest(data=request.data)
     data.is_valid(raise_exception=True)
     values = data.validated_data
-    if app.platform != "ios":
+    is_project = app.origin == "project" and values["mode"] != "screenshots"
+    if values["mode"] == "project" and not is_project:
+        raise ValidationError("Choose an unpublished project to prepare its first listing.")
+    if app.platform != "ios" and not (is_project and app.platform == "undecided"):
         raise ValidationError("This audit currently supports App Store listings only.")
+    if is_project and "provider" not in values:
+        raise ValidationError(
+            "Choose an AI provider and model to analyze your idea and propose a listing."
+        )
     snapshot = get_object_or_404(app.snapshots, pk=values["snapshot_id"])
     try:
         localized_metadata(snapshot.data, values["locale"])
@@ -110,14 +117,17 @@ def runs(request, workspace_id, app_id):
         raise ValidationError(str(exc)) from exc
     inputs = {
         "metadata": snapshot.data,
+        "app_context": snapshot.data.get("project", {}),
         "snapshot_id": str(snapshot.pk),
         "captured_at": snapshot.captured_at.isoformat(),
         "source": snapshot.source,
         "is_demo": app.is_demo,
-        "platform": app.platform,
+        "platform": "ios" if is_project else app.platform,
         "locale": values["locale"],
         "ruleset": RULESET,
     }
+    if is_project:
+        inputs.update(mode="project", project_version=project.VERSION)
     screenshots = values["mode"] == "screenshots"
     if screenshots:
         if not snapshot.data.get("screenshots") or (
@@ -136,6 +146,10 @@ def runs(request, workspace_id, app_id):
                 raise ValidationError("Connect this provider in AI settings first.")
             if values["model"] not in [item["id"] for item in connection.model_catalog]:
                 raise ValidationError("Choose an available model or refresh models in AI settings.")
+            try:
+                check_capabilities(connection.provider, values["model"], images=screenshots)
+            except ProviderError as exc:
+                raise ValidationError(str(exc)) from None
             inputs["ai"] = {
                 "provider": connection.provider,
                 "model": values["model"],
@@ -147,7 +161,9 @@ def runs(request, workspace_id, app_id):
                 "grounding_max_output_tokens": grounding.MAX_OUTPUT_TOKENS,
             }
             inputs["knowledge"] = (
-                visual.knowledge() if screenshots else editorial.knowledge(platform=app.platform)
+                visual.knowledge()
+                if screenshots
+                else editorial.knowledge(platform=inputs["platform"])
             )
             inputs["knowledge_version"] = (
                 visual.KNOWLEDGE_VERSION if screenshots else editorial.KNOWLEDGE_VERSION
@@ -155,13 +171,23 @@ def runs(request, workspace_id, app_id):
             if not screenshots:
                 inputs["field_criteria"] = editorial.FIELD_CRITERIA
         run = AuditRun.objects.filter(workspace=workspace, request_id=values["request_id"]).first()
+        if run and "app_context" not in run.inputs:
+            inputs.pop("app_context", None)
         created = run is None
+        if run and "response_language" in run.inputs:
+            inputs["response_language"] = run.inputs["response_language"]
+        elif not run:
+            inputs["response_language"] = request.user.language
         if run:
             if run.app_id != app.pk or run.inputs != inputs:
                 return Response({"error": "This request ID has already been used."}, status=409)
         else:
             workflow = create_workflow(
-                workspace, request.user, ai="ai" in inputs, screenshots=screenshots
+                workspace,
+                request.user,
+                ai="ai" in inputs,
+                screenshots=screenshots,
+                project=is_project,
             )
             run = AuditRun.objects.create(
                 workspace=workspace,
@@ -195,16 +221,20 @@ def retry(request, workspace_id, run_id):
         if previous.status not in {WorkflowRun.Status.FAILED, WorkflowRun.Status.CANCELED}:
             raise ValidationError("Only failed or canceled audits can be retried.")
         screenshots = original.inputs.get("mode") == "screenshots"
+        is_project = original.inputs.get("mode") == "project"
         if (
             previous.version
             != (
-                VISUAL_VERSION
+                PROJECT_VERSION
+                if is_project
+                else VISUAL_VERSION
                 if screenshots
                 else AI_VERSION
                 if "ai" in original.inputs
                 else VERSION
             )
             or (screenshots and original.inputs.get("visual_version") != visual.VERSION)
+            or (is_project and original.inputs.get("project_version") != project.VERSION)
             or original.inputs["ruleset"] != RULESET
             or (
                 "ai" in original.inputs
@@ -224,6 +254,8 @@ def retry(request, workspace_id, run_id):
             retry_of=previous,
             ai="ai" in original.inputs,
             screenshots=screenshots,
+            project=is_project,
+            reuse_steps=project.reusable_steps(previous, original.inputs) if is_project else None,
         )
         run = AuditRun.objects.create(
             workspace=workspace,

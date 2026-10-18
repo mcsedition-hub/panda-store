@@ -1,9 +1,10 @@
+import { getLocale } from '../../../web/src/i18n';
 export const fields = [
   ['name', 'App name', 30],
   ['subtitle', 'Subtitle', 30],
-  ['keywords', 'Keywords', 100],
+  ['promotional_text', 'Hook (promotional text)', 170],
   ['description', 'Description', 4000],
-  ['promotional_text', 'Promotional text', 170],
+  ['keywords', 'Keywords', 100],
 ] as const;
 export type Field = (typeof fields)[number][0];
 export type Content = Partial<Record<Field, string>>;
@@ -25,12 +26,27 @@ export interface Draft extends DraftSummary {
   changed_fields: Field[];
   provenance: {
     audit_id: string;
-    check: { title: string; observation: string; sources: { url: string; title: string }[] };
+    provider?: string;
+    model?: string;
+    created_at?: string;
+    snapshot_id?: string;
+    locale?: string;
+    check: {
+      title: string;
+      observation: string;
+      sources: { url: string; title: string }[];
+    };
   }[];
   validation: {
     can_mark_ready: boolean;
     blocking: string[];
-    checks: { id: string; field: Field; status: string; observation: string; action: string }[];
+    checks: {
+      id: string;
+      field: Field;
+      status: string;
+      observation: string;
+      action: string;
+    }[];
   };
   latest: {
     snapshot_id: string | null;
@@ -50,13 +66,21 @@ export interface Revision {
   author: string;
   created_at: string;
 }
-export interface DraftSeed {
+export interface ComparisonSelection {
+  field: Field;
   audit_id: string;
   check_id: string;
-  name: string;
 }
+export type DraftSeed = { name: string } & (
+  | { audit_id: string; check_id: string; comparison?: never }
+  | {
+      audit_id?: never;
+      check_id?: never;
+      comparison: { base_audit_id: string; selections: ComparisonSelection[] };
+    }
+);
 export const when = (value: string) =>
-  new Date(value).toLocaleString('en-US', {
+  new Date(value).toLocaleString(getLocale(), {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

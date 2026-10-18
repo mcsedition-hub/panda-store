@@ -1,3 +1,4 @@
+import { t } from '../../../web/src/i18n';
 import { SourceReference, type Source } from './Sources';
 
 export interface VisualImage {
@@ -56,18 +57,24 @@ export default function Screenshots({
   return (
     <div className="aso-visual-report">
       <p className="notice">
-        {report.resolved_model} · {report.reviewed_images} of {report.total_imported} imported
-        screenshots analyzed · {report.withheld} assessments withheld by the evidence review
+        {report.resolved_model} · {report.reviewed_images}
+        {t(' of ')}
+        {report.total_imported}
+        {t(' imported screenshots analyzed · ')}
+        {report.withheld}
+        {t(' assessments withheld by the evidence review')}
       </p>
       <p className="note">
-        These are the saved images sent to the model. Import order is shown; live storefront order,
-        original upload sizes and readability on a phone are not verified. Suggestions require
-        review and testing.
+        {t(
+          'These are the saved images sent to the model. Import order is shown; live storefront order, original upload sizes and readability on a phone are not verified. Suggestions require review and testing.',
+        )}
       </p>
       {report.total_imported > report.images.length && (
         <p className="notice">
-          This review covers the first {report.images.length} imported images. The remaining{' '}
-          {report.total_imported - report.images.length} images were not analyzed.
+          {t('This review covers the first ')}
+          {report.images.length}
+          {t(' imported images. The remaining')} {report.total_imported - report.images.length}
+          {t(' images were not analyzed.')}
         </p>
       )}
       {report.images.map((image) => (
@@ -78,37 +85,43 @@ export default function Screenshots({
                 href={image.url}
                 target="_blank"
                 rel="noreferrer"
-                aria-label={`Open ${image.name}`}
+                aria-label={t('Open {0}', image.name)}
               >
-                <img src={image.url} alt={`Imported screenshot: ${image.name}`} loading="lazy" />
+                <img
+                  src={image.url}
+                  alt={t('Imported screenshot: {0}', image.name)}
+                  loading="lazy"
+                />
               </a>
             ) : (
-              <p>Image unavailable</p>
+              <p>{t('Image unavailable')}</p>
             )}
           </div>
           <div className="aso-visual-content">
             <header>
-              <h3>{image.name || `Screenshot ${image.position}`}</h3>
+              <h3>{image.name || t('Screenshot {0}', image.position)}</h3>
               <span className="pill">
-                {image.status === 'reviewed'
-                  ? labels[image.verdict ?? 'insufficient_evidence']
-                  : labels[image.status]}
+                {t(
+                  image.status === 'reviewed'
+                    ? labels[image.verdict ?? 'insufficient_evidence']
+                    : labels[image.status],
+                )}
               </span>
             </header>
-            <p className="note">{deviceLabel(image.display_type)}</p>
+            <p className="note">{t(deviceLabel(image.display_type))}</p>
             {image.status === 'reviewed' ? (
               <>
                 <p>{readable(image.observation)}</p>
                 {image.visible_text && (
-                  <p className="note">Visible excerpt · “{image.visible_text}”</p>
+                  <p className="note">{t('Visible excerpt · “{0}”', image.visible_text)}</p>
                 )}
                 {image.recommendation && (
                   <div className="aso-proposal">
-                    <strong>Suggested change</strong>
+                    <strong>{t('Suggested change')}</strong>
                     <p>{readable(image.recommendation)}</p>
                     {onCreateBrief && image.verdict === 'improve' && (
                       <button className="button secondary" onClick={() => onCreateBrief(image)}>
-                        Create brief
+                        {t('Create brief')}
                       </button>
                     )}
                   </div>
@@ -121,30 +134,44 @@ export default function Screenshots({
               </>
             ) : (
               <p>
-                {image.error ||
-                  'The evidence review could not support the full assessment. No suggestion is shown for this image.'}
+                {t(
+                  image.error ||
+                    t(
+                      'The evidence review could not support the full assessment. No suggestion is shown for this image.',
+                    ),
+                )}
               </p>
             )}
             {image.sha256 && (
               <details className="aso-evidence">
-                <summary>Saved evidence</summary>
+                <summary>{t('Saved evidence')}</summary>
                 <p className="note">
-                  Model input · {image.width} × {image.height} px · JPEG
+                  {t('Model input · ')}
+                  {image.width} × {image.height}
+                  {t(' px · JPEG')}
                 </p>
-                <p className="aso-image-hash">SHA-256 · {image.sha256}</p>
+                <p className="aso-image-hash">
+                  {t('SHA-256 · ')}
+                  {image.sha256}
+                </p>
               </details>
             )}
           </div>
         </article>
       ))}
       <p className="note">
-        Analysis · {report.usage.input_tokens ?? '—'} input / {report.usage.output_tokens ?? '—'}{' '}
-        output tokens. Evidence review · {report.verification.usage.input_tokens ?? '—'} input /{' '}
-        {report.verification.usage.output_tokens ?? '—'} output tokens.
+        {t('Analysis · ')}
+        {report.usage.input_tokens ?? '—'}
+        {t(' input / ')}
+        {report.usage.output_tokens ?? '—'} {t('output tokens. Evidence review · ')}
+        {report.verification.usage.input_tokens ?? '—'}
+        {t(' input /')} {report.verification.usage.output_tokens ?? '—'}
+        {t(' output tokens.')}
       </p>
       <p className="aso-report-footnote">
-        No changes have been sent to Apple. The three public gallery examples are dated reference
-        notes, not live competitor research. Download effects are not measured.
+        {t(
+          'No changes have been sent to Apple. The three public gallery examples are dated reference notes, not live competitor research. Download effects are not measured.',
+        )}
       </p>
     </div>
   );

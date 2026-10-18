@@ -1,4 +1,5 @@
 export interface Session {
+  language?: 'en' | 'fr' | null;
   user: { id: string; username: string } | null;
   csrf_token: string;
   demo_mode: boolean;
@@ -24,21 +25,35 @@ export interface ModuleInfo {
   depends: Record<string, string>;
   capabilities: string[];
 }
+export interface ProjectContext {
+  origin: 'project';
+  name: string;
+  stage: 'idea' | 'development';
+  specification: string;
+  audience: string;
+  available_features: string;
+  listing_ready: boolean;
+}
+
 export interface AppMetadata {
+  project?: ProjectContext;
   name: string;
   external_id: string;
   bundle_id: string;
   platform: string;
   subtitle: string;
+  short_description?: string;
+  feature_graphic_url?: string;
   description: string;
   category: string;
   locale: string;
   version: string;
-  features: string[];
+  features?: string[];
   audience: string;
   source_note: string;
   icon_url?: string;
   keywords?: string;
+  promotional_text?: string;
   version_state?: string;
   screenshots_locale?: string;
   screenshots?: { url: string; name: string; display_type: string }[];
@@ -46,6 +61,7 @@ export interface AppMetadata {
     locale: string;
     name: string;
     subtitle: string;
+    short_description?: string;
     description: string;
     keywords: string;
     promotional_text: string;
@@ -53,6 +69,7 @@ export interface AppMetadata {
   }[];
 }
 export interface MobileApp {
+  origin?: 'store' | 'project';
   id: string;
   name: string;
   platform: string;
@@ -69,8 +86,9 @@ export interface ModuleProps {
   apps: MobileApp[];
   selectedApp: MobileApp | null;
   selectApp: (app: MobileApp) => void;
-  navigate: (module: string, appId?: string) => void;
+  navigate: (module: string, appId?: string, page?: string) => void;
   detailAppId?: string;
+  page?: string;
   availableModules?: string[];
   refreshApps: () => Promise<void>;
   demoMode: boolean;
@@ -95,6 +113,7 @@ export interface Creative {
 }
 export interface Run {
   context?: {
+    app_context?: ProjectContext;
     mode?: 'smm' | 'legacy';
     snapshot_id: string;
     brief: Brief;

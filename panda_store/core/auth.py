@@ -8,6 +8,9 @@ from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_GET, require_POST
+from rest_framework import serializers
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 from .onboarding import SetupSerializer, configure_installation, setup_available
 
@@ -22,6 +25,7 @@ def session_response(request):
             "csrf_token": get_token(request),
             "demo_mode": settings.PANDA_DEMO_MODE,
             "setup_required": setup_available(),
+            "language": user.language if user.is_authenticated else None,
         }
     )
 
@@ -79,3 +83,16 @@ def sign_in(request):
 def sign_out(request):
     logout(request)
     return JsonResponse({"user": None, "csrf_token": get_token(request)})
+
+
+class PreferencesSerializer(serializers.Serializer):
+    language = serializers.ChoiceField(choices=["en", "fr"])
+
+
+@api_view(["PATCH"])
+def preferences(request):
+    serializer = PreferencesSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    request.user.language = serializer.validated_data["language"]
+    request.user.save(update_fields=["language"])
+    return Response({"language": request.user.language})

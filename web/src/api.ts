@@ -1,4 +1,5 @@
 import { clearNotifications, notify, trackWork } from './notifications/store';
+import { getLanguage, t } from './i18n';
 
 let csrfToken = '';
 export type ApiOptions = RequestInit & {
@@ -18,7 +19,7 @@ export function setCsrfToken(token: string) {
 }
 
 function errorText(value: unknown): string {
-  if (typeof value === 'string') return value;
+  if (typeof value === 'string') return t(value);
   if (Array.isArray(value)) return value.map(errorText).join(' ');
   if (value && typeof value === 'object') return Object.values(value).map(errorText).join(' ');
   return 'The request could not be completed. Please try again.';
@@ -42,6 +43,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
       headers: {
         ...(request.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         'X-CSRFToken': csrfToken,
+        'Accept-Language': getLanguage(),
         ...options.headers,
       },
     });

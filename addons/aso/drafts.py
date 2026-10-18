@@ -1,7 +1,9 @@
 """Local listing drafts. Nothing in this module writes to a store."""
 
 import copy
+import json
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -34,6 +36,22 @@ class Conflict(APIException):
     )
 
 
+class ComparisonSelection(serializers.Serializer):
+    field = serializers.ChoiceField(choices=FIELDS)
+    audit_id = serializers.UUIDField()
+    check_id = serializers.CharField(max_length=100)
+
+
+class ComparisonRequest(serializers.Serializer):
+    base_audit_id = serializers.UUIDField()
+    selections = ComparisonSelection(many=True, allow_empty=False, max_length=5)
+
+    def validate_selections(self, items):
+        if len({item["field"] for item in items}) != len(items):
+            raise ValidationError("Choose only one proposal per listing field.")
+        return items
+
+
 class CreateRequest(serializers.Serializer):
     request_id = serializers.UUIDField()
     name = serializers.CharField(max_length=120)
@@ -43,9 +61,13 @@ class CreateRequest(serializers.Serializer):
     check_id = serializers.CharField(max_length=100, required=False)
     duplicate_id = serializers.UUIDField(required=False)
     version = serializers.IntegerField(min_value=1, required=False)
+    comparison = ComparisonRequest(required=False)
 
     def validate(self, attrs):
-        if sum(key in attrs for key in ("snapshot_id", "audit_id", "duplicate_id")) != 1:
+        if (
+            sum(key in attrs for key in ("snapshot_id", "audit_id", "duplicate_id", "comparison"))
+            != 1
+        ):
             raise ValidationError(
                 "Choose one imported listing, audit finding or draft to start from."
             )
@@ -82,7 +104,7 @@ class EditRequest(serializers.Serializer):
 
 
 def operation(values):
-    return {key: str(value) if key.endswith("_id") else value for key, value in values.items()}
+    return json.loads(json.dumps(values, cls=DjangoJSONEncoder))
 
 
 def revision(draft, user, values, reason):
@@ -181,8 +203,53 @@ def serialize(draft):
     }
 
 
+def comparison_seed(app, comparison):
+    ids = {comparison["base_audit_id"], *(item["audit_id"] for item in comparison["selections"])}
+    runs = {
+        run.pk: run
+        for run in AuditRun.objects.select_related("workflow").filter(app=app, pk__in=ids)
+    }
+    if set(runs) != ids:
+        raise ValidationError("Choose saved analyses of this app.")
+    base = runs[comparison["base_audit_id"]]
+    mode = base.inputs.get("mode", "listing")
+    for run in runs.values():
+        if not run.report or run.workflow.status != "succeeded":
+            raise ValidationError("Complete the audit before creating a draft from it.")
+        if run.locale != base.locale:
+            raise ValidationError("Choose analyses in the same language to compose a draft.")
+        if mode not in {"project", "listing"} or run.inputs.get("mode", "listing") != mode:
+            raise ValidationError("Choose analyses of the same type to compose a draft.")
+    if mode == "project" and {item["field"] for item in comparison["selections"]} != set(FIELDS):
+        raise ValidationError("Choose a proposal for each of the five listing fields.")
+    content = localized_metadata(base.inputs["metadata"], base.locale)
+    provenance = []
+    for selection in comparison["selections"]:
+        run = runs[selection["audit_id"]]
+        _, proposed, sources, _ = seed(app, selection)
+        evidence = next(
+            (item for item in sources if item["check"]["field"] == selection["field"]), None
+        )
+        if evidence is None:
+            raise ValidationError("The selected proposal does not match this listing field.")
+        content[selection["field"]] = proposed[selection["field"]]
+        provenance.append(
+            {
+                **evidence,
+                "model": run.inputs.get("ai", {}).get("model", ""),
+                "provider": run.inputs.get("ai", {}).get("provider", ""),
+                "snapshot_id": run.inputs["snapshot_id"],
+                "locale": run.locale,
+                "created_at": run.created_at.isoformat(),
+            }
+        )
+    return base.inputs, content, provenance, "Created from compared analyses"
+
+
 def seed(app, values):
     provenance = []
+    if "comparison" in values:
+        return comparison_seed(app, values["comparison"])
     if "duplicate_id" in values:
         original = get_object_or_404(
             ListingDraft.objects.select_for_update(), app=app, pk=values["duplicate_id"]
@@ -194,6 +261,29 @@ def seed(app, values):
         run = get_object_or_404(AuditRun, pk=values["audit_id"], app=app)
         if not run.report or run.workflow.status != "succeeded":
             raise ValidationError("Complete the audit before creating a draft from it.")
+        if values["check_id"] == "project.listing":
+            proposal = run.report.get("project", {})
+            if run.inputs.get("mode") != "project" or not proposal.get("accepted"):
+                raise ValidationError("This project analysis has no approved listing proposal.")
+            content = {item["field"]: item["text"] for item in proposal["fields"]}
+            if set(content) != set(FIELDS):
+                raise ValidationError("The listing proposal is incomplete. Start a new analysis.")
+            provenance = [
+                {
+                    "audit_id": str(run.pk),
+                    "check": {
+                        "id": f"project.{item['field']}",
+                        "field": item["field"],
+                        "title": LABELS[item["field"]],
+                        "observation": item["rationale"],
+                        "replacement": item["text"],
+                        "evidence": item["evidence"],
+                        "sources": item["sources"],
+                    },
+                }
+                for item in proposal["fields"]
+            ]
+            return run.inputs, content, provenance, "Created from project analysis"
         check = next(
             (check for check in run.report["checks"] if check["id"] == values["check_id"]), None
         )
@@ -206,7 +296,7 @@ def seed(app, values):
         inputs = run.inputs
         provenance = [{"audit_id": str(run.pk), "check": check}]
     else:
-        if app.platform != "ios":
+        if app.platform != "ios" and not (app.origin == "project" and app.platform == "undecided"):
             raise ValidationError("Drafts currently support App Store listings only.")
         snapshot = get_object_or_404(app.snapshots, pk=values["snapshot_id"])
         inputs = {
@@ -215,7 +305,7 @@ def seed(app, values):
             "captured_at": snapshot.captured_at.isoformat(),
             "locale": values["locale"],
             "source": snapshot.source,
-            "platform": app.platform,
+            "platform": "ios" if app.origin == "project" else app.platform,
             "is_demo": app.is_demo,
         }
     try:
@@ -359,7 +449,7 @@ def export(request, workspace_id, draft_id):
         saved.name,
         f"App Store · {draft.locale} · Revision {version}",
         f"Status: {saved.status}. Not submitted to Apple.",
-        f"Reference imported: {draft.inputs['captured_at']}",
+        f"Reference saved: {draft.inputs['captured_at']}",
         "",
     ]
     for field in FIELDS:

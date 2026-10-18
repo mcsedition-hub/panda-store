@@ -56,10 +56,13 @@ test('dashboard bridge accepts local development and Compose origins only', asyn
     const dom = new JSDOM('', { url: origin, runScripts: 'outside-only' });
     let calls = 0;
     const response = new Promise((resolve) => {
-      dom.window.postMessage = resolve;
+      dom.window.postMessage = (message) => {
+        if (message.channel === 'panda-smm-response') resolve(message);
+      };
     });
     dom.window.chrome = {
       runtime: {
+        id: 'panda-test',
         sendMessage: async () => {
           calls++;
           return {};
@@ -77,6 +80,107 @@ test('dashboard bridge accepts local development and Compose origins only', asyn
     assert.equal(calls, dashboardOrigins.has(origin) ? 1 : 0, origin);
     if (dashboardOrigins.has(origin)) await response;
     dom.window.close();
+  }
+});
+test('reinjecting the dashboard bridge signals readiness without duplicating commands', async () => {
+  const bridge = await readFile(
+    new URL('../addons/studio/browser_extension/bridge.js', import.meta.url),
+    'utf8',
+  );
+  const dom = new JSDOM('<input value="My unsaved topic">', {
+    url: 'http://localhost:5173',
+    runScripts: 'outside-only',
+  });
+  let calls = 0;
+  const replies = [];
+  dom.window.chrome = {
+    runtime: {
+      id: 'panda-test',
+      sendMessage: async () => {
+        calls++;
+        return { result: {} };
+      },
+    },
+  };
+  dom.window.postMessage = (reply) => replies.push(reply);
+  dom.window.eval(bridge);
+  dom.window.eval(bridge);
+  assert.equal(replies.filter((r) => r.channel === 'panda-smm-ready').length, 2);
+  const request = () =>
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent('message', {
+        source: dom.window,
+        origin: dom.window.location.origin,
+        data: { channel: 'panda-smm-request', id: 'one-search', command: 'search' },
+      }),
+    );
+  request();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 1);
+  assert.equal(replies.filter((r) => r.channel === 'panda-smm-response').length, 1);
+  assert.equal(dom.window.document.querySelector('input').value, 'My unsaved topic');
+  delete dom.window.chrome.runtime.id;
+  request();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls, 1);
+  assert.equal(replies.length, 3, 'invalidated bridges must not compete with the replacement');
+  dom.window.close();
+});
+
+test('installation and browser startup reconnect only supported dashboard tabs without reloading', async () => {
+  const events = {};
+  const injected = [];
+  const allowed = [...dashboardOrigins].map((url, index) => ({ id: index + 1, url: `${url}/` }));
+  const originalChrome = globalThis.chrome;
+  globalThis.chrome = {
+    runtime: {
+      onInstalled: {
+        addListener: (fn) => {
+          events.install = fn;
+        },
+      },
+      onStartup: {
+        addListener: (fn) => {
+          events.startup = fn;
+        },
+      },
+      onMessage: { addListener() {} },
+    },
+    tabs: {
+      onRemoved: { addListener() {} },
+      query: async () => [
+        ...allowed,
+        { id: 30, url: 'http://localhost:8081/' },
+        { id: 31, url: 'https://www.instagram.com/' },
+        { id: 32, url: 'http://localhost.evil.test:5173/' },
+      ],
+      reload: () => assert.fail('reconnection must preserve the dashboard form'),
+    },
+    scripting: {
+      executeScript: async (args) => {
+        injected.push(args);
+        if (args.target.tabId === 1) throw new Error('Tab closed');
+      },
+    },
+  };
+  try {
+    await import('../addons/studio/browser_extension/background.js?reconnect-test');
+    for (const event of Object.values(events)) {
+      injected.length = 0;
+      event();
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepEqual(
+        injected.map((item) => item.target.tabId),
+        allowed.map((tab) => tab.id),
+      );
+      for (const item of injected) {
+        assert.deepEqual(item.target.frameIds, [0]);
+        assert.deepEqual(item.files, ['bridge.js']);
+      }
+    }
+    assert.equal(Object.keys(events).length, 2);
+  } finally {
+    globalThis.chrome = originalChrome;
   }
 });
 test('Facebook page permalinks retain both identifiers and discard tracking consistently', () => {
@@ -165,6 +269,8 @@ test('background rejects commands from social sites and owns only tabs it create
   let calls = 0;
   globalThis.chrome = {
     runtime: {
+      onInstalled: { addListener() {} },
+      onStartup: { addListener() {} },
       onMessage: {
         addListener: (fn) => {
           listener = fn;
@@ -430,14 +536,28 @@ test('Facebook Reel evidence excludes preloaded neighbouring videos and counters
   dom.window.close();
 });
 
-async function connectorHarness(run, { navigation, discovery, reading, facebookTargets } = {}) {
+async function connectorHarness(
+  run,
+  {
+    navigation,
+    discovery,
+    reading,
+    instagramReading,
+    screenshotError,
+    facebookTargets,
+    initialUrl = 'about:blank',
+  } = {},
+) {
   let listener;
-  let currentUrl = 'about:blank';
+  let currentUrl = initialUrl;
   let polls = 0;
   let injected = 0;
   let discoveries = 0;
   const inputs = [];
+  const navigations = [];
   let facebookPosts = 0;
+  let profileReads = 0;
+  let screenshots = 0;
   let search;
   const sender = { url: 'http://127.0.0.1:5173/', frameId: 0, tab: { id: 1 } };
   const session = '11111111-1111-1111-1111-111111111111';
@@ -445,6 +565,8 @@ async function connectorHarness(run, { navigation, discovery, reading, facebookT
   globalThis.setTimeout = (callback) => originalTimeout(callback, 0);
   globalThis.chrome = {
     runtime: {
+      onInstalled: { addListener() {} },
+      onStartup: { addListener() {} },
       onMessage: {
         addListener: (fn) => {
           listener = fn;
@@ -454,8 +576,11 @@ async function connectorHarness(run, { navigation, discovery, reading, facebookT
     tabs: {
       onRemoved: { addListener() {} },
       update: async (_, { url }) => {
-        currentUrl = url;
-        search = url;
+        if (url) {
+          navigations.push(url);
+          currentUrl = url;
+          search = url;
+        }
       },
       get: async () =>
         navigation?.(currentUrl, ++polls) || {
@@ -471,6 +596,13 @@ async function connectorHarness(run, { navigation, discovery, reading, facebookT
       detach: async (target) => assert.equal(target.tabId, 9),
       sendCommand: async (target, command, input) => {
         assert.equal(target.tabId, 9);
+        if (command === 'Page.getLayoutMetrics') {
+          if (screenshotError) throw new Error('Screenshot unavailable');
+          return {
+            cssVisualViewport: { pageX: 0, pageY: 0, clientWidth: 1000, clientHeight: 700 },
+          };
+        }
+        if (command === 'Page.captureScreenshot') return { data: `frame-${++screenshots}` };
         assert.equal(command, 'Input.dispatchMouseEvent');
         inputs.push(input);
         if (input.type === 'mouseReleased') {
@@ -503,6 +635,17 @@ async function connectorHarness(run, { navigation, discovery, reading, facebookT
           ];
         }
         if (args[0] === 'read') return [{ result: reading() }];
+        if (args[0] === 'instagramViews') {
+          profileReads++;
+          return [
+            {
+              result: instagramReading?.(profileReads, args[1], currentUrl) || {
+                blocked_reason: '',
+                metric: null,
+              },
+            },
+          ];
+        }
         if (args[0] === 'facebookTarget') return [{ result: facebookTargets?.(args[1]) || null }];
         if (args[0] === 'facebookCloseTarget') return [{ result: { x: 30, y: 40 } }];
         return [{ result: undefined }];
@@ -515,12 +658,130 @@ async function connectorHarness(run, { navigation, discovery, reading, facebookT
       new Promise((resolve) =>
         listener({ command, payload: { session, ...payload } }, sender, resolve),
       );
-    await run(send, () => ({ injected, discoveries, inputs, currentUrl }));
+    await run(send, () => ({
+      injected,
+      discoveries,
+      inputs,
+      currentUrl,
+      navigations,
+      profileReads,
+      screenshots,
+    }));
   } finally {
     globalThis.setTimeout = originalTimeout;
     delete globalThis.chrome;
   }
 }
+
+const platformError = 'The platform returned an error. Retry in the research tab, then resume.';
+test('resuming preserves the exact already open search instead of reloading recovered results', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('search', { platform: 'tiktok', query: 'fridge recipes' });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.candidates.length, 1);
+      assert.equal(reply.result.blocked_reason, '');
+      assert.deepEqual(stats().navigations, []);
+      assert.equal(stats().injected, 1);
+    },
+    {
+      initialUrl: searchUrl('tiktok', 'fridge recipes'),
+      discovery: () => ({
+        candidates: [{ url: 'https://www.tiktok.com/@cook/video/1' }],
+        blocked_reason: '',
+      }),
+    },
+  );
+});
+test('a different query still navigates and never reuses unrelated results', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      await send('search', { platform: 'tiktok', query: 'fridge recipes' });
+      assert.deepEqual(stats().navigations, [searchUrl('tiktok', 'fridge recipes')]);
+    },
+    { initialUrl: searchUrl('tiktok', 'photo cleanup') },
+  );
+});
+test('a transient search error can recover within the existing wait budget', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('search', { platform: 'tiktok', query: 'fridge recipes' });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.blocked_reason, '');
+      assert.deepEqual(
+        reply.result.candidates.map((item) => item.url),
+        ['https://www.tiktok.com/@cook/video/1'],
+      );
+      assert.equal(stats().discoveries, 6);
+      assert.equal(stats().navigations.length, 1);
+    },
+    {
+      discovery: (count) => ({
+        candidates: [
+          {
+            url:
+              count < 4
+                ? 'https://www.tiktok.com/@stale/video/2'
+                : 'https://www.tiktok.com/@cook/video/1',
+          },
+        ],
+        blocked_reason: count < 4 ? platformError : '',
+      }),
+    },
+  );
+});
+test('persistent server errors stop after the bounded wait without accepting stale results', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('search', { platform: 'tiktok', query: 'fridge recipes' });
+      assert.equal(reply.result.blocked_reason, platformError);
+      assert.deepEqual(reply.result.candidates, []);
+      assert.equal(stats().discoveries, 13);
+    },
+    {
+      discovery: () => ({
+        candidates: [{ url: 'https://www.tiktok.com/@stale/video/2' }],
+        blocked_reason: platformError,
+      }),
+    },
+  );
+});
+for (const block of [
+  'A verification challenge needs your attention in the browser.',
+  'Sign-in is required. Sign in yourself, then resume research.',
+]) {
+  test(`search stops immediately for ${block}`, async () => {
+    await connectorHarness(
+      async (send, stats) => {
+        const reply = await send('search', { platform: 'tiktok', query: 'fridge recipes' });
+        assert.equal(reply.result.blocked_reason, block);
+        assert.equal(stats().discoveries, 1);
+      },
+      { discovery: () => ({ candidates: [], blocked_reason: block }) },
+    );
+  });
+}
+test('a post error can recover without reloading an already open post', async () => {
+  let reads = 0;
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('read', { url: 'https://www.tiktok.com/@cook/video/1' });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.blocked_reason, '');
+      assert.equal(reads, 3);
+      assert.deepEqual(stats().navigations, []);
+    },
+    {
+      initialUrl: 'https://www.tiktok.com/@cook/video/1?tracking=ignored',
+      reading: () => ({
+        ready: true,
+        blocked_reason: ++reads < 3 ? platformError : '',
+        format: 'text',
+        coverage: 'Visible post.',
+      }),
+    },
+  );
+});
 test('waits for committed destination and delayed results even while resources are loading', async () => {
   await connectorHarness(
     async (send, stats) => {
@@ -710,3 +971,193 @@ test('Instagram publication dates exclude comment timestamps and normalize profi
   assert.equal(dom.window.pandaSmmCollector.read().published_at, '');
   dom.window.close();
 });
+
+test('Instagram matches author and publication date across p/reel aliases, excluding comments', () => {
+  const dom = page(
+    `<article><video></video><h1>Dinner ideas</h1>
+    <a href="/p/abc/c/999"><time datetime="2026-10-18">Today</time></a>
+    <a href="/creator/reel/abc/"><time datetime="2026-09-30">September 30</time></a>
+    <a href="/other/reel/wrong/"><time datetime="2026-01-01">Other post</time></a>
+    </article>`,
+    'https://www.instagram.com/p/abc',
+  );
+  const capture = dom.window.pandaSmmCollector.read();
+  assert.equal(capture.author, 'creator');
+  assert.equal(capture.published_at, '2026-09-30');
+  assert.equal(capture.instagram_profile, 'https://www.instagram.com/creator/reels/');
+  dom.window.close();
+});
+
+test('Instagram waits for static media to load and distinguishes one image from a carousel', () => {
+  const dom = page(
+    `<main><div><img id="media"><div><h1>One infographic</h1>
+    <section><svg aria-label="J’aime"></svg><svg aria-label="Commentaire"></svg>
+      <button>135 mentions J’aime</button></section></div></div>
+    <div><img id="recommendation"><button>100K likes</button></div></main>`,
+    'https://www.instagram.com/p/abc',
+  );
+  const media = dom.window.document.getElementById('media');
+  media.getBoundingClientRect = () => ({ width: 500, height: 600 });
+  Object.defineProperty(media, 'naturalWidth', { get: () => 0, configurable: true });
+  assert.equal(dom.window.pandaSmmCollector.read().ready, false);
+  Object.defineProperty(media, 'naturalWidth', { get: () => 500 });
+  const capture = dom.window.pandaSmmCollector.read();
+  assert.equal(capture.format, 'image');
+  assert.equal(capture.ready, true);
+  assert.equal(capture.metrics.views, undefined);
+  assert.equal(capture.metrics.likes.raw, '135');
+  media.insertAdjacentHTML('afterend', '<button aria-label="Suivant"></button>');
+  assert.equal(dom.window.pandaSmmCollector.read().format, 'carousel');
+  dom.window.close();
+});
+
+for (const label of ['Icône d’affichage des vues', 'View Count Icon']) {
+  test(`Instagram accepts only the requested Reel's labelled views: ${label}`, () => {
+    const dom = page(
+      `<main>
+      <a href="/creator/reel/other/"><div><svg aria-label="${label}"></svg></div><span>999K</span></a>
+      <a id="target" href="/creator/reel/abc/"><ul><li>50K likes</li><li>500 comments</li></ul>
+        <div><div><svg aria-label="${label}"></svg></div><span><span>1,2 M</span></span></div></a>
+      </main>`,
+      'https://www.instagram.com/creator/reels/',
+    );
+    dom.window.Element.prototype.scrollIntoView = () => {};
+    const result = dom.window.pandaSmmCollector.instagramViews('https://www.instagram.com/p/abc');
+    assert.equal(result.metric.raw, '1,2 M');
+    assert.match(result.metric.quote, /Reel abc/);
+    assert.match(result.metric.quote, /creator\/reels\//);
+    assert.equal(
+      dom.window.pandaSmmCollector.instagramViews('https://www.instagram.com/p/missing').metric,
+      null,
+    );
+    dom.window.document.querySelector('#target svg').setAttribute('aria-label', 'Likes');
+    assert.equal(
+      dom.window.pandaSmmCollector.instagramViews('https://www.instagram.com/p/abc').metric,
+      null,
+    );
+    dom.window.close();
+  });
+}
+
+const instagramVideo = () => ({
+  ready: true,
+  blocked_reason: '',
+  url: 'https://www.instagram.com/p/abc',
+  format: 'video',
+  text: 'Dinner ideas. 1000 likes',
+  coverage: 'Three video samples.',
+  metrics: { likes: { raw: '1000', quote: '1000 likes' } },
+  instagram_profile: 'https://www.instagram.com/creator/reels/',
+});
+const reelView = {
+  raw: '1,2 M',
+  quote: 'Instagram Reel abc · View Count Icon: 1,2 M · https://www.instagram.com/creator/reels/',
+};
+
+test('Instagram view fallback preserves post evidence, saves a counter frame and returns to the post', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('read', { url: 'https://www.instagram.com/p/abc' });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.metrics.views.raw, '1,2 M');
+      assert.equal(reply.result.metrics.likes.raw, '1000');
+      assert.ok(reply.result.text.includes(reelView.quote));
+      assert.deepEqual(reply.result.frames, ['frame-1', 'frame-2', 'frame-4']);
+      assert.match(reply.result.coverage, /last frame shows the matching Reel/);
+      assert.equal(reply.result.instagram_profile, undefined);
+      assert.deepEqual(stats().navigations, [
+        'https://www.instagram.com/p/abc',
+        'https://www.instagram.com/creator/reels/',
+        'https://www.instagram.com/p/abc',
+      ]);
+    },
+    {
+      reading: instagramVideo,
+      instagramReading: (n, requested, current) => {
+        assert.equal(requested, 'https://www.instagram.com/p/abc');
+        assert.equal(current, 'https://www.instagram.com/creator/reels/');
+        return { blocked_reason: '', metric: n === 3 ? reelView : null };
+      },
+    },
+  );
+});
+
+test('an Instagram profile without the requested counter stays unknown after a bounded lookup', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('read', { url: 'https://www.instagram.com/p/abc' });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.metrics.views, undefined);
+      assert.equal(stats().profileReads, 12);
+      assert.equal(stats().currentUrl, 'https://www.instagram.com/p/abc');
+      assert.deepEqual(reply.result.frames, ['frame-1', 'frame-2', 'frame-3']);
+      assert.match(reply.result.coverage, /could not be verified/);
+    },
+    { reading: instagramVideo },
+  );
+});
+
+test('Instagram does not accept a profile counter when its evidence screenshot failed', async () => {
+  await connectorHarness(
+    async (send) => {
+      const reply = await send('read', { url: 'https://www.instagram.com/p/abc' });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.metrics.views, undefined);
+      assert.equal(reply.result.text.includes(reelView.quote), false);
+    },
+    {
+      reading: instagramVideo,
+      screenshotError: true,
+      instagramReading: () => ({ blocked_reason: '', metric: reelView }),
+    },
+  );
+});
+
+for (const reason of ['Sign-in is required.', 'A verification challenge needs your attention.']) {
+  test(`Instagram profile lookup stops immediately on ${reason}`, async () => {
+    await connectorHarness(
+      async (send, stats) => {
+        const reply = await send('read', { url: 'https://www.instagram.com/p/abc' });
+        assert.equal(reply.error, undefined);
+        assert.equal(reply.result.blocked_reason, reason);
+        assert.equal(reply.result.metrics.views, undefined);
+        assert.equal(stats().profileReads, 1);
+        assert.equal(stats().currentUrl, 'https://www.instagram.com/creator/reels/');
+      },
+      {
+        reading: instagramVideo,
+        instagramReading: () => ({ blocked_reason: reason, metric: reelView }),
+      },
+    );
+  });
+}
+
+test('single Instagram images need one frame and never look for video views', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('read', { url: 'https://www.instagram.com/p/abc' });
+      assert.equal(reply.error, undefined);
+      assert.deepEqual(reply.result.frames, ['frame-1']);
+      assert.equal(stats().profileReads, 0);
+    },
+    { reading: () => ({ ...instagramVideo(), format: 'image' }) },
+  );
+});
+
+for (const profile of [
+  'https://evil.test/creator/reels/',
+  'https://www.instagram.com@evil.test/creator/reels/',
+  'https://www.instagram.com/accounts/login/',
+  'https://www.instagram.com/creator/reels/?token=secret',
+]) {
+  test(`Instagram refuses unexpected profile destination ${profile}`, async () => {
+    await connectorHarness(
+      async (send, stats) => {
+        const reply = await send('read', { url: 'https://www.instagram.com/p/abc' });
+        assert.equal(reply.error, undefined);
+        assert.deepEqual(stats().navigations, ['https://www.instagram.com/p/abc']);
+      },
+      { reading: () => ({ ...instagramVideo(), instagram_profile: profile }) },
+    );
+  });
+}

@@ -451,7 +451,9 @@ def test_checked_ip_is_pinned_and_mixed_dns_is_blocked():
 )
 def test_search_adapters_only_use_provider_source_metadata(provider, model, response):
     with patch.object(discovery, "request", return_value=response) as request:
-        result = discovery.search(provider, "fake-key", model, {"app": "Run"})
+        result = discovery.search(
+            provider, "fake-key", model, {"app": "Run"}, response_language="fr"
+        )
     assert result["sources"] == [
         {
             "url": "https://source.example/post",
@@ -461,6 +463,15 @@ def test_search_adapters_only_use_provider_source_metadata(provider, model, resp
         }
     ]
     assert "fake.example" not in str(result)
+    payload = request.call_args.kwargs["payload"]
+    instruction = (
+        payload["instructions"]
+        if provider == "openai"
+        else payload["system"]
+        if provider == "anthropic"
+        else payload["systemInstruction"]["parts"][0]["text"]
+    )
+    assert "Response language: French (fr)." in instruction
     if provider == "google":
         assert request.call_args.args[2] == f"/models/{model}:generateContent"
     else:

@@ -1,3 +1,4 @@
+import { t } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
@@ -72,7 +73,9 @@ export default function Drafts(
       ...(duplicate
         ? { duplicate_id: duplicate.id, version: duplicate.version }
         : proposal
-          ? { audit_id: proposal.audit_id, check_id: proposal.check_id }
+          ? proposal.comparison
+            ? { comparison: proposal.comparison }
+            : { audit_id: proposal.audit_id, check_id: proposal.check_id }
           : { snapshot_id: app.metadata!.id, locale: draftLocale }),
     };
     const key = JSON.stringify(data);
@@ -113,9 +116,9 @@ export default function Drafts(
       />
     );
   return (
-    <section className="drafts-panel" aria-label="ASO drafts">
+    <section className="drafts-panel" aria-label={t('ASO drafts')}>
       <div className="heading-split">
-        <h2>Drafts</h2>
+        <h2>{t('Drafts')}</h2>
         <button
           className="button primary"
           disabled={!canWrite || busy || loading || failed || !app.metadata}
@@ -126,12 +129,12 @@ export default function Drafts(
             setForm(true);
           }}
         >
-          New draft
+          {t('New draft')}
         </button>
       </div>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {form && (
@@ -144,19 +147,29 @@ export default function Drafts(
         >
           <h3>
             {duplicate
-              ? 'Duplicate draft'
+              ? t('Duplicate draft')
               : proposal
-                ? 'Draft from this proposal'
-                : 'New listing draft'}
+                ? proposal.comparison
+                  ? t('Draft from comparison')
+                  : t('Draft from this proposal')
+                : t('New listing draft')}
           </h3>
           <p className="note">
             {duplicate?.locale || (proposal ? locale : draftLocale)} ·{' '}
             {proposal
-              ? 'Only the selected proposal will change the imported listing.'
-              : 'Start from the saved text.'}
+              ? proposal.comparison
+                ? t(
+                    'Your selected texts will be combined in one editable draft. Their source analyses are retained. No AI call.',
+                  )
+                : proposal.check_id === 'project.listing'
+                  ? t(
+                      'This draft starts with all five fields proposed from your idea. You can edit every text.',
+                    )
+                  : t('Only the selected proposal will change the imported listing.')
+              : t('Start from the saved text.')}
           </p>
           <label>
-            Draft name
+            {t('Draft name ')}
             <input
               autoFocus
               required
@@ -168,7 +181,7 @@ export default function Drafts(
           </label>
           {!duplicate && !proposal && (
             <label>
-              Language
+              {t('Language ')}
               <select
                 value={draftLocale}
                 disabled={busy}
@@ -185,7 +198,7 @@ export default function Drafts(
               className="button primary"
               disabled={!canWrite || busy || failed || !name.trim()}
             >
-              Create draft
+              {t('Create draft')}
             </button>
             <button
               className="text-button"
@@ -197,17 +210,17 @@ export default function Drafts(
                 setDuplicate(null);
               }}
             >
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </form>
       )}
       {loading ? (
-        <p role="status">Loading drafts…</p>
+        <p role="status">{t('Loading drafts…')}</p>
       ) : !items.length && !form ? (
         <div className="aso-empty">
-          <h3>No drafts yet</h3>
-          <p>Keep a version of your listing to edit and review.</p>
+          <h3>{t('No drafts yet')}</h3>
+          <p>{t('Keep a version of your listing to edit and review.')}</p>
         </div>
       ) : (
         <div className="draft-list">
@@ -240,7 +253,7 @@ export default function Drafts(
                   {item.locale} · {when(item.updated_at)}
                 </small>
               </span>
-              <span className="pill">{item.status === 'ready' ? 'Ready' : 'Draft'}</span>
+              <span className="pill">{item.status === 'ready' ? t('Ready') : t('Draft')}</span>
               <span aria-hidden="true">→</span>
             </button>
           ))}

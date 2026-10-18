@@ -1,3 +1,4 @@
+import { t, getLocale, getLanguage } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
@@ -62,16 +63,19 @@ function CreativeEditor({
     <article className="creative-card">
       <div className="creative-top">
         <span className={`pill ${draft.approved ? 'approved' : ''}`}>
-          {draft.approved ? 'Approved' : dirty ? 'Unsaved changes' : 'Needs review'}
+          {draft.approved ? t('Approved') : dirty ? t('Unsaved changes') : t('Needs review')}
         </span>
       </div>
       <h3>{creative.angle}</h3>
       {creative.provenance?.content_format && (
-        <p className="note">Format: {creative.provenance.content_format.replaceAll('_', ' ')}</p>
+        <p className="note">
+          {t('Format: ')}
+          {t(creative.provenance.content_format.replaceAll('_', ' '))}
+        </p>
       )}
       {creative.provenance?.adaptation && (
         <details className="script-provenance">
-          <summary>Research adaptation</summary>
+          <summary>{t('Research adaptation')}</summary>
           <p>{creative.provenance.adaptation}</p>
           {sources
             .filter((source) => creative.provenance?.source_page_ids.includes(source.page_id))
@@ -82,18 +86,22 @@ function CreativeEditor({
                 </a>
               </p>
             ))}
-          <p className="note">Original AI notes. Your edits are not automatically rechecked.</p>
+          <p className="note">
+            {t('Original AI notes. Your edits are not automatically rechecked.')}
+          </p>
           {creative.provenance.product_claims.map((claim, i) => (
             <p key={i}>
-              “{claim.claim}” — confirmed fact: “{claim.fact_quote}”
+              “{claim.claim}
+              {t('” — confirmed fact: “')}
+              {claim.fact_quote}”
             </p>
           ))}
         </details>
       )}
       <label>
-        Hook
+        {t('Hook ')}
         <textarea
-          aria-label={`Hook — ${creative.angle}`}
+          aria-label={t('Hook — {0}', creative.angle)}
           className="hook-input"
           rows={3}
           maxLength={500}
@@ -103,9 +111,9 @@ function CreativeEditor({
         />
       </label>
       <label>
-        Script
+        {t('Script ')}
         <textarea
-          aria-label={`Script — ${creative.angle}`}
+          aria-label={t('Script — {0}', creative.angle)}
           rows={12}
           maxLength={6000}
           value={draft.script}
@@ -114,9 +122,9 @@ function CreativeEditor({
         />
       </label>
       <label>
-        Call to action
+        {t('Call to action ')}
         <textarea
-          aria-label={`Call to action — ${creative.angle}`}
+          aria-label={t('Call to action — {0}', creative.angle)}
           rows={2}
           maxLength={300}
           value={draft.cta}
@@ -126,18 +134,18 @@ function CreativeEditor({
       </label>
       {error && (
         <p className="error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       {saved && (
         <p className="saved" role="status">
-          {saved}
+          {t(saved)}
         </p>
       )}
       <div className="creative-actions">
-        {!['carousel', 'text'].includes(creative.provenance?.content_format || '') && (
+        {!['carousel', 'image', 'text'].includes(creative.provenance?.content_format || '') && (
           <button className="button secondary" disabled={busy || dirty} onClick={onPlan}>
-            Plan scenes
+            {t('Plan scenes')}
           </button>
         )}
         <button
@@ -145,14 +153,14 @@ function CreativeEditor({
           onClick={() => save()}
           disabled={!canWrite || busy || !dirty}
         >
-          {busy ? 'Saving…' : 'Save'}
+          {busy ? t('Saving…') : t('Save')}
         </button>
         <button
           className="text-button"
           onClick={() => save(true)}
           disabled={!canWrite || busy || dirty || draft.approved}
         >
-          Approve script
+          {t('Approve script')}
         </button>
       </div>
     </article>
@@ -170,6 +178,8 @@ export default function Studio({
   registerLeaveGuard,
 }: ModuleProps) {
   const [section, setSection] = useState<'research' | 'scripts' | 'scenes'>('research');
+  const [newResearchRequest, setNewResearchRequest] = useState(0);
+  const [canOpenNewResearch, setCanOpenNewResearch] = useState(false);
   const [sceneCreativeId, setSceneCreativeId] = useState('');
   const scenesGuard = useRef<() => Promise<boolean>>(async () => true);
   const registerScenesGuard = useCallback(
@@ -206,12 +216,16 @@ export default function Studio({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [briefSource, setBriefSource] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const canWrite = workspace.role !== 'viewer';
   const appId = selectedApp?.id;
   const base = moduleUrl(workspace.id, 'studio', `apps/${appId}/`);
   const run = runs.find((item) => item.id === runId) ?? runs[0];
+  const project = selectedApp?.metadata?.data.project;
+  const productDescription =
+    project?.specification || selectedApp?.metadata?.data.description || '';
   const pending = runs.some((item) => ['queued', 'running', 'canceling'].includes(item.status));
   const currentBase = useRef(base);
   currentBase.current = base;
@@ -229,6 +243,7 @@ export default function Studio({
     setFactsConfirmed(false);
     setEngine(selectedApp?.is_demo || previewMode ? 'demo_templates' : 'ai');
     setLoadFailed(false);
+    setBriefSource('');
     setBrief({ audience: '', goal: '', tone: '' });
     if (!appId) return;
     let active = true;
@@ -237,6 +252,7 @@ export default function Studio({
       .then(([nextBrief, nextRuns]) => {
         if (active) {
           setBrief(nextBrief);
+          setBriefSource(base);
           setRuns(nextRuns);
         }
       })
@@ -331,7 +347,7 @@ export default function Studio({
                     goal: saved.goal,
                     tone: saved.tone,
                     product_facts: saved.product_facts,
-                    language: saved.language || 'English',
+                    language: saved.language || (getLanguage() === 'fr' ? 'Français' : 'English'),
                     duration_seconds: saved.duration_seconds || 30,
                   },
                   facts_confirmed: factsConfirmed,
@@ -370,15 +386,15 @@ export default function Studio({
     return (
       <>
         <div className="page-heading">
-          <h1>SMM</h1>
-          <p>Social Media Marketing</p>
+          <h1>{t('SMM')}</h1>
+          <p>{t('Social Media Marketing')}</p>
         </div>
         <section className="catalog-empty">
           <img src="/modules/studio.webp" alt="" />
-          <h2>Choose an app to research</h2>
-          <p>Open an imported app or try a demo app to explore SMM.</p>
+          <h2>{t('Choose an app to research')}</h2>
+          <p>{t('Choose a project, an imported app or a demo app to explore SMM.')}</p>
           <button className="button primary" onClick={() => navigate('app_catalog')}>
-            Open My apps
+            {t('Open My apps')}
           </button>
         </section>
       </>
@@ -387,39 +403,63 @@ export default function Studio({
     <>
       <div className="page-heading heading-split">
         <div>
-          <h1>SMM</h1>
-          <p>Social Media Marketing</p>
+          <h1>{t('SMM')}</h1>
+          <p>{t('Social Media Marketing')}</p>
         </div>
-        <label className="compact-label">
-          App
-          <select
-            value={selectedApp.id}
-            disabled={busy || pending || uncertain}
-            onChange={(e) => {
-              const app = apps.find((a) => a.id === e.target.value);
-              if (app) selectApp(app);
-            }}
-          >
-            {apps.map((app) => (
-              <option key={app.id} value={app.id}>
-                {app.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="smm-heading-actions">
+          <label className="compact-label">
+            {t('App ')}
+            <select
+              value={selectedApp.id}
+              disabled={busy || pending || uncertain}
+              onChange={(e) => {
+                const app = apps.find((a) => a.id === e.target.value);
+                if (app) selectApp(app);
+              }}
+            >
+              {apps.map((app) => (
+                <option key={app.id} value={app.id}>
+                  {app.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {canWrite && (
+            <button
+              type="button"
+              className="button primary"
+              disabled={
+                !canOpenNewResearch || busy || pending || uncertain || loading || loadFailed
+              }
+              onClick={() => {
+                setSection('research');
+                setNewResearchRequest((value) => value + 1);
+              }}
+            >
+              {t('New research')}
+            </button>
+          )}
+        </div>
       </div>
-      <nav className="aso-tabs" aria-label="SMM sections">
+      {project && (
+        <p className="notice">
+          {t(
+            'Create launch-ready content from your app description. AI presents the documented features in the present tense, without inventing results or customer testimonials.',
+          )}
+        </p>
+      )}
+      <nav className="aso-tabs" aria-label={t('SMM sections')}>
         <button
           aria-current={section === 'research' ? 'page' : undefined}
           onClick={() => setSection('research')}
         >
-          Research
+          {t('Research')}
         </button>
         <button
           aria-current={section === 'scripts' ? 'page' : undefined}
           onClick={() => setSection('scripts')}
         >
-          Scripts
+          {t('Scripts')}
         </button>
         <button
           aria-current={section === 'scenes' ? 'page' : undefined}
@@ -428,7 +468,7 @@ export default function Studio({
             if (!sceneCreativeId) setSceneCreativeId(run?.creatives[0]?.id ?? '');
           }}
         >
-          Scenes
+          {t('Scenes')}
         </button>
       </nav>
       <div hidden={section !== 'scenes'}>
@@ -436,18 +476,21 @@ export default function Studio({
           <>
             {runs.some((item) => item.creatives.length) && (
               <label className="scene-script-picker">
-                Script
+                {t('Script ')}
                 <select
                   value={sceneCreativeId}
                   onChange={(event) => openScenes(event.target.value)}
                 >
                   <option value="" disabled>
-                    Choose a script
+                    {t('Choose a script')}
                   </option>
                   {runs
                     .filter((item) => item.creatives.length)
                     .map((item) => (
-                      <optgroup key={item.id} label={new Date(item.created_at).toLocaleString()}>
+                      <optgroup
+                        key={item.id}
+                        label={new Date(item.created_at).toLocaleString(getLocale())}
+                      >
                         {item.creatives.map((creative) => (
                           <option key={creative.id} value={creative.id}>
                             {creative.angle}
@@ -473,9 +516,9 @@ export default function Studio({
               />
             ) : (
               <section className="storyboard-empty">
-                <h2>No script selected</h2>
+                <h2>{t('No script selected')}</h2>
                 <button className="button secondary" onClick={() => setSection('scripts')}>
-                  Open scripts
+                  {t('Open scripts')}
                 </button>
               </section>
             )}
@@ -487,7 +530,9 @@ export default function Studio({
           key={`social:${workspace.id}:${selectedApp.id}`}
           workspace={workspace}
           app={selectedApp}
-          initialBrief={brief}
+          initialBrief={briefSource === base ? brief : undefined}
+          newResearchRequest={newResearchRequest}
+          onNewResearchAvailabilityChange={setCanOpenNewResearch}
           onGenerated={(next) => {
             setRuns((old) => [next, ...old.filter((item) => item.id !== next.id)]);
             setRunId(next.id);
@@ -496,10 +541,11 @@ export default function Studio({
           }}
         />
         <details className="smm-legacy">
-          <summary>Public-page research (legacy)</summary>
+          <summary>{t('Public-page research (legacy)')}</summary>
           <p className="note">
-            Earlier research reports remain available here. This path does not qualify social
-            virality.
+            {t(
+              'Earlier research reports remain available here. This path does not qualify social virality.',
+            )}
           </p>
           <Research
             key={`${workspace.id}:${selectedApp.id}`}
@@ -513,59 +559,96 @@ export default function Studio({
       </div>
       <div hidden={section !== 'scripts'}>
         {engine === 'demo_templates' && (
-          <p className="studio-disclosure">Demo templates · No AI calls.</p>
+          <p className="studio-disclosure">{t('Demo templates · No AI calls.')}</p>
         )}
         {uncertain && (
           <p className="notice">
-            The start could not be confirmed. Retry the same request or reload to check saved
-            sessions.
+            {t(
+              'The start could not be confirmed. Retry the same request or reload to check saved sessions.',
+            )}
           </p>
         )}
         {error && (
           <p className="error" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
         {loading ? (
-          <p role="status">Loading brief…</p>
+          <p role="status">{t('Loading brief…')}</p>
         ) : loadFailed ? (
-          <p>We could not load the brief. Reopen this module to try again.</p>
+          <p>{t('We could not load the brief. Reopen this module to try again.')}</p>
         ) : (
           <>
             {run?.context?.mode === 'smm' ? (
-              <section className="brief-panel">
-                <div className="brief-intro">
-                  <h2>App context used</h2>
-                  <p>{run.context.brief.audience}</p>
-                  <p className="pre-wrap">{run.context.brief.product_facts}</p>
-                  <h3>Three selected social references</h3>
-                  {run.context.sources.map((source) => (
-                    <article className="brief-source" key={source.page_id}>
-                      <a href={source.url} target="_blank" rel="noreferrer">
-                        {source.title} ↗
-                      </a>
-                    </article>
-                  ))}
+              <section className="smm-script-context">
+                <div className="smm-context-copy">
+                  <h2>{t('App context used')}</h2>
+                  {run.context.brief.audience && (
+                    <p className="smm-context-audience">
+                      <span className="note">{t('Target audience')}</span>
+                      {run.context.brief.audience}
+                    </p>
+                  )}
+                  {run.context.brief.product_facts && (
+                    <>
+                      <details className="smm-context-description" key={run.id}>
+                        <summary>{t('Full app description')}</summary>
+                        <div
+                          className="pre-wrap"
+                          tabIndex={0}
+                          role="region"
+                          aria-label={t('Full app description')}
+                        >
+                          {run.context.brief.product_facts}
+                        </div>
+                      </details>
+                      <p className="smm-context-preview">
+                        {run.context.brief.product_facts.split(/\n\s*\n/)[0]}
+                      </p>
+                    </>
+                  )}
+                </div>
+                <div className="smm-context-references">
+                  <h3>{t('Selected social references')}</h3>
+                  <ol>
+                    {run.context.sources.map((source, index) => (
+                      <li key={source.page_id}>
+                        <a href={source.url} target="_blank" rel="noreferrer" title={source.title}>
+                          <span className="smm-reference-number" aria-hidden="true">
+                            {index + 1}
+                          </span>
+                          <span>
+                            <strong>{source.url.match(/\/(@[^/]+)\//)?.[1] || source.title}</strong>
+                            <span className="note">{t('Reference for script {0}', index + 1)}</span>
+                          </span>
+                          <span aria-hidden="true">↗</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div className="smm-context-footer">
                   <p className="note">
-                    Each adaptation uses its corresponding reference and format. This session keeps
-                    the app facts and sources used when it was created.
+                    {t(
+                      'Each adaptation uses its corresponding reference and format. This session keeps the app facts and sources used when it was created.',
+                    )}
                   </p>
                   <button className="button secondary" onClick={() => setSection('research')}>
-                    Back to social research
+                    {t('Back to social research')}
                   </button>
                 </div>
               </section>
             ) : (
               <section className="brief-panel">
                 <div className="brief-intro">
-                  <h2>Brief</h2>
+                  <h2>{t('Brief')}</h2>
                   <p>{selectedApp.metadata?.data.subtitle}</p>
                   <div className="feature-tags">
-                    {selectedApp.metadata?.data.features.map((feature) => (
+                    {selectedApp.metadata?.data.features?.map((feature) => (
                       <span key={feature}>{feature}</span>
                     ))}
                   </div>
-                  <h3>Research selected</h3>
+                  <h3>{t('Research selected')}</h3>
                   {brief.research_sources?.length ? (
                     brief.research_sources.map((source) => (
                       <article className="brief-source" key={source.page_id}>
@@ -576,19 +659,21 @@ export default function Studio({
                       </article>
                     ))
                   ) : (
-                    <p className="note">Select observations in Research to prepare AI scripts.</p>
+                    <p className="note">
+                      {t('Select observations in Research to prepare AI scripts.')}
+                    </p>
                   )}
                   <button
                     type="button"
                     className="text-button"
                     onClick={() => setSection('research')}
                   >
-                    Choose research
+                    {t('Choose research')}
                   </button>
                 </div>
                 <div className="brief-form">
                   <label>
-                    Audience
+                    {t('Audience ')}
                     <textarea
                       name="audience"
                       rows={2}
@@ -600,7 +685,7 @@ export default function Studio({
                   </label>
                   <div className="brief-fields">
                     <label>
-                      Goal
+                      {t('Goal ')}
                       <input
                         name="goal"
                         required
@@ -611,7 +696,7 @@ export default function Studio({
                       />
                     </label>
                     <label>
-                      Tone
+                      {t('Tone ')}
                       <input
                         name="tone"
                         required
@@ -624,31 +709,33 @@ export default function Studio({
                   </div>
                   {demoMode && (
                     <label>
-                      Generation mode
+                      {t('Generation mode ')}
                       <select
                         value={engine}
                         disabled={!canWrite || busy || pending || uncertain}
                         onChange={(e) => setEngine(e.target.value)}
                       >
-                        <option value="ai">AI from research</option>
-                        <option value="demo_templates">Demo templates · No AI</option>
+                        <option value="ai">{t('AI from research')}</option>
+                        {!project && (
+                          <option value="demo_templates">{t('Demo templates · No AI')}</option>
+                        )}
                       </select>
                     </label>
                   )}
                   {engine === 'ai' && (
                     <>
                       <label>
-                        Product facts
+                        {project ? t('Confirmed project scope ') : t('Product facts ')}
                         <textarea
                           rows={5}
                           maxLength={4000}
                           value={brief.product_facts || ''}
-                          placeholder="Features and claims you can confirm about your app"
+                          placeholder={t('Features and claims you can confirm about your app')}
                           disabled={!canWrite || busy || uncertain}
                           onChange={(e) => editBrief({ ...brief, product_facts: e.target.value })}
                         />
                       </label>
-                      {!brief.product_facts && selectedApp.metadata?.data.description && (
+                      {!brief.product_facts && productDescription && (
                         <button
                           type="button"
                           className="text-button"
@@ -656,25 +743,27 @@ export default function Studio({
                           onClick={() =>
                             editBrief({
                               ...brief,
-                              product_facts: selectedApp.metadata!.data.description.slice(0, 4000),
+                              product_facts: productDescription.slice(0, 4000),
                             })
                           }
                         >
-                          Use imported description
+                          {project ? t('Use project description') : t('Use imported description')}
                         </button>
                       )}
                       <div className="brief-fields">
                         <label>
-                          Script language
+                          {t('Script language ')}
                           <input
                             maxLength={40}
-                            value={brief.language || 'English'}
+                            value={
+                              brief.language || (getLanguage() === 'fr' ? 'Français' : 'English')
+                            }
                             disabled={!canWrite || busy || uncertain}
                             onChange={(e) => editBrief({ ...brief, language: e.target.value })}
                           />
                         </label>
                         <label>
-                          Target duration
+                          {t('Target duration ')}
                           <select
                             value={brief.duration_seconds || 30}
                             disabled={!canWrite || busy || uncertain}
@@ -684,13 +773,15 @@ export default function Studio({
                           >
                             {[15, 30, 45, 60].map((n) => (
                               <option key={n} value={n}>
-                                {n} seconds
+                                {n}
+                                {t(' seconds')}
                               </option>
                             ))}
                           </select>
                         </label>
                       </div>
                       <AIOptions
+                        moduleContext="smm"
                         key={`${workspace.id}:${appId}`}
                         workspaceId={workspace.id}
                         owner={workspace.role === 'owner'}
@@ -708,10 +799,16 @@ export default function Studio({
                           disabled={!canWrite || busy || uncertain}
                           onChange={(e) => setFactsConfirmed(e.target.checked)}
                         />
-                        I checked these product facts for this app.
+                        {project
+                          ? t(
+                              ' I checked this project scope, including which features are still planned.',
+                            )
+                          : t(' I checked these product facts for this app.')}
                       </label>
                       <p className="note">
-                        Two model calls: writing and review. Scripts need your approval before use.
+                        {t(
+                          'Two model calls: writing and review. Scripts need your approval before use.',
+                        )}
                       </p>
                     </>
                   )}
@@ -740,10 +837,10 @@ export default function Studio({
                       }
                     >
                       {busy || pending
-                        ? 'Creating scripts…'
+                        ? t('Creating scripts…')
                         : uncertain
-                          ? 'Retry same request'
-                          : 'Create scripts'}
+                          ? t('Retry same request')
+                          : t('Create scripts')}
                     </button>
                     <button
                       type="button"
@@ -751,12 +848,12 @@ export default function Studio({
                       disabled={!canWrite || busy || uncertain}
                       onClick={() => submit(false)}
                     >
-                      Save brief
+                      {t('Save brief')}
                     </button>
                   </div>
                   {notice && (
                     <p className="saved" role="status">
-                      {notice}
+                      {t(notice)}
                     </p>
                   )}
                 </div>
@@ -765,20 +862,20 @@ export default function Studio({
             <section className="results">
               <div className="results-heading">
                 <div>
-                  <h2>Scripts</h2>
+                  <h2>{t('Scripts')}</h2>
                 </div>
                 <div className="results-tools">
                   {runs.length > 1 && (
                     <label>
-                      Session
+                      {t('Session ')}
                       <select
-                        aria-label="Creative session"
+                        aria-label={t('Creative session')}
                         value={run?.id}
                         onChange={(e) => setRunId(e.target.value)}
                       >
                         {runs.map((item) => (
                           <option key={item.id} value={item.id}>
-                            {new Date(item.created_at).toLocaleString('en-US', {
+                            {new Date(item.created_at).toLocaleString(getLocale(), {
                               month: 'short',
                               day: 'numeric',
                               hour: 'numeric',
@@ -786,9 +883,11 @@ export default function Studio({
                               second: '2-digit',
                             })}{' '}
                             ·{' '}
-                            {item.status === 'succeeded'
-                              ? 'Completed'
-                              : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                            {t(
+                              item.status === 'succeeded'
+                                ? t('Completed')
+                                : item.status.charAt(0).toUpperCase() + item.status.slice(1),
+                            )}
                           </option>
                         ))}
                       </select>
@@ -806,27 +905,51 @@ export default function Studio({
                         ).catch((err) => setError(err.message));
                       }}
                     >
-                      Export scripts
+                      {t('Export scripts')}
                     </a>
                   )}
                 </div>
               </div>
               {!run && (
                 <div className="results-empty">
-                  <p>No scripts yet.</p>
+                  <p>{t('No scripts yet.')}</p>
                 </div>
               )}
               {run?.context && (
                 <details className="script-context">
                   <summary>
                     {run.context.ai.model} · {run.context.brief.language} ·{' '}
-                    {run.context.brief.duration_seconds}s target
+                    {run.context.brief.duration_seconds}
+                    {t('s target')}
                   </summary>
                   <p>
-                    Frozen brief: {run.context.brief.audience} · {run.context.brief.goal} ·{' '}
+                    {t('Frozen brief: ')}
+                    {run.context.brief.audience} · {run.context.brief.goal} ·{' '}
                     {run.context.brief.tone}
                   </p>
-                  <h4>Product facts confirmed for this generation</h4>
+                  {run.context.app_context && (
+                    <>
+                      <p className="note">
+                        {t(
+                          'Project stage when generated: {0}',
+                          run.context.app_context.stage === 'idea'
+                            ? t('Idea')
+                            : t('In development'),
+                        )}
+                      </p>
+                      <details>
+                        <summary>{t('Saved project description')}</summary>
+                        <p className="pre-wrap">{run.context.app_context.specification}</p>
+                        {run.context.app_context.available_features && (
+                          <p className="pre-wrap">
+                            {t('Features already implemented')}:{' '}
+                            {run.context.app_context.available_features}
+                          </p>
+                        )}
+                      </details>
+                    </>
+                  )}
+                  <h4>{t('Product facts confirmed for this generation')}</h4>
                   <p className="pre-wrap">{run.context.brief.product_facts}</p>
                   {run.context.sources.map((source) => (
                     <p key={source.page_id}>
@@ -834,38 +957,45 @@ export default function Studio({
                         {source.title} ↗
                       </a>
                       {' · '}
-                      {new Date(source.captured_at).toLocaleDateString('en-US')}
+                      {new Date(source.captured_at).toLocaleDateString(getLocale())}
                     </p>
                   ))}
                   {run.review?.calls?.map((call) => (
                     <p className="note" key={call.step}>
-                      {call.step} · {call.model} · {call.usage.input_tokens ?? '—'} input tokens ·{' '}
-                      {call.usage.output_tokens ?? '—'} output tokens
+                      {t(call.step)} · {call.model} · {call.usage.input_tokens ?? '—'}
+                      {t(' input tokens ·')} {call.usage.output_tokens ?? '—'}
+                      {t(' output tokens')}
                     </p>
                   ))}
                   <p className="note">
-                    Reused steps retain their original usage. Timed-out calls may still be billed.
+                    {t(
+                      'Reused steps retain their original usage. Timed-out calls may still be billed.',
+                    )}
                   </p>
                 </details>
               )}
               {run?.review?.checks && (
                 <details className="script-context" open={run.review.rejected || undefined}>
                   <summary>
-                    {run.review.rejected ? 'Scripts withheld · Review issues' : 'Automated review'}
+                    {run.review.rejected
+                      ? t('Scripts withheld · Review issues')
+                      : t('Automated review')}
                   </summary>
                   {run.review.checks.map((check) => (
                     <p key={check.variant}>
-                      Variant {check.variant}: {check.reason}
+                      {t('Variant ')}
+                      {check.variant}: {check.reason}
                     </p>
                   ))}
                   {run.review.corrections?.map((correction) => (
                     <p className="note" key={correction.at}>
-                      {new Date(correction.at).toLocaleString()} · {correction.reason}
+                      {new Date(correction.at).toLocaleString(getLocale())} · {correction.reason}
                     </p>
                   ))}
                   <p className="note">
-                    The automated review describes the generated version. Edited drafts still need
-                    review against your app.
+                    {t(
+                      'The automated review describes the generated version. Edited drafts still need review against your app.',
+                    )}
                   </p>
                 </details>
               )}
@@ -894,12 +1024,12 @@ export default function Studio({
               )}
               {pending && !run?.workflow_id && (
                 <p className="notice" role="status">
-                  Creating scripts…
+                  {t('Creating scripts…')}
                 </p>
               )}
               {run?.status === 'failed' && !run.workflow_id && (
                 <p className="error" role="alert">
-                  {run.error}
+                  {t(run.error)}
                 </p>
               )}
               {run?.status === 'succeeded' && (

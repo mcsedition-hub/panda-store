@@ -353,3 +353,38 @@ def test_incomplete_review_rejected():
     data["result"]["checks"][1]["variant"] = 1
     with pytest.raises(ProviderError):
         ai.validate_review(data)
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_social_scripts_and_review_require_exact_selected_count_and_variant_numbers(count):
+    inputs = {
+        "mode": "smm",
+        "sources": [{"page_id": str(i), "format": "video"} for i in range(count)],
+        "brief": {"product_facts": "Runclub has running plans."},
+    }
+    output = proposals(inputs)
+    scripts = output["result"]["scripts"][:count]
+    for index, script in enumerate(scripts):
+        script["source_page_ids"] = [str(index)]
+        script["content_format"] = "video"
+    output["result"]["scripts"] = scripts
+    assert ai.validate_scripts(output, inputs) == scripts
+    checks = review()
+    checks["result"]["checks"] = checks["result"]["checks"][:count]
+    assert len(ai.validate_review(checks, count)) == count
+    for delta in [-1, 1]:
+        wrong = copy.deepcopy(output)
+        wrong["result"]["scripts"] = scripts[:-1] if delta == -1 else scripts + [scripts[-1]]
+        with pytest.raises(ProviderError, match="requested number"):
+            ai.validate_scripts(wrong, inputs)
+        wrong_review = copy.deepcopy(checks)
+        rows = wrong_review["result"]["checks"]
+        wrong_review["result"]["checks"] = rows[:-1] if delta == -1 else rows + [rows[-1]]
+        with pytest.raises(ProviderError, match="review is incomplete"):
+            ai.validate_review(wrong_review, count)
+    scripts[-1]["variant"] = count + 1
+    with pytest.raises(ProviderError, match="source, claim or distinctness"):
+        ai.validate_scripts(output, inputs)
+    checks["result"]["checks"][-1]["variant"] = count + 1
+    with pytest.raises(ProviderError, match="review is invalid"):
+        ai.validate_review(checks, count)

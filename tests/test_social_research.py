@@ -1,8 +1,11 @@
+import base64
 import copy
+import io
 import uuid
 from unittest.mock import patch
 
 import pytest
+from PIL import Image
 from rest_framework.exceptions import ValidationError
 
 from addons.app_catalog.models import MobileApp
@@ -13,6 +16,58 @@ from addons.studio.social_evidence import count, post_url, qualify, validate_cap
 from panda_store.ai.providers import ProviderError
 from panda_store.core.credentials import encrypt
 from panda_store.core.models import AIConnection, Membership, Workspace
+
+
+def jpeg_frame(size=(2400, 1300), fmt="JPEG"):
+    output = io.BytesIO()
+    Image.new("RGB", size, "blue").save(output, fmt, optimize=True)
+    return base64.b64encode(output.getvalue()).decode("ascii")
+
+
+@pytest.mark.parametrize("size", [(2400, 1300), (2880, 1800), (3600, 2400), (1200, 1600)])
+def test_retina_evidence_is_readable_bounded_and_preserves_the_whole_viewport(size):
+    raw = evidence()
+    frame = jpeg_frame(size)
+    raw["frames"] = [frame]
+    clean, metrics, frames = validate_capture(raw)
+    assert metrics["likes"]["value"] == 2000
+    assert clean["url"] == raw["url"]
+    assert len(frames[0]) <= 275000
+    with Image.open(io.BytesIO(base64.b64decode(frames[0]))) as image:
+        image.load()
+        assert image.format == "JPEG"
+        assert image.width <= 1200 and image.height <= 1600
+        assert abs(image.width / image.height - size[0] / size[1]) < 0.01
+    if size == (1200, 1600):
+        assert frames[0] == frame
+        assert clean["coverage"] == raw["coverage"]
+    else:
+        assert "resized" in clean["coverage"]
+
+
+@pytest.mark.parametrize(
+    "kind", ["png", "truncated", "invalid_base64", "too_many_pixels", "too_many_bytes"]
+)
+def test_invalid_or_excessive_image_evidence_is_still_rejected(kind):
+    raw = evidence()
+    frame = jpeg_frame((64, 64))
+    message = "Invalid JPEG evidence"
+    if kind == "png":
+        frame = jpeg_frame((64, 64), "PNG")
+    elif kind == "truncated":
+        frame = base64.b64encode(base64.b64decode(frame)[:-12]).decode("ascii")
+    elif kind == "invalid_base64":
+        frame = "not valid base64!"
+    elif kind == "too_many_pixels":
+        frame = jpeg_frame((5200, 4000))
+        assert len(frame) < 275000
+        message = "resolution is too large"
+    else:
+        frame = "x" * 275001
+        message = "frame is too large"
+    raw["frames"] = [frame]
+    with pytest.raises(ValidationError, match=message):
+        validate_capture(raw)
 
 
 def evidence(number=1, fmt="video", views="25K", likes="2K"):
@@ -116,7 +171,8 @@ def test_facebook_page_permalink_preserves_both_identifiers():
             post_url("https://www.facebook.com/permalink.php?" + query)
 
 
-def test_qualification_requires_real_counters_and_distinguishes_formats():
+@pytest.mark.parametrize("static_format", ["carousel", "image", "text"])
+def test_qualification_requires_real_counters_and_distinguishes_formats(static_format):
     raw = evidence()
     raw["metrics"]["views"]["quote"] = "invented 25K views"
     clean, metrics, _ = validate_capture(raw)
@@ -125,16 +181,16 @@ def test_qualification_requires_real_counters_and_distinguishes_formats():
         qualify(clean, metrics, {"min_views": 10000, "min_likes": 500})["status"] == "unqualified"
     )
     assert (
-        qualify(clean, metrics, {"min_views": 10000, "min_likes": 500}, content_format="carousel")[
-            "status"
-        ]
+        qualify(
+            clean, metrics, {"min_views": 10000, "min_likes": 500}, content_format=static_format
+        )["status"]
         == "metrics_pass"
     )
     clean["blocked_reason"] = "Sign in"
     assert (
-        qualify(clean, metrics, {"min_views": 10000, "min_likes": 500}, content_format="carousel")[
-            "status"
-        ]
+        qualify(
+            clean, metrics, {"min_views": 10000, "min_likes": 500}, content_format=static_format
+        )["status"]
         == "unqualified"
     )
 
@@ -200,6 +256,26 @@ def planned(session):
     assert session.status == "ready"
 
 
+def test_skipped_post_activity_keeps_a_safe_source_link(api, setup):
+    base, _, _, session = setup
+    planned(session)
+    url = base + f"social-research/{session.pk}/"
+    assert api.post(url, {"action": "browse"}, format="json").status_code == 200
+    body = {
+        "action": "event",
+        "message": "Skipped a post whose content could not be loaded.",
+        "url": "https://www.tiktok.com/@runner/video/123?tracking=discard",
+    }
+    response = api.post(url, body, format="json")
+    assert response.status_code == 200
+    assert response.data["events"][-1]["url"] == "https://www.tiktok.com/@runner/video/123"
+    assert not session.posts.exists()
+    for unsafe in ("javascript:alert(1)", "https://example.com/private", {"url": "bad"}):
+        assert api.post(url, {**body, "url": unsafe}, format="json").status_code == 400
+    session.refresh_from_db()
+    assert session.events[-1]["url"] == "https://www.tiktok.com/@runner/video/123"
+
+
 def fake_analysis(session, instruction, context, schema, images=None):
     if instruction == social_tasks.VERIFY_INSTRUCTION:
         return {"result": {"supported": True, "reason": "Matches the captured evidence."}}
@@ -219,11 +295,11 @@ def fake_analysis(session, instruction, context, schema, images=None):
     }
 
 
-def collect(api, base, session):
+def collect(api, base, session, static_format="carousel"):
     planned(session)
     url = base + f"social-research/{session.pk}/"
     assert api.post(url, {"action": "browse"}, format="json").status_code == 200
-    for n, fmt in [(1, "video"), (2, "carousel"), (3, "video"), (4, "video")]:
+    for n, fmt in [(1, "video"), (2, static_format), (3, "video"), (4, "video")]:
         response = api.post(
             url + "captures/", evidence(n, fmt, likes="20" if n == 4 else "2K"), format="json"
         )
@@ -255,21 +331,24 @@ def split_research(api, setup):
 
 
 @pytest.mark.django_db
-def test_adapt_reuses_compatible_research_with_frozen_provenance(api, split_research):
+@pytest.mark.parametrize("selection_count", [1, 2, 3])
+def test_adapt_reuses_compatible_research_with_frozen_provenance(
+    api, split_research, selection_count
+):
     base, source, target, posts = split_research
     url = base + f"social-research/{target.pk}/"
     library = api.get(url + "references/")
     assert library.status_code == 200
     assert {p["id"] for p in library.data["posts"]} == {str(p.pk) for p in posts[1:]}
     assert {p["research_id"] for p in library.data["posts"]} == {str(source.pk)}
-    ordered = [posts[1], posts[0], posts[2]]
+    ordered = [posts[1], posts[0], posts[2]][:selection_count]
     body = {"request_id": str(uuid.uuid4()), "post_ids": [str(p.pk) for p in ordered]}
     response = api.post(url + "adapt/", body, format="json")
     assert response.status_code == 202, response.data
     sources = response.data["context"]["sources"]
     assert [s["page_id"] for s in sources] == body["post_ids"]
     assert [s["research_id"] for s in sources] == [str(p.research_id) for p in ordered]
-    assert [s["format"] for s in sources] == ["carousel", "video", "video"]
+    assert [s["format"] for s in sources] == ["carousel", "video", "video"][:selection_count]
     assert all(s["platform"] == "tiktok" and s["metrics"] for s in sources)
     assert api.post(url + "adapt/", body, format="json").data["id"] == response.data["id"]
     posts[1].analysis["observation"] = "Changed after generation"
@@ -283,9 +362,34 @@ def test_adapt_reuses_compatible_research_with_frozen_provenance(api, split_rese
     with patch.object(creative_ai, "generate", return_value={}) as provider:
         creative_ai.call(run)
     model_context = provider.call_args.args[4]
+    assert model_context["adaptation_count"] == selection_count
     assert "corrections" not in model_context["sources"][0]["finding"]
     assert "unsupported promise" not in str(model_context)
     assert run.inputs == frozen
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("selection", [[], [0, 1, 2, 3], [0, 0], [0, "missing"], ["rejected"]])
+def test_adaptation_rejects_empty_excessive_duplicate_or_ineligible_selections(
+    api, split_research, selection
+):
+    base, source, target, posts = split_research
+    rejected = source.posts.get(qualification__status="unqualified")
+    ids = [
+        str(posts[item].pk)
+        if isinstance(item, int) and item < len(posts)
+        else str(rejected.pk)
+        if item == "rejected"
+        else str(uuid.uuid4())
+        for item in selection
+    ]
+    response = api.post(
+        base + f"social-research/{target.pk}/adapt/",
+        {"request_id": str(uuid.uuid4()), "post_ids": ids},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert not GenerationRun.objects.exists()
 
 
 @pytest.mark.django_db
@@ -354,9 +458,11 @@ def test_reuse_rechecks_metrics_review_and_deduplicates_urls(api, split_research
 
 
 @pytest.mark.django_db
-def test_end_to_end_distinct_sources_and_formats(api, setup):
+@pytest.mark.parametrize("static_format", ["carousel", "image"])
+@pytest.mark.parametrize("selection_count", [1, 2, 3])
+def test_end_to_end_distinct_sources_and_formats(api, setup, static_format, selection_count):
     base, app, request, session = setup
-    url = collect(api, base, session)
+    url = collect(api, base, session, static_format)
     response = api.post(url, {"action": "finish"}, format="json")
     with patch.object(social_tasks, "call", side_effect=fake_analysis) as calls:
         social_tasks.research(response.data["workflow_id"])
@@ -365,7 +471,10 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
     assert result["status"] == "completed"
     qualified = [p for p in result["posts"] if p["qualification"]["status"] == "qualified"]
     assert len(qualified) == 3
-    body = {"request_id": str(uuid.uuid4()), "post_ids": [p["id"] for p in qualified]}
+    body = {
+        "request_id": str(uuid.uuid4()),
+        "post_ids": [p["id"] for p in qualified[:selection_count]],
+    }
     response = api.post(url + "adapt/", body, format="json")
     assert response.data["context"]["mode"] == "smm"
     assert response.status_code == 202, response.data
@@ -373,7 +482,9 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
     assert again.data["id"] == response.data["id"]
     run = GenerationRun.objects.get(pk=response.data["id"])
     assert run.inputs["mode"] == "smm"
-    assert [s["format"] for s in run.inputs["sources"]] == ["video", "carousel", "video"]
+    assert [s["format"] for s in run.inputs["sources"]] == ["video", static_format, "video"][
+        :selection_count
+    ]
     scripts = [
         {
             "variant": i + 1,
@@ -381,7 +492,9 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
             "hook": f"Question {i}?",
             "script": [
                 "Film a runner checking a map.",
-                "Slide 1: Your first step. Slide 2: A route.",
+                "Slide 1: Your first step. Slide 2: A route."
+                if static_format == "carousel"
+                else "One image: a running route. Caption: Your first step starts here.",
                 "Show someone choosing their running shoes.",
             ][i],
             "cta": "Try a run.",
@@ -394,11 +507,11 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
     ]
     assert creative_ai.validate_scripts({"result": {"scripts": scripts}}, run.inputs) == scripts
     wrong = copy.deepcopy(scripts)
-    wrong[1]["content_format"] = "video"
+    wrong[0]["content_format"] = "text"
     with pytest.raises(ProviderError):
         creative_ai.validate_scripts({"result": {"scripts": wrong}}, run.inputs)
     wrong = copy.deepcopy(scripts)
-    wrong[2]["source_page_ids"] = wrong[0]["source_page_ids"]
+    wrong[0]["source_page_ids"] = ["unselected-source"]
     with pytest.raises(ProviderError):
         creative_ai.validate_scripts({"result": {"scripts": wrong}}, run.inputs)
     with patch.object(
@@ -409,7 +522,8 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
             {
                 "result": {
                     "checks": [
-                        {"variant": i, "supported": True, "reason": "Supported"} for i in [1, 2, 3]
+                        {"variant": i, "supported": True, "reason": "Supported"}
+                        for i in range(1, selection_count + 1)
                     ]
                 }
             },
@@ -418,7 +532,9 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
         generate_ai_scripts(str(run.pk))
     run.refresh_from_db()
     assert run.workflow.status == "succeeded"
-    assert run.creatives.get(variant=2).provenance["content_format"] == "carousel"
+    assert run.creatives.count() == selection_count
+    if selection_count >= 2:
+        assert run.creatives.get(variant=2).provenance["content_format"] == static_format
     export = api.get(base + f"runs/{run.pk}/export/")
     assert export.status_code == 200
     text = export.content.decode()
@@ -426,11 +542,12 @@ def test_end_to_end_distinct_sources_and_formats(api, setup):
         assert source["url"] in text
         assert source["research_id"] in text
         assert source["coverage"] in text
-    assert "Format: carousel" in text
+    if selection_count >= 2:
+        assert f"Format: {static_format}" in text
     assert "Observed views: ≈ 25,000 (label: 25K)" in text
     assert "Observed comments: Not observed" in text
     assert "Audio and complete sequence were not observed." in text
-    assert "video only; not applicable to carousel or text" in text
+    assert "video only; not applicable to carousel, image or text" in text
     assert run.inputs["brief"]["product_facts"] in text
     assert "Review: needs review" in text
 
@@ -494,11 +611,6 @@ def test_bad_review_and_duplicate_references_cannot_generate(api, setup):
 
 @pytest.mark.django_db
 def test_evidence_images_are_private_validated_and_bounded(api, setup, owner):
-    import base64
-    import io
-
-    from PIL import Image
-
     base, app, request, session = setup
     planned(session)
     url = base + f"social-research/{session.pk}/"
@@ -524,21 +636,48 @@ def test_evidence_images_are_private_validated_and_bounded(api, setup, owner):
     assert api.get(image_url).status_code == 403
 
 
-def test_analysis_cannot_relabel_a_video_as_a_carousel_to_bypass_missing_views():
+@pytest.mark.django_db
+def test_retina_capture_is_saved_and_served_as_a_valid_private_jpeg(api, setup):
+    base, _, _, session = setup
+    planned(session)
+    url = base + f"social-research/{session.pk}/"
+    api.post(url, {"action": "browse"}, format="json")
+    raw = evidence()
+    raw["frames"] = [jpeg_frame()]
+    response = api.post(url + "captures/", raw, format="json")
+    assert response.status_code == 200, response.data
+    post = session.posts.get()
+    assert len(post.frames) == 1
+    saved = api.get(base + f"social-posts/{post.pk}/frames/0/")
+    assert saved.status_code == 200
+    assert saved["Content-Type"] == "image/jpeg"
+    assert saved["Cache-Control"] == "private, no-store"
+    with Image.open(io.BytesIO(saved.content)) as image:
+        image.load()
+        assert image.size == (1200, 650)
+    assert "resized" in post.evidence["coverage"]
+    replay = api.post(url + "captures/", raw, format="json")
+    assert replay.status_code == 200
+    assert session.posts.count() == 1
+
+
+@pytest.mark.parametrize("static_format", ["carousel", "image", "text"])
+def test_analysis_cannot_relabel_a_video_as_static_to_bypass_missing_views(static_format):
     raw, _, _ = validate_capture(evidence())
     analysis = fake_analysis(None, social_tasks.ANALYZE_INSTRUCTION, {"post": raw}, None)["result"]
-    analysis["format"] = "carousel"
+    analysis["format"] = static_format
     with pytest.raises(ProviderError, match="format contradicts"):
         social_tasks.validate_analysis(analysis, raw)
 
 
 @pytest.mark.django_db
-def test_ineligible_metrics_skip_ai_but_carousel_without_views_is_analyzed(api, setup):
+@pytest.mark.parametrize("static_format", ["carousel", "image", "text"])
+def test_ineligible_metrics_skip_ai_but_static_without_views_is_analyzed(api, setup, static_format):
     base, app, request, session = setup
     planned(session)
     url = base + f"social-research/{session.pk}/"
     api.post(url, {"action": "browse"}, format="json")
-    for number, fmt, views in [(1, "video", None), (2, "video", "100"), (3, "carousel", None)]:
+    for number, fmt, views in [(1, "video", None), (2, "video", "100"), (3, static_format, None)]:
         raw = evidence(number, fmt, views=views or "25K")
         if views is None:
             del raw["metrics"]["views"]

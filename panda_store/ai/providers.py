@@ -7,13 +7,22 @@ import re
 import httpx
 from django.conf import settings
 
+from . import zai
+from .context import project_instruction
 from .errors import ProviderError, failure
+from .language import response_instruction
 
-PROVIDERS = {"openai": "OpenAI", "google": "Google Gemini", "anthropic": "Anthropic Claude"}
+PROVIDERS = {
+    "openai": "OpenAI",
+    "google": "Google Gemini",
+    "anthropic": "Anthropic Claude",
+    "zai": "Z.ai (GLM)",
+}
 HOSTS = {
     "openai": "https://api.openai.com/v1",
     "google": "https://generativelanguage.googleapis.com/v1beta",
     "anthropic": "https://api.anthropic.com/v1",
+    "zai": "https://api.z.ai/api/paas/v4",
 }
 
 
@@ -21,7 +30,7 @@ async def _request(provider, key, path, payload, params, deadline):
     """Bound the entire exchange, including a slow first byte or a stalled body."""
     headers = (
         {"Authorization": f"Bearer {key}"}
-        if provider == "openai"
+        if provider in {"openai", "zai"}
         else (
             {"x-goog-api-key": key}
             if provider == "google"
@@ -125,10 +134,30 @@ def supported(provider, model):
                 "research",
             )
         )
-    return model.startswith("claude-")
+    if provider == "zai":
+        return model in zai.MODELS
+    return provider == "anthropic" and model.startswith("claude-")
+
+
+def check_capabilities(provider, model, *, images=False, web_search=False):
+    if not supported(provider, model):
+        raise ProviderError("Choose a supported AI model.")
+    if provider == "zai":
+        if web_search:
+            raise ProviderError(
+                "Z.ai is available in SMM browser research. Legacy web discovery "
+                "does not support this provider. Use browser research instead."
+            )
+        if images and not zai.MODELS[model]["vision"]:
+            raise ProviderError(
+                "This GLM model only accepts text. Choose a vision model such as "
+                "glm-4.6v-flash for screenshots and browser research."
+            )
 
 
 def list_models(provider, key):
+    if provider == "zai":
+        return zai.catalog(request, key)
     found, cursor = {}, None
     for _ in range(10):
         params = (
@@ -192,9 +221,14 @@ def generate(
     max_output_tokens=6000,
     images=None,
     output_name="listing_review",
+    response_language="en",
 ):
-    if not supported(provider, model):
-        raise ProviderError("This model is not supported for listing analysis.")
+    check_capabilities(provider, model, images=bool(images))
+    instruction = response_instruction(project_instruction(instruction, context), response_language)
+    if provider == "zai":
+        return zai.generate(
+            request, key, model, instruction, context, schema, max_output_tokens, images or []
+        )
     text = json.dumps(context, ensure_ascii=False)
     images = images or []
     openai_content = [{"type": "input_text", "text": text}]
