@@ -1,22 +1,28 @@
-# Participer à Panda Store
+# Contributing to Panda Store
 
-Merci de commencer par une issue décrivant un problème reproductible ou un
-module proposé. Préciser le besoin, les étapes, le résultat attendu et la version.
-Ne jamais joindre de clés, mots de passe ou données privées d'un store.
+Start with an issue describing a reproducible problem or a proposed module.
+Include the need, steps, expected result and version. Never attach keys, passwords
+or private store data.
 
-Le projet est en alpha sous LGPLv3. Les contributions à l'édition communautaire
-sont proposées sous cette licence et leurs auteurs conservent leurs droits.
-Vérifier les licences et notices du code tiers inclus dans une proposition.
-Voir [la politique de licence](docs/licensing.md).
+The project is an alpha under LGPLv3. Contributions to the community edition use
+this license, and authors retain their rights. Check the licenses and notices of
+any third-party code included in a proposal. See the [license policy](docs/licensing.md).
 
-Pour préparer un module, suivre [le guide des modules](docs/modules.md), utiliser
-une branche dédiée et garder la modification centrée sur un besoin. Inclure les
-migrations requises, la documentation et des tests sur le comportement et les droits.
-Lancer les [vérifications de développement](docs/development.md#vérifications).
-Signaler les limites non testées.
+To build a module, follow the [module guide](docs/modules.md), use a dedicated branch
+and keep the change focused on one need. Include required migrations, documentation
+and tests for behavior and permissions. Run the [development checks](docs/development.md#checks)
+and report any untested limitations.
 
-Les fonctionnalités proposées ne doivent pas présenter des résultats fictifs
-comme des données réelles ou promettre un nombre de téléchargements garanti.
-Les sources externes et leurs conditions d'accès doivent être explicites.
+## Language
 
-Pour une faille de sécurité, suivre [SECURITY.md](SECURITY.md).
+Use English for repository documentation, module READMEs, issues, pull requests
+and new commit messages. The main introduction is available in `README.md` and
+`README.fr.md`; keep these two versions aligned when updating it. Other documentation
+has one English version. The application supports English and French through its
+translation files; preserve both languages when changing interface text.
+
+Proposed features must not present fictional results as real data or promise a
+guaranteed number of downloads. External sources and their access conditions
+must be explicit.
+
+For a security vulnerability, follow [SECURITY.md](SECURITY.md).

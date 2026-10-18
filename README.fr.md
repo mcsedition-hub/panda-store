@@ -27,7 +27,7 @@ Panda Store fonctionne en local avec Docker Compose ou Python et Node.js.
 Suivez le [guide d'installation](docs/installation.md), puis créez un projet, importez une app ou essayez la démo.
 Le projet est en alpha pour un usage local. Les audits ASO couvrent actuellement l'App Store.
 
-La [documentation](docs/README.md) détaille [ASO](docs/aso.md), [SMM](docs/smm.md)
+La [documentation en anglais](docs/README.md) détaille [ASO](docs/aso.md), [SMM](docs/smm.md)
 et les [connexions](docs/connections.md). Les évolutions prévues figurent dans la [feuille de route](docs/roadmap.md).
 
 ## Contribuer

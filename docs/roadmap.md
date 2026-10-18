@@ -1,390 +1,352 @@
-# Feuille de route
+# Roadmap
 
-Cette feuille de route distingue le périmètre retenu, les fonctions livrées et les
-validations restantes. Elle ne promet pas de date de sortie.
+This roadmap distinguishes agreed scope, shipped features and remaining validation.
+It does not promise a release date.
 
-## Périmètre de la première version publique
+## First public release scope
 
-L'édition communautaire auto-hébergée se concentre sur **deux modules métier : ASO et SMM**.
+The self-hosted community edition focuses on **two business modules: ASO and SMM**.
 
-- **ASO** : analyser une fiche store, préparer des corrections, les modifier et les exporter.
-- **SMM** : chercher des contenus performants dans le navigateur de l'utilisateur,
-  qualifier les références, puis produire, modifier et exporter une à trois adaptations
-  distinctes en respectant leurs formats et les fonctionnalités confirmées de l'app.
+**ASO** analyzes store listings, prepares corrections, and supports editing and export.
+**SMM** finds high-performing content in the user's browser, qualifies references,
+then creates, edits and exports one to three distinct adaptations that respect their
+formats and the app's confirmed features.
 
-Le catalogue d'apps, les connexions Apple, Google Play et IA, les espaces et les workflows constituent
-le socle de ces parcours. Le module d'exemple sert aux développeurs. Aucun troisième
-module métier n'est prévu pour cette première version ; les retours d'usage guideront
-les ajouts ultérieurs.
+The app catalogue, Apple, Google Play and AI connections, workspaces and workflows
+provide the foundation. The example module serves developers. No third business
+module is planned for this first release; user feedback will guide later additions.
 
-**Réservé à la future version cloud :** connexion des comptes et pages sociaux pour
-la publication, envoi et programmation des contenus. Ces fonctions restent à construire
-et ne conditionnent pas la sortie communautaire. Le connecteur navigateur de recherche
-reste dans SMM communautaire ; il utilise la session du navigateur pour consulter les
-contenus, sans établir une connexion de publication.
+**Reserved for the future cloud edition:** connecting social accounts and pages for
+publishing, sending and scheduling content. These features remain to be built and
+are not prerequisites for the community release. The research browser connector
+stays in community SMM; it uses the browser session to inspect content without
+establishing a publishing connection.
 
-## État actuel
+## Current state
 
-| Étape | Résultat attendu | État |
+| Area | Expected result | Status |
 | --- | --- | --- |
-| Fondation | Espaces, modules, projets décrits en Markdown, imports, langues et exports | Alpha implémentée ; choix français ou anglais à l'installation |
-| App réelle | App Store Connect, sélection d'apps, instantanés, erreurs de connexion | Import et actualisation validés sur un compte Apple réel avec une clé d'équipe |
-| Audit ASO | Proposition depuis une idée ou analyse d'une fiche importée, avec sources et corrections | Cinq champs Apple, historique, comparaison de modèles, revue des captures et brouillons implémentés ; recherche propre à chaque audit à construire |
-| Workflows | Étapes en direct, journal durable, arrêt et reprise | Socle partagé ASO/SMM et générations IA implémentés ; branches parallèles et éditeur à construire |
-| Veille SMM | Contenus pertinents trouvés dans le navigateur avec preuves de performance | Historique, filtres par réseau, quatre références qualifiées visibles par défaut et autres résultats dépliables ; validations réelles détaillées ci-dessous |
-| Création SMM | Une à trois adaptations de références distinctes, selon leur format et les faits produit | Une adaptation par source sélectionnée ; références compatibles réutilisables entre recherches ; scripts éditables et exportables |
-| Google Play | Import des fiches Android, puis extension de l'ASO | Connexion, import sélectif et actualisation validés sur compte réel le 18 octobre ; audit ASO Android à construire |
-| Mesure | Liens de campagne, séries temporelles, rapports et limites d'attribution | Besoin à prioriser après les retours d'usage ; hors première version publique |
-| Publication SMM — cloud | Comptes et pages sociaux connectés, publication et programmation, aperçu et statut d'envoi | Réservée au cloud, à construire |
-| Exploitation cloud | Isolation renforcée, facturation, quotas, sauvegardes, support | À construire pour l'offre hébergée |
+| Foundation | Workspaces, modules, Markdown project descriptions, imports, languages and exports | Alpha implemented; English or French selected during setup |
+| Real app | App Store Connect, app selection, snapshots, connection errors | Import and refresh validated with a real Apple account and team key |
+| ASO audit | Proposal from an idea or analysis of an imported listing, with sources and corrections | Five Apple fields, history, model comparison, screenshot review and drafts implemented; research specific to each audit remains to be built |
+| Workflows | Live steps, durable log, stop and retry | Shared ASO/SMM foundation and AI generation implemented; parallel branches and editor remain to be built |
+| SMM research | Relevant content found in the browser with performance evidence | History, network filters, four qualified references visible by default and expandable remaining results; live validation detailed below |
+| SMM creation | One to three adaptations of distinct references, following their formats and product facts | One adaptation per selected source; compatible references reusable across research sessions; editable and exportable scripts |
+| Google Play | Import Android listings, then extend ASO | Connection, selective import and refresh validated with a real account on October 18; Android ASO audit remains to be built |
+| Measurement | Campaign links, time series, reports and attribution limits | Prioritize after user feedback; outside the first public release |
+| SMM publishing (cloud) | Connected social accounts and pages, publishing and scheduling, preview and sending status | Reserved for cloud, to be built |
+| Cloud operations | Stronger isolation, billing, quotas, backups, support | To be built for the hosted offering |
 
-## Prochaine tranche
+## Next milestone
 
-**Priorité : finaliser les parcours ASO et SMM pour une première utilisation autonome.**
-Les collectes réelles et la génération multiformat ont été exercées. La préparation de
-la sortie porte maintenant sur la fiabilité, l'installation, la clarté de l'interface
-et les exports. Voir le [cadrage SMM](architecture.md#module-smm--marketing-organique).
+**Priority: complete ASO and SMM flows for independent first-time use.**
+Live collection and generation across formats have been exercised. Release preparation
+now focuses on reliability, installation, interface clarity and exports. See the
+[SMM scope](architecture.md#smm-module-organic-marketing).
 
-Restent notamment la validation réelle des modèles GLM visuels, les essais sur d'autres
-comptes et configurations, et la calibration humaine des recommandations ASO. Les limites
-de couverture vidéo/audio, la recherche de références propre à chaque audit et l'audit
-Google Play restent des chantiers distincts. La publication sociale et les opérations
-d'hébergement appartiennent à la future version cloud.
+Remaining work includes live validation of GLM vision models, trials with other accounts
+and configurations, and human calibration of ASO recommendations. Video/audio coverage,
+reference research specific to each audit and Google Play audits remain separate work.
+Social publishing and hosting operations belong to the future cloud edition.
 
-### Mise à jour du 18 octobre 2026
+### October 18, 2026 update
 
-Le catalogue accepte une idée saisie, collée ou importée en Markdown. ASO propose la
-fiche complète, dont l'accroche Apple de 170 caractères ; SMM prépare des contenus de
-lancement à partir du même projet. Les textes destinés au public utilisent les
-fonctionnalités décrites sans imposer de mention de stade de développement. Les faits
-non documentés et les affirmations de disponibilité restent exclus.
+The catalogue accepts an idea typed, pasted or imported as Markdown. ASO proposes
+the complete listing, including Apple's 170-character promotional text; SMM prepares
+launch content from the same project. Audience-facing copy uses described features
+without mandatory development-stage commentary. Undocumented facts and availability
+claims remain excluded.
 
-Les résultats ASO sont conservés à la navigation et comparables entre modèles, avec
-création d'un brouillon depuis les champs choisis. Le choix français ou anglais de
-l'assistant initial s'applique aussi aux nouvelles explications IA. OpenAI, Gemini,
-Claude et Z.ai disposent du même guide de modèles : cinq choix principaux au maximum,
-une liste complète et une recommandation adaptée au module.
+ASO results survive navigation and can be compared across models, with draft creation
+from selected fields. The English or French choice during setup also applies to new
+AI explanations. OpenAI, Gemini, Claude and Z.ai share the same model guide: at most
+five main choices, a full list and a recommendation suited to the module.
 
-La recherche SMM accepte une à trois sources qualifiées. Elle affiche quatre références
-qualifiées par défaut, propose les suivantes et masque les autres résultats derrière
-une action séparée. Les filtres réseau conservent la sélection. Nouvelle recherche reste
-accessible depuis Recherche, Scripts et Scènes, sans effacer les anciennes sessions.
-Le module d'exemple reste dans le dépôt pour les développeurs et disparaît de l'interface.
+SMM research accepts one to three qualified sources. It shows four qualified references
+by default, offers the rest, and hides other results behind a separate action. Network
+filters preserve selection. New research remains accessible from Research, Scripts
+and Scenes without deleting old sessions. The example module stays in the repository
+for developers and is hidden from the interface.
 
-Le connecteur 0.1.8 reconnecte les onglets Panda Store ouverts après installation ou
-rechargement ; la 0.1.7 reste compatible. Les installations par dossier nécessitent
-encore un rechargement manuel pour appliquer de nouveaux fichiers. Les compteurs
-Instagram manquants peuvent être recherchés sur la grille Reels du créateur avec
-preuve du post exact. Les captures JPEG sont normalisées avant sauvegarde.
+Connector 0.1.8 reconnects open Panda Store tabs after installation or reload; 0.1.7
+remains compatible. Folder installations still need a manual reload to apply new
+files. Missing Instagram counters can be looked up on the creator's Reels grid with
+evidence for the exact post. JPEG captures are normalized before saving.
 
-L'import Google Play réel a confirmé deux langues, cinq captures téléphone et un
-visuel de présentation, avec conservation de l'instantané après une erreur temporaire
-et reprise réussie. GLM a passé la connexion et la sortie textuelle structurée ; la
-validation visuelle réelle reste en attente après une réponse de surcharge du fournisseur.
-Voir les détails dans [Connexions](connections.md).
+Live Google Play import confirmed two languages, five phone screenshots and a feature
+graphic, preserving the snapshot after a temporary error and successful retry.
+GLM passed connection and structured text output checks; live vision validation remains
+pending after a provider overload response. See [Connections](connections.md) for details.
 
-La vérification du code au commit
+Code validation at commit
 [`2a87923`](https://github.com/mcsedition-hub/panda-store/commit/2a87923d74b0732897bd6335331aef3214f5f272)
-a terminé avec **551 tests backend réussis et 3 ignorés sur SQLite**, **221 tests
-d'interface** et **46 tests du connecteur** réussis. Ruff, formatage, contrôles Django,
-absence de migration manquante et build frontend passent. Les trois tests ignorés
-exigent PostgreSQL ; les validations PostgreSQL ci-dessous datent du 17 octobre et
-ne constituent pas une nouvelle exécution de la suite du 18 octobre.
+finished with **551 backend tests passed and 3 skipped on SQLite**, **221 interface
+tests** and **46 connector tests** passed. Ruff, formatting, Django checks, missing
+migration checks and frontend build passed. The three skipped tests require PostgreSQL;
+the PostgreSQL validations below are from October 17 and do not represent a new run
+of the October 18 suite.
 
-### Validation initiale du 17 octobre 2026
+### Initial validation on October 17, 2026
 
-Ce relevé conserve les versions et résultats de cette journée. Les comportements
-modifiés depuis, notamment le nombre de références et la connexion du navigateur,
-sont décrits dans la mise à jour ci-dessus et les guides d'utilisation.
+This record preserves that day's versions and results. Behaviors changed since then,
+including reference count and browser connection, are described in the update above
+and the user guides.
 
-La vérification du 17 octobre 2026 a utilisé une copie isolée du dépôt, un nouvel
-environnement Python, `npm ci` et une base SQLite vierge, sans les clés ni les données
-de l'installation de travail. Les points restants sont indiqués séparément.
+Validation on October 17, 2026 used an isolated repository copy, a new Python
+environment, `npm ci` and an empty SQLite database, without keys or data from the
+working installation. Remaining items are identified separately.
 
-- [x] **Installation native.** Installation des dépendances, bootstrap rejouable,
-  migrations, démarrage de l'API, de l'interface et du worker. Création d'un compte
-  depuis Chrome ; ASO et SMM sont activés dès la configuration initiale.
-- [x] **Parcours ASO sans clé IA.** Import de Runclub, audit terminé par le worker,
-  constats et limites visibles, modification d'un sous-titre, conservation après
-  rechargement et export de la révision sauvegardée vérifiés.
-- [x] **Édition SMM et exports.** Trois scripts de démonstration créés, modification
-  sauvegardée et retrouvée après rechargement, export vérifié. L'export du lot réel
-  MonTri UGC/carrousel/texte conserve les faits produit, les références, les compteurs
-  manquants ou arrondis, les formats, les limites et les corrections de relecture.
-  Les trois adaptations restent à approuver.
-- [x] **Contrôles automatisés.** 367 tests serveur réussis sur PostgreSQL, dont les
-  trois tests de concurrence ignorés sur SQLite (364 réussis). La suite d'interface
-  compte désormais 123 tests réussis ; les 23 tests du connecteur passent également.
-  Formatage, contrôles Django, absence de migration manquante et
-  compilation de production vérifiés. Une réponse tardive de la bibliothèque ne
-  fait plus disparaître un audio venant d'être importé.
-- [x] **Chaîne Docker.** Construction des images, démarrage Nginx/API/Redis/Celery,
-  connexion depuis Chrome, import fictif, workflows ASO/SMM, brouillon et exports
-  vérifiés avec une base PostgreSQL 17 vierge. Compte, résultats, brouillon et exports
-  conservés après `down` puis `up`, sans suppression des volumes. Le contrôle passe
-  avec le Compose livré, sans surcharge, sur une nouvelle base `postgres:17-alpine`.
-  Les 66 tests ciblant brouillons, workflows, recherche SMM et création concurrente
-  du compte passent également avec cette image.
-- [x] **Image PostgreSQL Alpine du Compose livré.** L'erreur `exec format error`
-  provenait du cache local décompressé : le script d'entrée était vide dans le
-  conteneur, mais intact dans l'archive de l'image (14 577 octets). Après sauvegarde,
-  retrait de la seule image locale et nouveau téléchargement du même digest,
-  le script et le démarrage fonctionnent. Aucun volume ni donnée utilisateur n'a
-  été supprimé ; aucun changement d'image n'est nécessaire dans le projet.
-- [x] **Connecteur 0.1.5 dans Chrome.** Chargement manuel, connexion aux tableaux
-  de bord 5173 et 8080, et téléchargement du ZIP depuis Compose vérifiés. Les fichiers
-  livrés correspondent aux sources. Les origines 5173, 8000 et 8080 sont couvertes
-  par les tests. Le test réel a révélé deux boutons de fermeture superposés sur les
-  Reels Facebook : le connecteur choisit maintenant le contrôle accessible. La lecture
-  est limitée à la carte vidéo active pour exclure les compteurs des Reels préchargés.
-  La version testée ce jour-là était la 0.1.5 sur les deux installations.
-- [x] **Reprise de collecte dans la version assemblée.** Les collectes réelles et
-  la sélection entre recherches ont été vérifiées sur l'installation de travail.
-  Avec la 0.1.5 : arrêt après une capture, actualisation, reprise et achèvement avec
-  six publications distinctes. Identifiant, date, texte et images de la première preuve
-  restent identiques ; aucune nouvelle référence ne passe les filtres. Le Reel Sweepr
-  conserve trois images et des compteurs inconnus, sans récupérer ceux du Reel suivant.
-  Sur Compose/PostgreSQL, un plan préparé et le contexte public de MonTri ont été
-  ajoutés au compte de test, sans copier de connexion IA. Arrêt après deux captures,
-  actualisation, reprise et second arrêt après quatre publications distinctes vérifiés
-  depuis Chrome. Les identifiants, dates, textes et empreintes des JPEG sont identiques
-  pour les deux premières preuves, vérifiés par l'API HTTP. Ce test couvre la collecte
-  et sa persistance ; il ne rejoue pas la planification ni l'analyse IA sur Compose.
-  La vérification finale des filtres se termine via le worker avec zéro référence
-  qualifiée. L'interface de cette version demandait trois preuves qualifiées et bloquait
-  la génération ; la version actuelle accepte une à trois références.
-  Le message d'activité est masqué lorsque la recherche est arrêtée ou terminée.
-- [x] **Revue visuelle des parcours principaux.** Audit et éditeur de brouillon ASO,
-  brief, workflow et éditeur SMM examinés dans Chrome sur écran large et à 390 px.
-  Champs et actions restent accessibles ; comparaison ASO et étapes SMM s'empilent
-  sur écran étroit. Les références réelles avec textes longs et captures, puis le lot
-  MonTri UGC/carrousel/texte ont aussi été examinés à 390 px. Le débordement des
-  grilles SMM est corrigé : la page reste à la largeur de l'écran et seule la bande
-  de captures défile horizontalement.
-- [x] **Erreurs et reprises ASO/SMM.** Un arrêt volontaire n'affiche plus une erreur
-  ni une seconde demande d'arrêt. Une vérification navigateur bloque la finalisation
-  automatique d'une collecte partielle : les captures restent conservées, avec reprise
-  ou analyse explicite des publications disponibles. La connexion au navigateur est
-  revérifiée avant démarrage et reprise. Les échecs de lecture des historiques, de
-  l'activité et des connexions IA proposent un rechargement sans créer de tâche.
-  Une panne de lecture des connexions n'est plus présentée comme un défaut de stockage
-  des clés. Le rechargement permet aussi de récupérer une révision de connexion modifiée
-  ailleurs. Les erreurs IA précisent quand réessayer et quand lancer une nouvelle tâche
-  après changement de clé ou de modèle. Les cas de clé refusée et fournisseur indisponible
-  ont été examinés dans Chrome avec des fixtures isolées, sans appel IA payant.
-  Une coupure réelle de l'API Compose isolée affiche les erreurs de lecture IA et ASO ;
-  après redémarrage, leurs boutons rechargent les connexions et l'historique avec succès.
-  Les 33 tests des erreurs fournisseur passent ; 25 tests SMM/workflows et la compilation
-  passent après la dernière correction d'affichage.
+- [x] **Native installation.** Dependency installation, repeatable bootstrap, migrations,
+  API, interface and worker startup. Account creation from Chrome; ASO and SMM enabled
+  during initial setup.
+- [x] **ASO without an AI key.** Runclub import, worker-completed audit, visible findings
+  and limits, subtitle editing, persistence after reload and saved-revision export verified.
+- [x] **SMM editing and exports.** Three demo scripts created, edit saved and recovered
+  after reload, export verified. The real MonTri UGC/carousel/text batch export preserves
+  product facts, references, missing or rounded counters, formats, limits and review
+  corrections. The three adaptations remain unapproved.
+- [x] **Automated checks.** 367 server tests passed on PostgreSQL, including the three
+  concurrency tests skipped on SQLite (364 passed). The interface suite had 123 passing
+  tests; all 23 connector tests also passed. Formatting, Django checks, missing migration
+  checks and production build verified. A late library response no longer removes
+  audio that was just imported.
+- [x] **Docker flow.** Image build, Nginx/API/Redis/Celery startup, Chrome sign-in,
+  fictional import, ASO/SMM workflows, draft and exports verified with an empty
+  PostgreSQL 17 database. Account, results, draft and exports survived `down` then `up`
+  without removing volumes. The check passed with the shipped Compose file, without
+  overrides, on a new `postgres:17-alpine` database. The 66 tests targeting drafts,
+  workflows, SMM research and concurrent account creation also passed with this image.
+- [x] **PostgreSQL Alpine image in shipped Compose.** The `exec format error` came from
+  the local unpacked cache: the entry script was empty in the container but intact
+  in the image archive (14,577 bytes). After backup, removal of only the local image
+  and a fresh download of the same digest, the script and startup worked. No volume
+  or user data was deleted; no project image change was necessary.
+- [x] **Connector 0.1.5 in Chrome.** Manual loading, connection to dashboards on 5173
+  and 8080, and ZIP download from Compose verified. Distributed files matched sources.
+  Origins 5173, 8000 and 8080 are covered by tests. The live test found two overlapping
+  close buttons on Facebook Reels: the connector now chooses the accessible control.
+  Reading is limited to the active video card to exclude preloaded Reel counters.
+  The version tested that day was 0.1.5 on both installations.
+- [x] **Collection resume in the assembled version.** Live collection and cross-research
+  selection were verified on the working installation. With 0.1.5: stop after one
+  capture, refresh, resume and finish with six distinct posts. The first evidence
+  ID, date, text and images remained identical; no new reference passed filters.
+  The Sweepr Reel retained three images and unknown counters without taking values
+  from the next Reel. On Compose/PostgreSQL, a prepared plan and public MonTri context
+  were added to the test account without copying an AI connection. Stop after two
+  captures, refresh, resume and stop again after four distinct posts were verified
+  in Chrome. IDs, dates, text and JPEG hashes were identical for the first two items,
+  checked through the HTTP API. This test covers collection and persistence; it does
+  not replay planning or AI analysis on Compose. Final filter verification finished
+  through the worker with zero qualified references. That version required three
+  qualified references and blocked generation; the current version accepts one to
+  three. The activity message is hidden when research is stopped or completed.
+- [x] **Visual review of main flows.** ASO audit and draft editor, SMM brief, workflow
+  and editor examined in Chrome on a wide screen and at 390 px. Fields and actions
+  remained accessible; ASO comparison and SMM steps stacked on narrow screens.
+  Real references with long text and captures, followed by the MonTri UGC/carousel/text
+  batch, were also reviewed at 390 px. SMM grid overflow was fixed: the page stays
+  within screen width and only the capture strip scrolls horizontally.
+- [x] **ASO/SMM errors and retries.** Voluntary stop no longer displays an error or a
+  second stop request. A browser verification blocks automatic finalization of partial
+  collection: captures remain saved, with explicit resume or analysis of available
+  posts. Browser connection is rechecked before starting and resuming. History,
+  activity and AI connection read failures offer reload without creating a task.
+  A connection read failure is no longer shown as a key-storage problem. Reload also
+  retrieves a connection revision changed elsewhere. AI errors explain when to retry
+  and when to start a new task after changing a key or model. Rejected-key and
+  unavailable-provider cases were examined in Chrome with isolated fixtures and no
+  paid AI call. An actual outage of the isolated Compose API displayed AI and ASO
+  read errors; after restart, reload buttons successfully fetched connections and
+  history. All 33 provider-error tests passed; 25 SMM/workflow tests and the build
+  passed after the last display fix.
 
-L'analyse actuelle couvre du texte et des captures partielles, sans vidéo ni audio
-complets. La revue IA reste faillible : les résultats doivent être relus et les
-corrections conservées. Étendre cette couverture est une amélioration ultérieure.
+Current analysis covers text and partial captures, without complete video or audio.
+AI review remains fallible: results need review and corrections must be retained.
+Extending coverage is a later improvement.
 
-Le socle actuel conserve les sources, briefs, faits produit et journaux, et fournit des
-scripts IA, plans éditables, médias, exports ZIP et MP4. Voir le
-[parcours livré](smm.md). Ces outils pourront servir aux contenus
-qui en ont besoin ; les extensions de montage et la synthèse vocale ne sont pas la
-prochaine tranche.
+The current foundation retains sources, briefs, product facts and logs, and provides
+AI scripts, editable plans, media, ZIP exports and MP4s. See the [shipped flow](smm.md).
+These tools can support content that needs them; editing extensions and voice synthesis
+are not the next milestone.
 
-### ASO : état actuel et évolutions ultérieures
+### ASO: current state and future work
 
-Le module ASO est disponible et activable. Le premier audit contrôle les longueurs,
-le budget de mots-clés et les répétitions exactes, avec sources Apple datées,
-propositions de nettoyage copiables et limites de couverture explicites. Il conserve
-l'import choisi et utilise le suivi commun en trois étapes. L'impact sur les téléchargements n'est pas évalué automatiquement.
-La divergence Apple entre 100 octets et 100 caractères est présentée pour revue.
-Les brouillons et la revue éditoriale OpenAI/Gemini/Claude/GLM sont implémentés, avec
-choix explicite du modèle et propositions sourcées à relire. Le projet
-ajoute un contrôle distinct des observations et propositions contre la fiche :
-les déductions non étayées sont retirées, et les contrôles incomplets bloquent
-l'enregistrement du rapport. Jusqu'à deux appels au modèle sont annoncés et
-leur consommation est séparée. Sept cas fixes vérifient les erreurs de raisonnement
-observées et les contre-exemples avant d'étendre ce contrôle.
-Le banc de dix cas synthétiques comprend des contrôles automatiques,
-de rapports relisibles et d'une grille de revue humaine. Les premiers critères
-restent provisoires : la calibration par des spécialistes, les cas réels consentis
-et un jeu réservé restent à faire. Voir [l'évaluation ASO](aso-evaluation.md).
-La bibliothèque utilisée par l'IA contient cinq annotations de méthode et trois
-exemples de fiches publiques, avec leurs limites et leur périmètre.
-`Sources` permet d'inspecter les notes conservées pour
-chaque audit et celles destinées aux nouveaux audits. Apple reste la référence
-officielle ; Phiture, AppTweak et SplitMetrics apportent des méthodes de travail.
-La revue des captures et leurs briefs sont livrés. La suite porte sur la calibration
-et les outils de recherche. La
-[conception](architecture.md#conception-de-lagent-aso-spécialisé) prévoit un agent
-spécialisé, une base documentaire sélectionnée et un graphe reliant règles,
-observations, propositions et résultats. La première sélection inclut Apple,
-Google, Phiture, AppTweak et SplitMetrics ; Google n'est pas injecté dans la revue
-Apple. L'indexation et le graphe restent à implémenter.
+ASO is available and can be activated. The initial audit checks lengths, keyword
+budget and exact repetition, with dated Apple sources, copyable cleanup proposals
+and explicit coverage limits. It retains the selected import and uses shared
+three-step tracking. Download impact is not evaluated automatically. Apple's
+100-byte versus 100-character discrepancy is shown for review. Drafts and
+OpenAI/Gemini/Claude/GLM editorial review are implemented, with explicit model
+selection and sourced proposals for review. The project adds a separate check of
+observations and proposals against the listing: unsupported inferences are removed,
+and incomplete checks prevent report saving. Up to two model calls are announced,
+with separate usage. Seven fixed cases check observed reasoning errors and
+counterexamples before extending the check.
+The ten-case synthetic suite includes automated checks, inspectable reports and
+a human review rubric. Initial criteria remain provisional: specialist calibration,
+consented real cases and a held-out set are still needed. See [ASO evaluation](aso-evaluation.md).
+The AI library contains five method annotations and three public listing examples,
+with their limits and scope. `Sources` exposes notes retained for each audit and
+those intended for new audits. Apple remains the official reference; Phiture,
+AppTweak and SplitMetrics supply working methods. Screenshot review and briefs are
+shipped. Next work focuses on calibration and research tools. The
+[design](architecture.md#specialized-aso-agent-design) calls for a specialized agent,
+a curated document library and a graph linking rules, observations, proposals and
+results. The initial selection includes Apple, Google, Phiture, AppTweak and
+SplitMetrics; Google is not included in Apple review. Indexing and the graph remain
+to be implemented.
 
-La préparation des captures comprend désormais une [revue documentaire et trois
-fiches examinées dans le navigateur](../addons/aso/knowledge/visual-research.json) :
-Duolingo, Spotify et Tinder, dans trois domaines différents, le 17 octobre 2026.
-Trois annotations textuelles issues de cette revue sont injectées dans les nouveaux
-audits et visibles dans Sources ; les observations visuelles alimentent la revue
-séparée des captures.
-La revue des affirmations distingue exemples et preuves propres à l'app.
-La tranche recherche devra
-ouvrir trois fiches à chaque exécution, afficher ses sources et sa couverture,
-vérifier la pertinence des exemples, puis figer les observations avec l'audit.
-Une consultation incomplète doit rester visible. Ajouter la recherche de niche
-séparément ; les choix d'une grande app ne démontrent pas leur efficacité.
-Voir les [critères du parcours](architecture.md#recherche-sur-trois-fiches-de-référence).
+Screenshot preparation includes a [document review and three listings examined
+in the browser](../addons/aso/knowledge/visual-research.json): Duolingo, Spotify
+and Tinder, in three different domains, on October 17, 2026. Three text annotations
+from this review are included in new audits and visible in Sources; visual
+observations feed the separate screenshot review. Claim checking distinguishes
+examples from evidence specific to the app. The research milestone must open three
+listings on every run, show sources and coverage, verify example relevance and freeze
+observations with the audit. Incomplete visits must remain visible. Add niche research
+separately; a major app's choices do not establish their effectiveness. See the
+[flow criteria](architecture.md#research-across-three-reference-listings).
 
-L'audit ASO reste utilisable indépendamment de SMM. Pour chaque store et
-langue, distinguer les contraintes officielles vérifiables des recommandations
-éditoriales : noms, sous-titres ou descriptions courtes, descriptions, mots-clés
-quand disponibles, catégories et visuels. Chaque constat doit conserver le champ
-observé, la règle ou recommandation, son lien officiel, la date de vérification
-et une correction proposée. Signaler les données manquantes ou non vérifiables.
-Les premières sources sont les recommandations Apple sur la
-[fiche produit](https://developer.apple.com/app-store/product-page/) et la
-[recherche App Store](https://developer.apple.com/app-store/search/), ainsi que la
-[configuration des fiches Google Play](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en).
-Ne pas présenter une conformité de métadonnées comme une garantie de classement
-ou de téléchargements. Les critères Apple et Google restent distincts ; un audit
-Google complet reste à développer au-delà de l'import Google Play désormais disponible.
+ASO remains usable independently of SMM. For each store and language, distinguish
+verifiable official constraints from editorial recommendations: names, subtitles
+or short descriptions, descriptions, keywords where available, categories and visuals.
+Each finding must retain the observed field, rule or recommendation, official link,
+verification date and proposed correction. Flag missing or unverifiable data.
+Initial sources are Apple's guidance on the
+[product page](https://developer.apple.com/app-store/product-page/) and
+[App Store search](https://developer.apple.com/app-store/search/), and
+[Google Play listing setup](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en).
+Do not present metadata compliance as a ranking or download guarantee. Apple and
+Google criteria remain distinct; a full Google audit still needs to be developed
+beyond the available Google Play import.
 
-L'utilisateur relit les propositions avant toute application. Le connecteur Apple
-actuel reste en lecture seule : les corrections sont copiables et à appliquer dans
-App Store Connect, puis un nouvel import permet de vérifier les changements. Aucune
-modification de fiche ni publication automatique n'est encore implémentée.
+Users review proposals before applying them. The current Apple connector remains
+read-only: corrections can be copied and applied in App Store Connect, then a new
+import can verify changes. Listing edits and automatic publishing are not implemented.
 
-### Parcours ASO et brouillons
+### ASO flow and drafts
 
-Parcours initial livré : l'utilisateur ouvre son app,
-choisit la langue App Store, puis lance `Run audit`. Le contexte de l'app,
-la langue et la date de dernière synchronisation restent visibles. Les résultats
-présentent chaque problème avec le contenu actuel, une proposition concrète,
-sa justification et ses sources. `Add to draft` crée un brouillon contenant uniquement
-la proposition choisie ; l'utilisateur peut la modifier ensuite. `New draft` permet
-aussi de partir de la langue importée choisie sans proposition automatique.
+The initial shipped flow lets users open an app, choose the App Store language and
+run `Run audit`. App context, language and last synchronization date remain visible.
+Results show each problem with current content, a concrete proposal, rationale and
+sources. `Add to draft` creates a draft containing only the selected proposal;
+users can then edit it. `New draft` also allows starting from the selected imported
+language without an automatic proposal.
 
-L'espace ASO propose `Audit`, `Drafts` et `Sources`, avec l'activité intégrée à l'audit. Le premier audit est
-l'action principale de l'écran vide. Un brouillon suffit pour commencer ;
-`Duplicate` permet de préparer une variante nommée, avec sauvegarde automatique
-et historique consultable. L'éditeur compare l'import de référence ou le dernier import et le brouillon,
-signale les différences par des libellés en plus des couleurs, affiche les limites
-des champs et propose un aperçu. Sur petit écran, ces vues se suivent verticalement.
-La fiche importée reste intacte ; une actualisation qui change la référence du
-brouillon signale les écarts à relire, sans écraser le travail en cours.
+ASO provides `Audit`, `Drafts` and `Sources`, with activity integrated into the audit.
+The first audit is the empty screen's primary action. One draft is enough to start;
+`Duplicate` creates a named variant with autosave and inspectable history. The editor
+compares the reference or latest import with the draft, marks differences with labels
+as well as colors, shows field limits and provides a preview. On small screens,
+these views stack vertically. The imported listing remains intact; a refresh that
+changes the draft's reference flags differences for review without overwriting work.
 
-Les actions de sortie sont `Copy changes`, `Export changes` et `Refresh and compare`
-(ou comparaison de l'import enregistré si Connections est désactivé).
-Elles accompagnent l'application manuelle dans la console du store.
-`Draft`, `Ready` et la correspondance détectée dans l'import décrivent des faits distincts :
-un brouillon validé n'est pas publié, un export n'est pas une publication, et une
-correspondance à l'import ne confirme la mise en ligne que si le statut du store
-le permet. La date de détection ne remplace pas la date réelle de publication.
-Restaurer une ancienne révision du brouillon n'annule rien sur le store.
+Output actions are `Copy changes`, `Export changes` and `Refresh and compare`
+(or comparison with the saved import if Connections is disabled). They support manual
+application in the store console. `Draft`, `Ready` and a detected import match describe
+different facts: an approved draft is not published, an export is not publication,
+and an import match confirms live availability only if the store status supports it.
+Detection date does not replace the actual publication date. Restoring an old draft
+revision does not undo anything on the store.
 
-Les expériences et résultats viendront avec les intégrations nécessaires :
-préparer deux variantes ne lance pas un test A/B. La méthode de mesure et les
-champs testables dépendent du store. Une rubrique `Results` sera introduite quand
-des données pourront être reliées aux changements, avec leur période et leurs
-limites. `Activity` conserve l'historique des exécutions. Pendant un audit,
-le suivi s'affiche directement dans le module, sans obliger l'utilisateur à
-quitter son app : étapes, statut, action courante et résultats intermédiaires.
+Experiments and results will come with the required integrations: preparing two
+variants does not launch an A/B test. Measurement methods and testable fields depend
+on the store. A `Results` area will be introduced when data can be linked to changes,
+with its period and limits. `Activity` retains execution history. During an audit,
+tracking appears directly in the module without requiring users to leave their app:
+steps, status, current action and intermediate results.
 
-### Workflows et suivi des agents en direct
+### Workflows and live agent tracking
 
-Le modèle d'interaction demandé reprend les graphes d'exécution de GitHub Actions
-et les workflows de n8n. Chaque module fournit un parcours prêt à lancer.
-Une suite courte utilise une liste d'étapes ; les dépendances, branches et tâches
-parallèles utilisent un graphe. Cliquer une étape ouvre son activité, ses entrées,
-ses résultats et ses sources. Le graphe d'exécution est distinct du graphe de
-connaissances ASO, qui relie les recommandations à leurs preuves.
+The requested interaction model draws on GitHub Actions execution graphs and n8n
+workflows. Each module provides a ready-to-run flow. A short sequence uses a step
+list; dependencies, branches and parallel tasks use a graph. Clicking a step opens
+its activity, inputs, results and sources. The execution graph is separate from the
+ASO knowledge graph, which links recommendations to evidence.
 
-Exemple ASO : synchroniser la fiche, vérifier les règles et étudier les références
-en parallèle quand leurs dépendances le permettent, préparer les propositions,
-vérifier leurs preuves, puis remettre les corrections à l'utilisateur pour
-composer son brouillon. L'état `Needs review` indique une intervention nécessaire,
-avec son motif et les actions possibles. La préparation du brouillon ne publie rien.
+ASO example: synchronize the listing, check rules and study references in parallel
+when dependencies allow, prepare proposals, verify evidence, then return corrections
+for the user to compose a draft. `Needs review` signals required intervention, with
+its reason and possible actions. Draft preparation publishes nothing.
 
-Le journal en direct indique des actions observables : page ouverte avec son URL,
-capture disponible, contrôle terminé, source inaccessible, proposition créée.
-Une étape affiche `Queued`, `Running`, `Needs review`, `Completed`, `Failed`,
-`Canceled` ou `Skipped`, sa durée et sa dernière activité. La progression
-quantifiée repose sur un total connu ; une tâche longue sans total affiche son
-action courante. Les coûts estimés restent distingués de la consommation rapportée.
-Un contrôle déterministe est présenté comme tel, et non comme un agent IA.
+The live log records observable actions: a page opened with its URL, capture available,
+check completed, source inaccessible or proposal created. A step shows `Queued`,
+`Running`, `Needs review`, `Completed`, `Failed`, `Canceled` or `Skipped`, duration
+and last activity. Quantified progress uses a known total; a long task without a total
+shows its current action. Estimated costs remain distinct from reported usage.
+A deterministic check is presented as such, not as an AI agent.
 
-L'utilisateur peut demander l'arrêt, consulter les résultats déjà disponibles,
-et relancer une étape en échec lorsque la reprise est sûre. Une actualisation ou
-la fermeture de l'onglet ne perd pas l'exécution. Les messages d'erreur indiquent
-la cause utile et l'action possible. Les modules ASO et SMM partagent
-ce suivi ; leurs étapes métier restent spécifiques. L'édition visuelle avancée
-des workflows pourra venir ensuite, sur la même définition versionnée.
+Users can request a stop, inspect available results and retry a failed step when
+safe. Refreshing or closing the tab does not lose the execution. Errors explain
+the useful cause and possible action. ASO and SMM share this tracking while retaining
+their own business steps. Advanced visual workflow editing can follow, using the
+same versioned definition.
 
-Références : [graphe GitHub Actions](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-the-visualization-graph)
-(capture officielle examinée) et
-[historique des exécutions n8n](https://docs.n8n.io/build/understand-workflows/understand-executions/view-executions-for-a-single-workflow).
-Le socle commun est maintenant implémenté dans SMM et ASO : étapes propres à chaque tâche,
-journal SSE avec reconnexion et polling de secours, arrêt coopératif et reprise
-des étapes inachevées avec les entrées originales. Les résultats terminés sont
-réutilisés et la trace précédente est conservée. Le worker local utilise la base ;
-Compose utilise Celery. Le pilotage du navigateur utilisateur et les étapes IA SMM
-sont implémentés. Les branches parallèles, l'éditeur et une supervision autonome plus
-étendue restent des évolutions ultérieures du socle partagé.
+References: [GitHub Actions graph](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-the-visualization-graph)
+(official screenshot examined) and
+[n8n execution history](https://docs.n8n.io/build/understand-workflows/understand-executions/view-executions-for-a-single-workflow).
+The shared foundation is implemented in SMM and ASO: task-specific steps, SSE log
+with reconnection and fallback polling, cooperative stop, and retry of unfinished
+steps with original inputs. Completed results are reused and the previous trace
+is preserved. The local worker uses the database; Compose uses Celery. User-browser
+control and SMM AI steps are implemented. Parallel branches, the editor and broader
+autonomous supervision remain future work on the shared foundation.
 
-Les brouillons appartiennent à la base de données de l'installation et ne
-nécessitent aucun compte GitHub. Dans ce parcours produit, la référence à GitHub
-Actions désigne le suivi visuel des étapes. Les branches et pull requests du dépôt
-concernent séparément le développement du code. Le workflow GitHub Actions
-[`Checks`](../.github/workflows/ci.yml) existe déjà pour les tests, le formatage
-et la compilation sur les push et pull requests ; les tâches métier s'exécutent
-dans Panda Store.
+Drafts belong to the installation database and require no GitHub account. In this
+product flow, GitHub Actions refers to visual step tracking. Repository branches
+and pull requests concern code development separately. The GitHub Actions
+[`Checks`](../.github/workflows/ci.yml) workflow already runs tests, formatting and
+builds on pushes and pull requests; business tasks run inside Panda Store.
 
-Références consultées visuellement le 16 octobre 2026 :
+References visually consulted on October 16, 2026:
 [AppTweak Metadata Simulator](https://help.apptweak.com/en/articles/400809-test-your-keyword-selection-to-optimize-your-metadata)
-pour les brouillons et les différences,
+for drafts and differences,
 [Apple Product Page Optimization](https://developer.apple.com/app-store/product-page-optimization/)
-pour l'aperçu de l'original et des variantes, et
+for original and variant previews, and
 [Google Publishing overview](https://support.google.com/googleplay/android-developer/answer/9859654?hl=en)
-pour la séparation entre préparation, revue et publication. La capture Google
-du [billet officiel de 2023](https://android-developers.googleblog.com/2023/01/control-when-changes-to-your-app-are-sent-for-review-with-new-play-console-features.html)
-sert de référence de structure, pas de garantie sur l'apparence actuelle.
+for separating preparation, review and publication. The Google capture from the
+[official 2023 post](https://android-developers.googleblog.com/2023/01/control-when-changes-to-your-app-are-sent-for-review-with-new-play-console-features.html)
+is a structural reference, not a guarantee of current appearance.
 
-SMM dispose déjà de fournisseurs IA remplaçables et de sorties structurées.
-La suite doit évaluer les adaptations par format à partir de références qualifiées,
-avec un budget par recherche et génération. Conserver l'instantané de métadonnées
-utilisé pour chaque résultat. Le mode démo reste disponible pour les tests sans clé payante.
+SMM already has replaceable AI providers and structured outputs. Next work should
+evaluate adaptations by format from qualified references, with budgets per research
+and generation. Retain the metadata snapshot used for each result. Demo mode remains
+available for tests without a paid key.
 
-Le connecteur Apple a été vérifié sur un compte réel avec une clé d'équipe
-App Manager : catalogue, langues, icône, catégorie, captures et actualisation sans
-doublon. Les clés individuelles restent à valider sur compte réel. Les imports
-sont synchrones et limités ; prévoir des tâches pour les catalogues volumineux et
-la synchronisation planifiée. La révocation des clés reste une action à effectuer
-dans App Store Connect.
+The Apple connector was verified with a real account and an App Manager team key:
+catalogue, languages, icon, category, screenshots and refresh without duplication.
+Individual keys still need live validation. Imports are synchronous and bounded;
+plan tasks for large catalogues and scheduled synchronization. Key revocation remains
+an action in App Store Connect.
 
-## Choix des fournisseurs et modèles IA
+## Choosing AI providers and models
 
-L'utilisateur choisit OpenAI, Anthropic (Claude), Google (Gemini) ou Z.ai (GLM),
-puis un modèle disponible et compatible avec la tâche. Ce choix s'applique aux
-analyses ASO assistées par IA et à SMM ; l'ancienne découverte web côté serveur
-ne prend pas en charge Z.ai. Le catalogue est actualisable ; aucun modèle ni compte
-du développeur de Panda Store n'est imposé dans une installation indépendante.
+Users choose OpenAI, Anthropic (Claude), Google (Gemini) or Z.ai (GLM), then an
+available model compatible with the task. This applies to AI-assisted ASO and SMM;
+legacy server-side web discovery does not support Z.ai. The catalogue can be refreshed;
+no Panda Store developer model or account is imposed on an independent installation.
 
-Chaque espace configure ses propres clés depuis l'interface, avec stockage chiffré
-côté serveur. La préférence durable de modèle par espace reste à construire ;
-chaque tâche utilise un choix explicite. Le choix tient compte des capacités nécessaires (texte,
-images, outils) et du budget. Si le modèle est indisponible ou incompatible,
-afficher une erreur explicite ; ne pas envoyer les données à un autre fournisseur
-sans choix de l'utilisateur. Conserver le fournisseur, l'identifiant exact du
-modèle et la consommation dans chaque exécution pour permettre sa vérification.
+Each workspace configures its own keys through the interface, with encrypted
+server-side storage. A persistent model preference per workspace remains to be built;
+each task uses an explicit choice. Selection considers required capabilities (text,
+images, tools) and budget. If a model is unavailable or incompatible, show an explicit
+error; do not send data to another provider without user selection. Retain provider,
+exact model ID and usage in every execution for inspection.
 
-## Conditions de réussite
+## Success criteria
 
-- La veille conserve les URLs et dates, distingue publicité et publication
-  organique, et indique les métriques réellement observables. Une vidéo très vue
-  ne prouve pas qu'elle génère des installations.
-- L'agent navigateur peut ouvrir et parcourir des pages autorisées, mais ne
-  contourne ni authentification, ni restriction technique, ni droits d'accès.
-  Le contenu des pages est une donnée non fiable, jamais une instruction.
-- Dans la future version cloud, chaque publication exige des droits API disponibles pour le compte et une
-  validation du contenu. Les audits des plateformes peuvent limiter l'accès.
-- Une comparaison avant/après n'établit pas seule une causalité. La mesure doit
-  exposer les biais, fenêtres de comparaison et limites d'attribution.
-- Les modules de communauté conservent leurs licences et notices d'origine
-  lorsqu'ils sont intégrés à une offre cloud commerciale.
+Research preserves URLs and dates, distinguishes ads from organic posts and identifies
+actually observable metrics. A heavily viewed video does not prove it generates installs.
+
+The browser agent can open and browse allowed pages but does not bypass authentication,
+technical restrictions or access rights. Page content is untrusted data, never instructions.
+
+In the future cloud edition, every publication requires available API permissions
+for the account and content approval. Platform reviews may limit access.
+
+A before/after comparison alone does not establish causality. Measurement must expose
+biases, comparison windows and attribution limits.
+
+Community modules retain their original licenses and notices when integrated into
+a commercial cloud offering.

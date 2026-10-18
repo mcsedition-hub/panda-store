@@ -1,21 +1,20 @@
-# Licence
+# License
 
-Panda Store est distribué sous GNU Lesser General Public License, version 3
-(LGPLv3). Le fichier [LICENSE](../LICENSE) contient son texte complet ainsi que
-celui de la GPLv3 qu'elle incorpore.
+Panda Store is distributed under the GNU Lesser General Public License, version 3
+(LGPLv3). [LICENSE](../LICENSE) contains its full text and the GPLv3 text it incorporates.
 
-Cette licence permet d'utiliser, modifier et redistribuer le logiciel, y compris
-pour une activité commerciale ou un service hébergé, en respectant ses conditions.
-La redistribution de modifications du code couvert doit notamment conserver
-les droits et l'accès au code source prévus par la licence.
+This license permits using, modifying and redistributing the software, including
+for commercial activities or a hosted service, subject to its conditions.
+Redistributing changes to covered code must, among other requirements, preserve
+the rights and source access provided by the license.
 
-Les contributions à l'édition communautaire sont proposées sous la même licence.
-Leurs auteurs conservent leurs droits. Les composants tiers gardent leurs propres
-licences et notices, recensées dans [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+Contributions to the community edition use the same license. Authors retain their
+rights. Third-party components keep their own licenses and notices, listed in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
-Une édition cloud avec des fonctions supplémentaires est prévue. Ce choix de
-produit ne restreint pas les droits accordés sur l'édition communautaire.
-Le nom et les logos ne permettent pas de se présenter comme l'offre officielle.
+A cloud edition with additional features is planned. This product decision does
+not restrict the rights granted for the community edition. The name and logos
+do not authorize presenting another service as the official offering.
 
-Le choix de licence suit celui de la [version communautaire d'Odoo](https://github.com/odoo/odoo/blob/20.0/LICENSE).
-Panda Store conserve son propre code et son identité.
+The license choice follows [Odoo's community edition](https://github.com/odoo/odoo/blob/20.0/LICENSE).
+Panda Store retains its own code and identity.

@@ -1,6 +1,6 @@
 # Documentation
 
-[Back to Panda Store](../README.md) · [Présentation en français](../README.fr.md)
+[Back to Panda Store](../README.md) · [French introduction](../README.fr.md)
 
 ## Using Panda Store
 
@@ -20,7 +20,8 @@ one to three adaptations, scripts, scenes and exports.
 The [development guide](development.md) lists configuration and checks.
 The [module guide](modules.md) explains how to extend Panda Store.
 The [architecture](architecture.md) describes the application and its workflows.
-These technical guides are currently in French.
+Repository documentation is maintained in English. The main introduction also has
+a [French version](../README.fr.md); the application supports both languages.
 
 See the [roadmap](roadmap.md) for planned work and release validation,
 and the [ASO evaluation](aso-evaluation.md) for research and review methods.

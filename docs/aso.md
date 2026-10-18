@@ -198,7 +198,7 @@ or establish features or performance of the audited app. Screenshot observations
 feed the separate visual reviewer, alongside scoped Apple, Phiture and AppTweak
 notes; they are not sent to the text reviewer. Historical audits
 keep their previous references. No browser research runs during an audit.
-The [planned research workflow](architecture.md#recherche-sur-trois-fiches-de-référence)
+The [planned research workflow](architecture.md#research-across-three-reference-listings)
 requires opening three well-known apps from different domains, recording coverage
 and checking relevance separately from niche competitors. Public examples provide
 test hypotheses, not evidence of conversion gains.

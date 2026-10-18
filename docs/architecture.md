@@ -1,1003 +1,935 @@
-# Architecture de l'alpha
+# Alpha architecture
 
-Un monolithe Django modulaire expose une API REST consommée par React et
-TypeScript. Les modules partagent une base et des conventions explicites.
-Leur séparation ne nécessite pas des microservices au démarrage.
+A modular Django monolith exposes a REST API consumed by React and TypeScript.
+Modules share a database and explicit conventions. Their separation does not
+require microservices at the outset.
 
-## Cœur et modules
+## Core and modules
 
-Le cœur gère les comptes, les espaces, les appartenances et le registre.
-Chaque module comprend une app Django, un `module.json`, des routes, ses modèles
-et éventuellement `frontend/index.tsx`. Le chargement est effectué au déploiement.
-L'activation dans un espace ouvre les fonctionnalités déjà installées.
+The core manages accounts, workspaces, memberships and the registry. Each module
+includes a Django app, `module.json`, routes, models and optionally
+`frontend/index.tsx`. Loading happens at deployment. Activation in a workspace
+opens access to features already installed.
 
-La première version publique communautaire retient deux modules métier : **ASO et SMM**.
-Le catalogue, les connexions Apple, Google Play et IA et les workflows constituent le socle de ces
-parcours. Le module d'exemple sert au développement d'extensions et reste masqué dans
-la navigation et l'écran Modules. Les connexions sociales
-de publication, l'envoi et la programmation sont réservés à la future version cloud ;
-le connecteur navigateur utilisé pour la recherche fait partie de SMM communautaire.
-Les [critères de finalisation](roadmap.md#prochaine-tranche) portent sur l'installation,
-la fiabilité, l'édition et les exports.
+The first public community release focuses on two business modules: **ASO and SMM**.
+The catalogue, Apple, Google Play and AI connections, and workflows provide their
+foundation. The example module supports extension development and stays hidden in
+navigation and the Modules screen. Social connections for publishing, sending and
+scheduling are reserved for the future cloud edition; the research browser connector
+is part of community SMM. The [release criteria](roadmap.md#next-milestone) cover
+installation, reliability, editing and exports.
 
-Les dépendances, versions et cycles sont vérifiés au démarrage. Une activation
-inclut ses dépendances ; la désactivation d'un module requis est refusée.
-L'activation n'exécute pas d'installation Python ou de migration dynamique.
-Il n'y a pas de format XML de vues : les vues métier sont des composants React.
+Dependencies, versions and cycles are checked at startup. Activation includes
+dependencies; disabling a required module is rejected. Activation does not run
+Python installations or dynamic migrations. There is no XML view format: business
+views are React components.
 
-Le manifeste distingue `availability: available` (valeur par défaut) de `planned`.
-Un module prévu apparaît au catalogue mais ne peut être activé, même par appel API
-ou comme dépendance. ASO est disponible avec ses contrôles déterministes Apple.
-Les états Enabled/Disabled décrivent l'activation par espace.
+The manifest distinguishes `availability: available` (the default) from `planned`.
+A planned module appears in the catalogue but cannot be activated, even through
+the API or as a dependency. ASO is available with deterministic Apple checks.
+Enabled/Disabled states describe activation per workspace.
 
-La désactivation retire les accès métier sans supprimer les données importées.
-Ainsi, désactiver Connections conserve les fiches dans My apps mais bloque leurs
-imports et actualisations. L'interface relit les activations au retour sur un
-onglet. Le worker SMM vérifie aussi l'activation sous le verrou de l'espace
-avant de démarrer une génération en attente : si SMM est désactivé, elle échoue
-sans appeler le fournisseur. Une tâche déjà commencée peut finir ; la désactivation
-ne constitue pas une annulation d'un appel externe en cours.
+Deactivation removes feature access without deleting imported data. For example,
+disabling Connections preserves listings in My apps but blocks imports and refreshes.
+The interface reloads activation state when returning to a tab. The SMM worker also
+checks activation under the workspace lock before starting a queued generation:
+if SMM is disabled, it fails without calling the provider. A task already started
+may finish; deactivation does not cancel an external call in progress.
 
-## Données et droits
+## Data and permissions
 
 `User → Membership → Workspace → MobileApp → MetadataSnapshot`
 
 `MobileApp → Brief → GenerationRun → Creative`
 
-Un utilisateur peut appartenir à plusieurs espaces. Les rôles sont owner,
-editor et viewer. Seul owner gère les modules et connexions ; viewer ne modifie pas de données.
-Toutes les routes métier contrôlent l'appartenance, le rôle et le module actif.
-Les UUID ne constituent pas un mécanisme d'autorisation. L'administration Django
-est réservée aux administrateurs de l'installation, avec visibilité globale.
-L'alpha ne possède pas encore d'interface d'invitation ou de création d'espaces ;
-leur administration passe par Django admin ou les commandes Django.
+A user can belong to multiple workspaces. Roles are owner, editor and viewer.
+Only owners manage modules and connections; viewers cannot modify data. All
+business routes check membership, role and module activation. UUIDs are not an
+authorization mechanism. Django administration is reserved for installation
+administrators, with global visibility. The alpha has no invitation or additional
+workspace creation interface yet; administration uses Django admin or Django commands.
 
-L'isolation s'effectue au niveau applicatif, pas par une base distincte par
-client ni par des politiques PostgreSQL RLS. Un module Python installé est du
-code de confiance ayant accès au processus et à la base. Le registre n'est pas
-une sandbox pour du code tiers malveillant.
+Isolation is enforced at the application level, not through a separate database
+per customer or PostgreSQL RLS policies. An installed Python module is trusted
+code with process and database access. The registry is not a sandbox for malicious
+third-party code.
 
-## Import et génération
+## Import and generation
 
-Le connecteur démo fournit des données locales explicitement fictives. Un import
-met à jour l'app et crée un instantané si la dernière version diffère. Réimporter
-le même contenu à la suite ne le duplique pas ; revenir à une ancienne version
-crée un nouvel instantané chronologique.
+The demo connector supplies explicitly fictional local data. An import updates
+the app and creates a snapshot if the latest version differs. Reimporting the same
+content consecutively does not duplicate it; returning to an earlier version
+creates a new chronological snapshot.
 
-Le module Apple conserve `Workspace → AppleConnection → AppleAppBinding → MobileApp`.
-Chaque connexion possède une clé API chiffrée par l'installation et une révision.
-L'appel réseau précède la transaction d'import ; les verrous et la révision empêchent
-un import de recréer une connexion supprimée ou d'enregistrer des résultats avec
-une clé remplacée. Déconnecter conserve les apps et instantanés mais retire leurs
-liens de synchronisation. Les requêtes sont exclusivement GET vers l'API Apple.
-Le client vérifie les pages suivantes et limite les délais, tailles et requêtes.
-Le connecteur reste synchrone ; les gros imports et tâches planifiées viendront ensuite.
+The Apple module stores `Workspace → AppleConnection → AppleAppBinding → MobileApp`.
+Each connection has an API key encrypted by the installation and a revision.
+The network call precedes the import transaction; locks and the revision prevent
+an import from recreating a deleted connection or saving results with a replaced
+key. Disconnecting preserves apps and snapshots but removes synchronization bindings.
+Requests are exclusively GET calls to Apple's API. The client validates pagination
+and bounds time, size and request counts. The connector remains synchronous;
+large imports and scheduled tasks are future work.
 
-Connections conserve l'identifiant technique `apple_store` pour préserver les
-installations existantes. Le sous-paquet `addons/apple_store/google_play` ajoute
-`Workspace → GooglePlayConnection → GooglePlayAppBinding → MobileApp`, sous les
-routes `apple_store/google-play/`. Les fiches Android conservent leur description
-courte distincte du sous-titre Apple. Les instantanés utilisent `google_play.api`
-et la synchronisation `google_play` ; l'interface dirige cette dernière vers le
-connecteur correspondant.
+Connections retains the technical identifier `apple_store` to preserve existing
+installations. The `addons/apple_store/google_play` subpackage adds
+`Workspace → GooglePlayConnection → GooglePlayAppBinding → MobileApp`, under
+`apple_store/google-play/` routes. Android listings keep their short description
+separate from Apple's subtitle. Snapshots use `google_play.api` and synchronization
+uses `google_play`; the interface directs the latter to its matching connector.
 
-Google Play nécessite une session d'édition temporaire pour lire une copie de la
-fiche déployée. Le client autorise seulement l'échange OAuth, la création de cette
-session, les lectures prévues et sa suppression. Il refuse les redirections et
-la publication. Un compte de service dédié évite d'invalider une session d'un autre
-outil. `GooglePlayLease`, partagé entre espaces et expirant après 90 secondes,
-empêche les imports simultanés de ce compte dans l'installation. L'import a un
-budget de 40 secondes et un nettoyage borné séparé. Une révision modifiée ou une
-connexion supprimée pendant la lecture empêche l'enregistrement des résultats.
+Google Play requires a temporary edit session to read a copy of the deployed listing.
+The client allows only the OAuth exchange, session creation, supported reads and
+session deletion. It rejects redirects and publishing. A dedicated service account
+avoids invalidating another tool's session. `GooglePlayLease`, shared across
+workspaces and expiring after 90 seconds, prevents simultaneous imports for that
+account in the installation. Imports have a 40-second budget and a separate bounded
+cleanup. A changed revision or deleted connection during reading prevents results
+from being saved.
 
-L'interface importe une app à la fois. Apple propose le catalogue du compte choisi ;
-Google Play demande le nom de package, son API ne fournissant pas le catalogue complet.
-Le compte et la clé se gèrent dans Connexions, la sélection et l'import dans Mes applications.
+The interface imports one app at a time. Apple provides the selected account's
+catalogue; Google Play requires the package name because its API does not provide
+a complete catalogue. Accounts and keys are managed in Connections, selection and
+import in My apps.
 
-### Projets sans fiche store
+### Projects without a store listing
 
-`MobileApp.origin=project` distingue une idée ou une app en développement d'un import.
-Le catalogue accepte une description saisie, collée ou importée en Markdown, jusqu'à
-20 000 caractères, avec audience et fonctionnalités déclarées comme développées.
-Les modifications créent des instantanés ; les recherches et analyses conservent celui
-utilisé au démarrage dans `app_context`. Aucun compte store ni fiche préécrite n'est requis.
+`MobileApp.origin=project` distinguishes an idea or app in development from an import.
+The catalogue accepts a typed, pasted or Markdown-imported description of up to
+20,000 characters, with an audience and features declared as implemented. Edits
+create snapshots; research and analyses retain the one used at startup in
+`app_context`. No store account or prewritten listing is required.
 
-SMM reçoit le descriptif complet et un périmètre confirmé de 4 000 caractères maximum.
-Les propositions ASO et adaptations SMM préparent des textes pour la publication,
-au présent, à partir des fonctionnalités documentées. Le stade interne du projet ne
-devient pas une mention obligatoire dans la publicité. Les questions restantes et
-les médias à fournir restent hors des textes destinés au public. Cette convention
-n'autorise ni fonctionnalités inventées, ni faux témoignages ou résultats, ni affirmation
-de disponibilité sur un store. Écriture et vérification utilisent la même convention.
+SMM receives the full description and confirmed scope of up to 4,000 characters.
+ASO proposals and SMM adaptations prepare publication copy in the present tense,
+based on documented features. The internal project stage does not become a mandatory
+advertising disclaimer. Open questions and required media stay outside audience-facing
+copy. This convention permits no invented features, fake testimonials or results,
+or claims of store availability. Writing and verification use the same convention.
 
-### Générations
+### Generations
 
-Une génération enregistre le brief et les métadonnées utilisés avant de lancer
-la tâche. Le couple espace/request_id protège contre les requêtes répétées ;
-une réutilisation avec des entrées différentes donne HTTP 409. La tâche verrouille
-son état et ne recrée pas les variantes après une seconde livraison normale.
-Les états incluent queued, running, canceling, succeeded, canceled et failed.
-Les erreurs sont enregistrées ; le workflow lié fournit l’état de référence.
+A generation records the brief and metadata used before starting its task.
+The workspace/request_id pair protects against repeated requests; reuse with
+different inputs returns HTTP 409. The task locks its state and does not recreate
+variants after a normal second delivery. States include queued, running, canceling,
+succeeded, canceled and failed. Errors are recorded; the linked workflow supplies
+the authoritative state.
 
-En local, `run_workflows` traite les tâches depuis la base ; Compose utilise
-Redis et Celery. Les exécutions possèdent un bail et un heartbeat. Un worker
-interrompu perd le droit d’enregistrer un résultat après expiration de son bail.
-Le suivi et le worker local détectent les baux expirés ; la reprise est explicite.
+Locally, `run_workflows` processes tasks from the database; Compose uses Redis and
+Celery. Executions have a lease and heartbeat. An interrupted worker loses the
+right to save results after its lease expires. Tracking and the local worker
+detect expired leases; retry is explicit.
 
-Le mode démo produit trois scripts avec des modèles de rédaction déterministes ;
-SMM propose aussi une génération IA à partir des observations sélectionnées.
-Les scripts sont éditables et exportables. Une modification invalide leur approbation,
-même si un client envoie une approbation dans la même requête. SMM dispose d'un connecteur
-pour le navigateur de l'utilisateur ; l'ancien parcours de pages publiques côté serveur
-reste accessible séparément. La publication automatique est réservée au cloud et reste
-à construire.
+Demo mode produces three scripts using deterministic writing templates; SMM also
+supports AI generation from selected observations. Scripts are editable and
+exportable. An edit invalidates approval, even if a client sends approval in the
+same request. SMM has a connector for the user's browser; the older server-side
+public-page flow remains separately accessible. Automatic publishing is reserved
+for the cloud edition and remains to be built.
 
-## Fournisseurs IA et langues
+## AI providers and languages
 
-ASO et SMM sont des modules distincts ; un audit ASO n'est pas requis pour utiliser SMM.
-Les règles ASO vérifiables par code restent
-distinctes des appréciations éditoriales assistées par IA ; chacune conserve sa
-source officielle et sa date. Les scripts référencent l'instantané de la fiche
-utilisé, afin que les générations restent traçables.
+ASO and SMM are separate modules; an ASO audit is not required to use SMM.
+ASO rules that can be checked in code remain distinct from AI-assisted editorial
+judgments; each retains its official source and date. Scripts reference the listing
+snapshot used so generations remain traceable.
 
-Le socle `panda_store.ai` propose OpenAI (Responses + JSON Schema), Google Gemini
-(generateContent + JSON Schema), Anthropic Claude (outil de réponse structuré) et
-Z.ai GLM (Chat Completions et validation locale du schéma JSON).
-`AIConnection` conserve la clé chiffrée et un catalogue par fournisseur/espace.
-Seul le propriétaire peut connecter, remplacer, actualiser ou retirer une connexion.
-Les membres lisent uniquement l’état et le catalogue. Les modèles textuels sont filtrés
-par famille ; leur disponibilité effective est confirmée à l’appel, sans repli automatique.
-Les endpoints et hôtes sont fixes ; délais et taille des réponses sont bornés. Les erreurs
-sont traduites en messages contrôlés sans réponse fournisseur brute ni clé.
+The `panda_store.ai` foundation supports OpenAI (Responses + JSON Schema), Google
+Gemini (generateContent + JSON Schema), Anthropic Claude (structured response tool)
+and Z.ai GLM (Chat Completions and local JSON Schema validation).
+`AIConnection` stores the encrypted key and a catalogue per provider/workspace.
+Only the owner can connect, replace, refresh or remove a connection. Members can
+read only its status and catalogue. Text models are filtered by family; actual
+availability is confirmed at call time, without automatic fallback. Endpoints and
+hosts are fixed; deadlines and response sizes are bounded. Errors become controlled
+messages without raw provider responses or keys.
 
-La validation réseau des clés précède la transaction de sauvegarde. Un verrou sur
-l’espace et une révision attendue empêchent de ressusciter une connexion supprimée
-ou d’écraser un remplacement concurrent. Les clés d’environnement ne deviennent pas
-implicitement accessibles à tous les espaces. L’interface ASO choisit explicitement
-le modèle pour chaque analyse ; il n’existe pas encore de préférence de modèle durable.
+Network key validation precedes the save transaction. A workspace lock and expected
+revision prevent recreating a deleted connection or overwriting a concurrent
+replacement. Environment keys do not become implicitly accessible to all workspaces.
+ASO requires an explicit model choice for each analysis; no persistent model
+preference exists yet.
 
-Le composant partagé affiche au plus cinq modèles principaux par fournisseur et une
-action pour voir les autres. `web/src/ai/modelProfiles.ts` décrit leurs usages, vitesse
-relative, capacités visuelles, raisonnement et réglages effectifs, avec sources et date
-de revue. La sélection croise ces profils avec le catalogue de la connexion ; actualiser
-le catalogue ne réécrit pas les conseils. Chaque module signale un modèle recommandé
-compatible avec la tâche, sans le sélectionner ni lancer d'appel automatiquement.
-Les modèles inconnus gardent leurs caractéristiques non vérifiées. Il s'agit de conseils
-éditoriaux, pas d'un classement mesuré de qualité ASO ou SMM.
+The shared component shows up to five main models per provider and an action to
+show the rest. `web/src/ai/modelProfiles.ts` describes uses, relative speed, vision
+capabilities, reasoning and effective settings, with sources and review dates.
+Selection intersects these profiles with the connection catalogue; refreshing the
+catalogue does not rewrite guidance. Each module identifies a recommended model
+compatible with the task, without selecting it or starting a call automatically.
+Unknown models keep their characteristics unverified. This is editorial guidance,
+not a measured ASO or SMM quality ranking.
 
-Les tâches avec captures exigent un modèle capable d'analyser des images. Le sélecteur
-ne génère pas d'images. Z.ai utilise un catalogue maintenu dans l'application et une
-clé API standard ; la recherche sociale navigateur est compatible avec ses modèles
-visuels, mais l'ancienne découverte web côté serveur ne l'est pas. Les détails de
-connexion et validations réelles sont dans le [guide des connexions](connections.md).
+Tasks with captures require an image-capable model. The selector does not generate
+images. Z.ai uses an application-maintained catalogue and a standard API key;
+browser social research supports its vision models, but legacy server-side web
+discovery does not. Connection details and live validations are in the
+[connections guide](connections.md).
 
-Les limites de sortie peuvent inclure le raisonnement selon le fournisseur. Une réponse
-tronquée échoue explicitement sans proposition incomplète ni nouvel appel payant
-automatique. Les réglages affichés doivent rester alignés sur les adaptateurs serveur.
+Output limits may include reasoning, depending on the provider. A truncated response
+fails explicitly without an incomplete proposal or automatic paid retry. Displayed
+settings must stay aligned with server adapters.
 
-Le choix français ou anglais de l'assistant initial est enregistré dans `User.language`.
-Les workflows figent la langue des nouvelles analyses et explications ; les textes store
-suivent la locale choisie et les scripts la langue de leur brief. Un nouveau brief prend
-par défaut celle du compte. Changer de langue ne traduit ni les imports ni les résultats
-déjà sauvegardés.
+The English or French choice during setup is stored in `User.language`. Workflows
+freeze the language of new analyses and explanations; store copy follows the chosen
+locale, and scripts follow their brief language. New briefs default to the account
+language. Changing language does not translate imports or previously saved results.
 
-Les futurs agents devront conserver les sources et dates de leurs observations,
-les actions effectuées et les coûts. Les connecteurs de stores et réseaux
-sociaux auront des interfaces séparées. La veille et la génération peuvent
-s'exécuter en tâches ; dans la future édition cloud, une publication nécessitera un contenu validé, une
-destination explicite et un mécanisme de reprise idempotent.
+Future agents must retain observation sources and dates, actions performed and costs.
+Store and social connectors will have separate interfaces. Research and generation
+can run as tasks; in the future cloud edition, publishing will require approved
+content, an explicit destination and an idempotent retry mechanism.
 
-Les budgets IA, la facturation et les opérations cloud restent à construire. Les médias
-de l'alpha sont conservés en base avec des quotas locaux décrits dans le [guide SMM](smm.md).
+AI budgets, billing and cloud operations remain to be built. Alpha media is stored
+in the database with local quotas described in the [SMM guide](smm.md).
 
-### Retours d’action et erreurs fournisseur
+### Action feedback and provider errors
 
-Le client API commun affiche une notification après les mutations confirmées et
-leurs échecs. Chaque module peut fournir un libellé explicite via `feedback` ;
-les lectures de fond restent silencieuses. L’autosauvegarde des brouillons conserve
-son état « Saved » local et notifie ses échecs, sans notification à chaque frappe.
-Les copies et exports ont leur propre retour ; « Download started » ne signifie
-pas que le navigateur a terminé d’écrire le fichier.
+The shared API client shows a notification after confirmed mutations and their
+failures. Each module can supply explicit wording through `feedback`; background
+reads stay silent. Draft autosave keeps its local Saved state and reports failures,
+without notifying on every keystroke. Copies and exports have their own feedback;
+Download started does not mean the browser has finished writing the file.
 
-Les réponses de démarrage contenant `workflow_id` sont suivies par le socle tant
-que la page reste ouverte, même après navigation dans un autre module. La fin,
-l’annulation ou l’échec déclenche un retour unique ; lire un ancien rapport ne
-redéclenche pas sa notification. Une interruption réseau du suivi ne marque pas
-la tâche comme échouée. Les erreurs restent visibles jusqu’à fermeture, les succès
-disparaissent après sept secondes ; cinq notifications au maximum sont affichées.
-Cette file est en mémoire, vidée à la déconnexion et au rechargement de page :
-ce n’est pas un système de notifications push ou un historique durable. Le statut
-et les erreurs des workflows restent consultables dans leur activité enregistrée.
+Start responses containing `workflow_id` are tracked while the page stays open,
+even after navigating to another module. Completion, cancellation or failure
+produces one notification; reading an old report does not trigger it again.
+A tracking network interruption does not mark a task as failed. Errors remain
+visible until dismissed; successes disappear after seven seconds. At most five
+notifications are shown. This queue is in memory and cleared on sign-out or page
+reload; it is not a push notification system or durable history. Workflow status
+and errors remain available in saved activity.
 
-L’adaptateur IA lit une réponse d’erreur bornée à 64 Ko et traduit ses codes en
-messages contrôlés : clé refusée, permissions, crédits, plafond de dépenses,
-quota, débit, modèle absent, entrée trop grande, indisponibilité ou délai dépassé.
-Il conserve l’ambiguïté lorsqu’un `429` ne permet pas de distinguer quota et débit.
-Les codes de facturation OpenAI ont priorité sur le type général `insufficient_quota`.
-Les anciennes erreurs Claude de crédit/plafond en `400` sont reconnues par des
-expressions connues, sans exposer le message brut. `Retry-After` numérique ou daté
-est interprété de façon bornée pour conseiller un délai. Aucune requête IA payante
-n’est relancée automatiquement ; un timeout peut avoir déjà été facturé.
-Les refus de contenu et sorties tronquées ne deviennent pas des recommandations.
-Ce traitement réagit aux erreurs réelles ; il ne lit pas le solde des comptes.
+The AI adapter reads error responses bounded to 64 KB and translates codes into
+controlled messages: rejected key, permissions, credits, spending limit, quota,
+rate limit, missing model, oversized input, unavailability or timeout. It preserves
+ambiguity when a `429` cannot distinguish quota from rate limiting. OpenAI billing
+codes take priority over the general `insufficient_quota` type. Older Claude
+credit/spending errors in `400` responses are recognized through known phrases,
+without exposing raw messages. Numeric or dated `Retry-After` values are interpreted
+within bounds to suggest a delay. No paid AI request is retried automatically;
+a timed-out call may already have been billed. Content refusals and truncated
+outputs do not become recommendations. This handling responds to actual errors;
+it does not read account balances.
 
-Références relues le 16 octobre 2026 :
+References reviewed on October 16, 2026:
 [OpenAI error codes](https://developers.openai.com/api/docs/guides/error-codes),
 [Gemini troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting),
 [Claude API errors](https://platform.claude.com/docs/en/api/errors).
 
-## Workflows et événements d'exécution
+## Workflows and execution events
 
-Le socle `panda_store.workflows` est partagé, avec une première intégration dans
-SMM. `WorkflowRun`, `StepRun` et `RunEvent` conservent la définition versionnée,
-les dépendances, les états, les dates et les événements ordonnés. SMM fige
-l'instantané, le brief et le fournisseur dans `GenerationRun`. Les anciennes
-générations restent lisibles sans inventer d'événements historiques.
+The shared `panda_store.workflows` foundation was first integrated in SMM.
+`WorkflowRun`, `StepRun` and `RunEvent` retain the versioned definition, dependencies,
+states, dates and ordered events. SMM freezes the snapshot, brief and provider in
+`GenerationRun`. Older generations remain readable without invented historical events.
 
-Les parcours actuels sont séquentiels, avec des étapes propres à chaque tâche ASO ou SMM.
-La génération IA vérifie le contexte, rédige les propositions, relit leurs affirmations
-puis les enregistre pour revue humaine. Un contrat de
-module déclare ses étapes et un adaptateur `workflow.RUNNERS` associe une clé et
-une version à son exécuteur. Les dépendances sont vérifiées à la création ; le
-worker local charge seulement les adaptateurs des packages déjà installés dans
-le registre. Le code des modules conserve le modèle de confiance existant.
+Current flows are sequential, with steps specific to each ASO or SMM task. AI generation
+checks context, writes proposals, reviews claims and saves them for human review.
+A module contract declares its steps, and a `workflow.RUNNERS` adapter maps a key
+and version to an executor. Dependencies are checked at creation; the local worker
+loads only adapters from packages already installed in the registry. Module code
+retains the existing trust model.
 
-Les transitions et événements sont enregistrés dans une même transaction sous
-verrou de l'exécution. Un jeton de bail protège les écritures contre un worker
-ancien ou annulé. Le heartbeat prolonge un bail de 45 secondes toutes les dix
-secondes. Une tâche en attente depuis plus de cinq minutes est marquée en échec
-lors de sa consultation, avec une indication pour démarrer le worker. Les clients
-actifs et le worker local détectent les baux expirés ; il n'existe pas encore de
-superviseur périodique autonome pour les exécutions Celery non consultées.
+Transitions and events are saved in one transaction under the execution lock.
+A lease token protects writes from an old or canceled worker. The heartbeat extends
+a 45-second lease every ten seconds. A task queued for more than five minutes is
+marked failed when inspected, with instructions to start the worker. Active clients
+and the local worker detect expired leases; there is no autonomous periodic
+supervisor yet for unobserved Celery executions.
 
-Les routes communes `/api/workspaces/{id}/workflows/{run}/` et `events/` fournissent
-respectivement un état paginé et un flux SSE authentifié. Elles vérifient espace,
-appartenance et activation du module. Le flux réévalue les accès à chaque lot,
-accepte `Last-Event-ID` et conserve des événements ordonnés en base. Il dure au plus
-25 secondes ; EventSource se reconnecte, avec polling de secours côté React.
-Uvicorn/ASGI et Nginx sans buffering sont configurés pour Compose. Le backend
-utilise `CONN_MAX_AGE=0` et les threads de heartbeat ferment leurs connexions à
-la sortie. Ce réglage suit les [recommandations Django pour ASGI](https://docs.djangoproject.com/en/5.2/topics/async/#queries-the-orm).
-Le serveur
-WSGI de développement reste compatible avec un flux synchrone borné. Une coupure
-du flux est signalée séparément de l'échec de la tâche.
+The shared `/api/workspaces/{id}/workflows/{run}/` and `events/` routes provide
+paginated state and an authenticated SSE stream respectively. They check workspace,
+membership and module activation. The stream rechecks access for each batch,
+accepts `Last-Event-ID` and retains ordered events in the database. It lasts at most
+25 seconds; EventSource reconnects, with fallback polling in React. Compose configures
+Uvicorn/ASGI and Nginx without buffering. The backend uses `CONN_MAX_AGE=0`, and
+heartbeat threads close their connections on exit. This follows
+[Django's ASGI guidance](https://docs.djangoproject.com/en/5.2/topics/async/#queries-the-orm).
+The development WSGI server remains compatible with a bounded synchronous stream.
+A stream interruption is reported separately from task failure.
 
-`Stop` annule immédiatement une tâche en file ou demande un arrêt coopératif
-(`canceling`) si elle travaille. La fin de l'appel courant est attendue ; son
-résultat est écarté si le bail ou le statut ne l'autorise plus. La sauvegarde des
-scripts et la réussite du workflow sont atomiques. Un arrêt ne défait pas une
-publication externe et le module SMM actuel n'en effectue aucune.
+`Stop` immediately cancels a queued task or requests cooperative cancellation
+(`canceling`) if it is running. The current call is allowed to finish; its result
+is discarded if the lease or status no longer permits it. Script saving and workflow
+success are atomic. Stopping does not undo an external publication, and the current
+SMM module performs none.
 
-`Retry unfinished steps` crée une tentative liée, conserve la précédente et
-réutilise les checkpoints terminés lorsque version, étapes et dépendances
-correspondent. SMM reprend les entrées originales, même si la fiche ou le
-brief ont changé depuis. Une seule reprise par tentative rend les doubles clics
-idempotents. Les checkpoints internes ne sont pas exposés dans l'API d'activité ;
-les messages sont des résumés contrôlés, jamais des réponses brutes du fournisseur.
-Les scripts produits restent soumis à leur approbation séparée existante.
+`Retry unfinished steps` creates a linked attempt, preserves the previous one and
+reuses completed checkpoints when versions, steps and dependencies match. SMM uses
+the original inputs, even if the listing or brief has since changed. One retry per
+attempt makes double-clicks idempotent. Internal checkpoints are not exposed by the
+activity API; messages are controlled summaries, never raw provider responses.
+Produced scripts still require their existing separate approval.
 
-Le panneau React commun présente les étapes cliquables, leur durée réelle, un
-journal horodaté et les commandes permises par le rôle. Il reprend les événements
-sans doublons et retire les données si l'accès est révoqué. Il n'allonge pas
-artificiellement une génération courte pour simuler une activité d'agent.
+The shared React panel shows clickable steps, actual duration, a timestamped log
+and role-permitted actions. It resumes events without duplicates and removes data
+if access is revoked. It does not artificially extend a short generation to simulate
+agent activity.
 
-Les tests couvrent arrêt en file et pendant un outil, résultats tardifs, reprise
-sans nouvelle génération des résultats sauvegardés, curseurs et reconnexion,
-accès révoqués, panne de dispatch, worker expiré et flux ASGI. Les doubles
-livraisons concurrentes sont aussi vérifiées sur PostgreSQL en CI.
+Tests cover stopping queued tasks and tasks inside a tool, late results, retry
+without regenerating saved results, cursors and reconnection, revoked access,
+dispatch failure, expired workers and ASGI streaming. Concurrent duplicate
+deliveries are also checked with PostgreSQL in CI.
 
-Le navigateur SMM, les étapes IA et les médias privés sont implémentés. Restent à
-construire : ordonnanceur de branches parallèles, validation humaine suspendant un
-workflow, contrats de progression quantifiée, éditeur visuel et supervision autonome
-de toutes les tâches. Chaque futur connecteur de publication cloud devra ajouter
-idempotence et réconciliation. Les URLs, captures et coûts affichés doivent correspondre
-aux résultats effectivement produits par les outils.
+The SMM browser, AI steps and private media are implemented. Remaining work includes
+parallel branch scheduling, human review that suspends a workflow, quantified
+progress contracts, a visual editor and autonomous supervision of all tasks.
+Each future cloud publishing connector must add idempotency and reconciliation.
+Displayed URLs, captures and costs must match results actually produced by tools.
 
-## Conception de l'agent ASO spécialisé
+## Specialized ASO agent design
 
-Le module disponible réalise les contrôles locaux de métadonnées Apple, avec
-historique par langue et suivi du workflow commun. `AuditRun` conserve l'import,
-la version des règles et le rapport ; les contrôles déterministes restent locaux.
-Chaque contrôle conserve ses références et leur date de revue. Le champ
-`available_fields` des nouveaux imports distingue une absence de donnée d'une
-valeur vide. Les imports antérieurs utilisent uniquement les champs présents.
-Une langue absente ne bénéficie jamais d'un repli implicite sur la langue principale.
-La reprise garde l'import original ; changer les règles impose de changer leur
-version et celle du workflow. Un rapport sauvegardé n'est pas recalculé à la lecture.
+The available module runs local Apple metadata checks, with history per language
+and shared workflow tracking. `AuditRun` retains the import, rule version and report;
+deterministic checks stay local. Each check retains its references and their review
+dates. The `available_fields` property in new imports distinguishes missing data
+from an empty value. Older imports use only fields present in the data. A missing
+language never silently falls back to the primary language. Retry keeps the original
+import; changing rules requires changing their version and the workflow version.
+A saved report is not recalculated when read.
 
-Au retour dans ASO, l'interface restaure l'audit consulté ou actif, sa langue et son type.
-L'historique permet de relire les rapports sans relancer le modèle. La comparaison place
-deux analyses terminées côte à côte et permet de choisir chaque champ depuis A ou B.
-La création du brouillon conserve la provenance par champ et n'appelle pas l'IA.
-Des langues ou types d'analyse différents restent comparables, mais leurs propositions
-ne peuvent pas être fusionnées. Les différences de version source sont signalées.
+On returning to ASO, the interface restores the viewed or active audit, its language
+and type. History allows reports to be read without rerunning a model. Comparison
+places two completed analyses side by side and lets users choose each field from
+A or B. Creating a draft retains provenance per field and makes no AI call. Different
+languages or analysis types remain comparable, but their proposals cannot be merged.
+Source-version differences are flagged.
 
-Pour un projet iOS ou sans plateforme choisie, le workflow de préparation analyse le
-positionnement, l'audience, les intentions de recherche et les informations manquantes,
-puis propose les cinq champs Apple, dont le texte promotionnel de 170 caractères.
-Il valide longueurs, citations exactes du projet et sources par champ avant une revue
-séparée. Un rejet structurel conserve la réponse et le motif dans un checkpoint privé ;
-une reprise explicite demande une correction, puis la vérifie. Une vérification interrompue
-réutilise la rédaction sauvegardée. Le projet, le modèle et les sources restent figés.
-Le brouillon proposé reste distinct du projet et n'est jamais publié automatiquement.
+For an iOS project or one without a chosen platform, the preparation workflow analyzes
+positioning, audience, search intents and missing information, then proposes all five
+Apple fields, including the 170-character promotional text. It validates lengths,
+exact project quotes and sources per field before a separate review. Structural
+rejection retains the response and reason in a private checkpoint; an explicit retry
+requests a correction, then verifies it. Interrupted verification reuses saved writing.
+The project, model and sources remain frozen. The proposed draft remains separate
+from the project and is never published automatically.
 
-Le [catalogue de sources](../addons/aso/knowledge/sources.json) distingue les
-références disponibles des [annotations utilisées](../addons/aso/knowledge/editorial.json).
-Les contrôles déterministes utilisent les références Apple. La revue IA reçoit
-uniquement les annotations explicitement retenues pour ce store et ces champs.
+The [source catalogue](../addons/aso/knowledge/sources.json) distinguishes available
+references from [active annotations](../addons/aso/knowledge/editorial.json).
+Deterministic checks use Apple references. AI review receives only annotations
+explicitly selected for that store and those fields.
 
-### Revue éditoriale implémentée
+### Implemented editorial review
 
-Le workflow optionnel `aso.editorial` version 2 ajoute une requête de rédaction,
-une validation structurelle puis une seconde requête de contrôle des affirmations
-après les règles locales. `AuditRun.inputs` fige fournisseur, modèle demandé, identifiant
-et révision de connexion, version d’instructions, critères par champ, limite de sortie
-et annotations sourcées avec leur version.
-La version du contrôle des affirmations et son plafond de sortie sont également
-figés. L'interface annonce jusqu'à deux appels facturés avant le lancement.
-Le rapport conserve le modèle résolu et les tokens retournés. Les checkpoints de
-réponse et de validation permettent une reprise sans rappeler un modèle ayant déjà
-répondu. Une réponse perdue avant sauvegarde peut être facturée à nouveau lors d’une
-reprise explicite ; aucune garantie d’exactly-once sur l’API tierce n’est annoncée.
-Le heartbeat maintient le bail pendant le réseau. Annuler écarte les résultats tardifs
-mais n’annule pas une facture déjà engagée. Retirer/remplacer la clé avant l’appel
-fait échouer cette tentative, sans basculer vers une autre clé ou un autre fournisseur.
+The optional `aso.editorial` version 2 workflow adds a writing request, structural
+validation and a second claim-checking request after local rules. `AuditRun.inputs`
+freezes the provider, requested model, connection ID and revision, instruction version,
+criteria per field, output limit and versioned source annotations. The claim-checking
+version and output cap are also frozen. The interface announces up to two billed calls
+before starting. The report retains the resolved model and returned tokens. Response
+and validation checkpoints allow retry without recalling a model that has already
+answered. A response lost before saving may be billed again on an explicit retry;
+no exactly-once guarantee is made for the third-party API. The heartbeat maintains
+the lease during network calls. Cancellation discards late results but does not undo
+billing already incurred. Removing or replacing a key before the call fails that
+attempt without switching keys or providers.
 
-La validation impose langue disponible, champs supportés, citations présentes dans
-l’import, références autorisées, limites de texte, absence de doublons, nouveaux
-nombres ou changements d’URLs. Elle ne prouve pas la fidélité des promesses, la bonne
-interprétation des sources ou la valeur commerciale : toutes les propositions IA
-sont marquées hypothèses à relire. Elles peuvent alimenter un brouillon, jamais
-écrire chez Apple. Les règles, l’activité et le rapport historique restent distincts.
-Le corpus courant contient cinq annotations de méthode : deux guides Apple, le
-cadre ASO de Phiture, la méthodologie de recherche de mots-clés AppTweak et celle
-d'expérimentation SplitMetrics. Trois observations de fiches publiques complètent
-la revue du nom, du sous-titre et de la description : Duolingo, Spotify et Tinder.
-Chaque annotation porte son champ d'application,
-son store, sa date de revue, le type de source et ses limites. Les seuils chiffrés
-et affirmations algorithmiques non corroborés ne sont pas ingérés. Le catalogue
-plus large inclut des références Google et des études de cas qui ne sont pas
-envoyées au modèle. La recherche en direct et le graphe restent à faire. La revue
-des images fonctionne dans un workflow séparé décrit plus bas.
+Validation requires an available language, supported fields, quotes present in the
+import, allowed references, text limits and no duplicates, new numbers or URL changes.
+It does not prove faithful claims, correct source interpretation or commercial value:
+all AI proposals are marked as hypotheses for review. They can populate a draft,
+never write to Apple. Rules, activity and historical reports remain distinct.
+The current corpus contains five method annotations: two Apple guides, Phiture's
+ASO framework, AppTweak's keyword research methodology and SplitMetrics' experimentation
+methodology. Three public listing observations supplement name, subtitle and description
+review: Duolingo, Spotify and Tinder. Each annotation includes its scope, store,
+review date, source type and limits. Unsupported numerical thresholds and algorithmic
+claims are not ingested. The broader catalogue includes Google references and case
+studies not sent to the model. Live research and the graph remain to be built.
+Image review runs in a separate workflow described below.
 
-Depuis `apple-editorial-2026-10-17.2`, chaque avis ou proposition doit citer au
-moins une référence officielle applicable ; une méthodologie de prestataire ne
-peut pas être sa seule autorité. Les citations hors champ ou hors store sont
-écartées. Ce contrôle structurel ne prouve pas que le modèle interprète bien la
-source. Le serveur conserve l'annotation exacte sur les citations acceptées.
-Les versions précédentes restent validables avec leurs propres notes sauvegardées.
+Since `apple-editorial-2026-10-17.2`, each assessment or proposal must cite at least
+one applicable official reference; a vendor methodology cannot be its only authority.
+Out-of-scope or wrong-store citations are rejected. This structural check does not
+prove correct interpretation of the source. The server retains the exact annotation
+on accepted citations. Previous versions remain validatable with their own saved notes.
 
-Le transport IA possède une échéance totale de 300 secondes par génération,
-configurable par installation via `PANDA_AI_TIMEOUT_SECONDS` (30 à 900 secondes).
-Un client HTTPX asynchrone dans une boucle temporaire permet à `asyncio.timeout`
-d'interrompre aussi une attente du premier octet ou un corps reçu très lentement.
-L'interface Python reste synchrone pour les vues et workers ; aucun accès ORM
-n'est effectué dans cette boucle. Les limites HTTPX de connexion, écriture et
-pool restent courtes. Le catalogue conserve son délai de lecture de 70 secondes
-et une échéance totale de 90 secondes. Les limites Celery de l'audit sont calculées
-pour deux échéances de génération, plus 60/90 secondes de marge. Backend et worker
-doivent être redémarrés après un changement de configuration.
+AI transport has a total 300-second deadline per generation, configurable per
+installation through `PANDA_AI_TIMEOUT_SECONDS` (30 to 900 seconds). An asynchronous
+HTTPX client in a temporary event loop allows `asyncio.timeout` to interrupt both
+waiting for the first byte and a very slowly received body. The Python interface
+remains synchronous for views and workers; no ORM access occurs in this loop.
+HTTPX connection, write and pool limits remain short. Catalogue requests retain a
+70-second read timeout and 90-second total deadline. Audit Celery limits allow two
+generation deadlines plus 60/90 seconds of overhead. Restart the backend and worker
+after changing configuration.
 
-Cette correction fait suite à un audit Gemini 4 Argon interrompu localement après
-70 secondes avant sa première réponse. Elle conserve les plafonds de sortie,
-la vérification des affirmations et l'absence de relance payante automatique.
-Google décrit la latence supplémentaire du raisonnement dans son
-[guide de dépannage](https://ai.google.dev/gemini-api/docs/troubleshooting).
-HTTPX distingue le délai d'inactivité de lecture d'une échéance globale dans sa
-[documentation des timeouts](https://www.python-httpx.org/advanced/timeouts/).
-La reprise réelle du même audit `fr-CA` avec Gemini 4 Argon a terminé en 32 secondes
-après la correction, en réutilisant les étapes de lecture et de règles. Cet essai
-confirme le parcours de reprise ; sa réponse plus rapide ne prouve pas à elle seule
-le comportement au-delà de 70 secondes. Les tests du transport vérifient le budget
-configuré, l'interruption avant le premier octet ou pendant le corps, la fermeture
-de la connexion et l'absence de requêtes automatiques supplémentaires.
+This correction followed a Gemini 4 Argon audit interrupted locally after 70 seconds
+before its first response. It preserves output caps, claim checking and the absence
+of automatic paid retries. Google describes additional reasoning latency in its
+[troubleshooting guide](https://ai.google.dev/gemini-api/docs/troubleshooting).
+HTTPX distinguishes read inactivity limits from a total deadline in its
+[timeout documentation](https://www.python-httpx.org/advanced/timeouts/).
+A live retry of the same `fr-CA` audit with Gemini 4 Argon finished in 32 seconds
+after the correction, reusing reading and rule steps. This validates the retry flow;
+the faster response alone does not establish behavior beyond 70 seconds. Transport
+tests verify the configured budget, interruption before the first byte or during the
+body, connection closure and the absence of additional automatic requests.
 
-Depuis `apple-editorial-2026-10-17.3`, `grounding.py` examine séparément les
-observations, titres, justifications et remplacements après validation structurelle.
-Le même fournisseur et modèle est appelé avec une consigne de vérification dédiée,
-le texte importé, les annotations, les résultats des règles locales et les candidats
-exacts, sans attentes du benchmark. Les propositions générées ne peuvent pas servir
-de preuves à elles-mêmes.
-Le contrôle distingue notamment stockage local, absence de compte, fonctionnement
-hors ligne, fonctionnalités décrites et comportement vérifié. Les qualifications
-de paiement, confidentialité, réseau et périmètre doivent conserver leur sens.
+Since `apple-editorial-2026-10-17.3`, `grounding.py` separately examines observations,
+titles, rationales and replacements after structural validation. The same provider
+and model is called with dedicated verification instructions, imported text,
+annotations, local rule results and exact candidates, without benchmark expectations.
+Generated proposals cannot serve as their own evidence. The check distinguishes
+local storage, no account requirement, offline operation, described features and
+verified behavior. Qualifications about payment, privacy, network and scope must
+retain their meaning.
 
-Chaque candidat doit recevoir un verdict `supported`, `unsupported` ou `uncertain`.
-Un refus cite un passage exact du candidat ; les identifiants doivent couvrir
-exactement tous les candidats, sans doublon. Le résultat est lié au contexte par
-empreinte SHA-256. Un contrôle absent, incomplet ou détaché de son contexte échoue
-sans publier les recommandations. Une observation non étayée est remplacée par un
-message serveur et bloque aussi sa proposition ; une proposition refusée disparaît
-des changements proposés. Le motif généré par le vérificateur reste dans le
-checkpoint et n'est pas réaffiché comme une nouvelle affirmation fiable.
+Each candidate must receive a `supported`, `unsupported` or `uncertain` verdict.
+A rejection quotes an exact candidate passage; IDs must cover all candidates exactly,
+without duplicates. The result is bound to its context by SHA-256. Missing, incomplete
+or context-detached checks fail without publishing recommendations. An unsupported
+observation is replaced by a server message and also blocks its proposal; a rejected
+proposal disappears from suggested changes. The verifier's generated reason remains
+in the checkpoint and is not displayed as a new reliable assertion.
 
-L'étape `Check claims against listing` possède son checkpoint ; une reprise ne
-refait que les étapes inachevées. Les clés sont revérifiées avant chacun des deux
-appels, et une annulation écarte tout résultat tardif. Les tokens des deux appels
-sont distincts. Ce filtre utilise un modèle, pas une preuve indépendante : ses
-faux positifs et faux négatifs doivent être évalués. Sept cas de régression
-reproductibles comprennent les deux réponses fautives observées et des contrôles
-positifs/négatifs sur les mêmes notions. Les rapports historiques ne sont pas
-réécrits et indiquent qu'ils précèdent cette étape.
+The `Check claims against listing` step has its own checkpoint; retry repeats only
+unfinished steps. Keys are rechecked before both calls, and cancellation discards
+late results. Tokens from the two calls are separate. This filter uses a model,
+not independent evidence: false positives and false negatives must be evaluated.
+Seven reproducible regression cases include the two observed faulty responses and
+positive/negative controls on the same concepts. Historical reports are not rewritten
+and indicate that they predate this step.
 
-L'onglet `Sources` sépare les notes de l'audit sélectionné de la bibliothèque pour
-les prochains audits. `GET /api/workspaces/{id}/aso/knowledge/` fournit cette
-dernière aux membres d'un espace où ASO est activé, y compris en lecture seule.
-La lecture des audits renvoie leurs notes sauvegardées et ne les remplace jamais
-par le catalogue courant. Les dates des règles locales restent indépendantes des
-dates de revue des annotations. Aucun appel fournisseur n'est fait pour consulter
-les sources.
+The `Sources` tab separates selected-audit notes from the library for future audits.
+`GET /api/workspaces/{id}/aso/knowledge/` provides the latter to members of a workspace
+with ASO enabled, including read-only members. Reading audits returns their saved
+notes and never replaces them with the current catalogue. Local rule dates remain
+independent of annotation review dates. Viewing sources makes no provider call.
 
-Pour contribuer : vérifier l'article original, ajouter une synthèse courte avec
-ses limites et son périmètre dans `knowledge/editorial.json`, puis changer la
-version du corpus et des instructions. Mettre à jour les tests de périmètre,
-exécuter l'évaluation et redémarrer les processus serveur/worker. Un lien ajouté
-seulement à `sources.json` n'est pas une instruction active pour l'agent.
+To contribute: verify the original article, add a short summary with limits and
+scope to `knowledge/editorial.json`, then change corpus and instruction versions.
+Update scope tests, run evaluation and restart server/worker processes. A link
+added only to `sources.json` is not an active instruction for the agent.
 
-Depuis les instructions `apple-editorial-2026-10-16.3`, chaque nouveau rapport IA
-demande une observation sur les cinq champs : nom, sous-titre, description, texte
-promotionnel et mots-clés. Chaque avis conclut à l’absence de changement utile,
-à une amélioration possible ou à un manque de preuves. Les champs non importés sont
-signalés par le serveur, jamais considérés comme analysés. Une citation du champ est
-requise s’il contient du texte ; une référence ou citation invalide rend cet avis
-indisponible et bloque sa proposition. Le rapport affiche le nombre d’avis validés.
-Un avis sans changement n’est ni une note ASO ni une vérification des fonctionnalités.
+Since `apple-editorial-2026-10-16.3`, each new AI report requests an observation on
+all five fields: name, subtitle, description, promotional text and keywords.
+Each assessment concludes that no useful change is needed, improvement is possible
+or evidence is missing. Unimported fields are flagged by the server, never treated
+as analyzed. A field quote is required when text is present; an invalid reference
+or quote makes the assessment unavailable and blocks its proposal. The report
+shows the number of validated assessments. A no-change assessment is neither an
+ASO score nor feature verification.
 
-Le modèle peut proposer jusqu’à cinq changements, un par champ, uniquement s’il a
-justifié une amélioration dans l’avis correspondant. Un champ importé vide peut être
-complété à partir de preuves présentes dans les autres champs. L’interface affiche
-les avis et propositions sous « Content review », puis les règles Apple, dont les
-limites sont libellées « Within limit ». Les anciens rapports restent inchangés et
-indiquent qu’une nouvelle analyse est nécessaire pour obtenir la couverture par champ.
-Le validateur garde la lecture des anciens checkpoints sans leur inventer d’avis.
+The model can propose up to five changes, one per field, only after justifying
+improvement in the corresponding assessment. An imported empty field can be filled
+from evidence in other fields. The interface shows assessments and proposals under
+Content review, then Apple rules, whose limits are labeled Within limit. Older
+reports remain unchanged and indicate that a new analysis is needed for field-level
+coverage. The validator can read old checkpoints without inventing assessments.
 
-Depuis les instructions `apple-editorial-2026-10-17.1`, les mêmes
-exigences de preuve s'appliquent aux observations et aux justifications : le stockage local
-ne démontre pas un fonctionnement hors ligne, et un nom lisible ne démontre pas
-son unicité sur le marché. Les checkpoints de la version précédente conservent
-leurs cinq avis lors de la validation.
+Since `apple-editorial-2026-10-17.1`, the same evidence requirements apply to
+observations and rationales: local storage does not establish offline operation,
+and a readable name does not establish market uniqueness. Checkpoints from the
+previous version retain their five assessments during validation.
 
-Le [banc d'évaluation](aso-evaluation.md) utilise exactement le contexte et
-l'adaptateur de production, avec dix fiches synthétiques. Les contrôles de sortie
-sont distincts de la revue éditoriale humaine. Les attentes ne sont jamais envoyées
-au modèle. Les rapports enregistrent les entrées, versions, réponses et échecs ;
-une réévaluation explicite conserve les anciens critères et n'effectue aucun appel IA.
+The [evaluation suite](aso-evaluation.md) uses the exact production context and
+adapter with ten synthetic listings. Output checks are separate from human editorial
+review. Expectations are never sent to the model. Reports retain inputs, versions,
+responses and failures; explicit regrading preserves earlier criteria and makes no
+AI call.
 
-Références d’implémentation : [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
+Implementation references: [OpenAI Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs),
 [Gemini generateContent](https://ai.google.dev/api/generate-content),
 [Claude Messages](https://platform.claude.com/docs/en/api/messages/create).
 
-### Brouillons implémentés
+### Implemented drafts
 
-`ListingDraft` conserve une référence importée immuable, une langue, le contenu
-éditable et les propositions sources sélectionnées. Un brouillon peut venir d'un
-import, d'une proposition d'audit terminée ou d'une copie nommée d'un brouillon.
-`DraftRevision` conserve chaque sauvegarde, son auteur, sa raison et son contenu.
-Les mutations exigent la version attendue et un identifiant de requête : un conflit
-retourne 409 ; rejouer la même requête ne crée pas une seconde révision. Le verrou
-de l'espace puis celui du brouillon sérialisent les mutations sur PostgreSQL.
+`ListingDraft` retains an immutable imported reference, language, editable content
+and selected source proposals. A draft can come from an import, a completed audit
+proposal or a named copy of a draft. `DraftRevision` retains every save, its author,
+reason and content. Mutations require the expected version and a request ID:
+a conflict returns 409; replaying the same request does not create a second revision.
+The workspace lock followed by the draft lock serializes mutations on PostgreSQL.
 
-La sauvegarde différée du frontend ne remplace pas les frappes intervenues pendant
-une requête. Un garde de navigation attend la sauvegarde avant de changer de module,
-d'app, d'espace ou de se déconnecter. En cas d'échec, le texte reste à l'écran avec
-une action de reprise ; en cas de conflit, on peut le copier puis charger la version
-enregistrée. Le statut `ready` exige une action séparée et des limites de champs
-résolues, y compris la divergence octets/caractères ; une modification le réinitialise.
+Debounced frontend saving does not overwrite keystrokes entered during a request.
+A navigation guard waits for saving before changing module, app or workspace, or
+signing out. On failure, text stays visible with a retry action; on conflict, users
+can copy it and load the saved version. The `ready` status requires a separate
+action and resolved field limits, including the byte/character discrepancy; editing
+resets it.
 
-La comparaison lit le dernier import de la langue exacte, sans repli ni réécriture
-du brouillon. L'actualisation Apple passe par le connecteur existant et ses contrôles
-de droits/activation. Les champs modifiés peuvent correspondre au dernier import,
-sans changement de statut de revue et sans déduction de publication ou de performance.
-Les exports texte utilisent une révision explicite. Aucun endpoint ne publie sur Apple.
+Comparison reads the latest import for the exact language, without fallback or
+rewriting the draft. Apple refresh uses the existing connector and its permission
+and activation checks. Modified fields may match the latest import without changing
+review status or implying publication or performance. Text exports use an explicit
+revision. No endpoint publishes to Apple.
 
-### Connaissances et preuves
+### Knowledge and evidence
 
-La spécialisation doit couvrir découverte, intentions de recherche, mots-clés,
-conversion, visuels, localisation, avis, expérimentation et mesure. Elle repose sur
-des outils métier, des sources consultables et des évaluations. Une connaissance
-du modèle seul ne suffit pas à justifier une règle, statistique ou promesse produit.
+Specialization must cover discovery, search intents, keywords, conversion, visuals,
+localization, reviews, experimentation and measurement. It relies on domain tools,
+inspectable sources and evaluations. Model knowledge alone cannot justify a rule,
+statistic or product promise.
 
-Les sources sont sélectionnées au niveau de l'article et de l'affirmation :
+Sources are selected at article and claim level:
 
-- Apple et Google : exigences et recommandations classées séparément, avec leur portée.
-- Phiture / ASO Stack : cadre de travail et méthodes de praticiens.
-- AppTweak : recherche de mots-clés et distinction entre observations, données de
-  comptes connectés et estimations propriétaires.
-- SplitMetrics : conception d'expériences et cas clients contextualisés. Un test
-  sur une page simulée avec trafic publicitaire n'est pas une mesure native
-  d'installations organiques.
-- Fiches de grandes apps et concurrents comparables : observations datées, sans
-  prétendre connaître leurs taux de conversion ou mots-clés privés.
-- Données et expériences de l'app : résultats isolés par workspace et liés à un instantané.
+- Apple and Google: requirements and recommendations classified separately, with scope.
+- Phiture / ASO Stack: practitioner frameworks and methods.
+- AppTweak: keyword research and the distinction between observations, connected-account
+  data and proprietary estimates.
+- SplitMetrics: experiment design and contextualized customer cases. A test on a
+  simulated page with paid traffic is not a native measure of organic installs.
+- Major app listings and comparable competitors: dated observations without claiming
+  access to conversion rates or private keywords.
+- App data and experiments: results isolated by workspace and linked to a snapshot.
 
-La réputation d'une société n'approuve pas toutes ses affirmations. Conserver
-éditeur, auteur disponible, URL, dates, store, pays, langue, contexte, type de preuve
-et limites. Les résultats commerciaux restent attribués à leur auteur. Les chiffres
-sans méthode et contradictions restent à vérifier. Une référence ancienne peut
-illustrer une méthode sans décrire les stores actuels. Un article inaccessible
-n'est jamais résumé comme s'il avait été lu.
+A company's reputation does not validate all its claims. Retain publisher, author
+when available, URL, dates, store, country, language, context, evidence type and limits.
+Commercial results remain attributed to their author. Figures without a method and
+contradictions need verification. An old reference can illustrate a method without
+describing current stores. An inaccessible article is never summarized as if read.
 
-Le catalogue distribué contient liens et annotations originales. L'indexation
-future respecte les autorisations d'accès et de réutilisation ; aucune copie
-intégrale de blogs tiers n'est redistribuée. Les règles évoluent avec historique.
+The distributed catalogue contains links and original annotations. Future indexing
+must respect access and reuse permissions; full third-party blog copies are not
+redistributed. Rules evolve with history.
 
-### Recherche sur trois fiches de référence
+### Research across three reference listings
 
-Exigence pour chaque future recherche ASO enrichie : ouvrir les fiches publiques
-de trois apps connues dans trois domaines différents et parcourir leurs textes
-et galeries disponibles. Une liste de noms, un résultat de recherche ou le souvenir
-du modèle ne constitue pas une consultation. Ce regard transversal complète une
-recherche de concurrents pertinents pour la niche ; il ne la remplace pas.
+Every future enriched ASO research run must open public listings for three known
+apps in three different domains and inspect their available text and galleries.
+A list of names, a search result or model memory does not count as a visit. This
+cross-domain view supplements relevant niche competitor research; it does not replace it.
 
-La [première revue manuelle](../addons/aso/knowledge/visual-research.json) du
-17 octobre 2026 porte sur Duolingo, Spotify et Tinder : App Store américain,
-texte anglais et galerie iPhone, parcourue jusqu'à sa fin dans le navigateur.
-Elle conserve des observations originales et des liens, sans redistribuer les
-images. Le téléchargement des assets ayant été refusé, aucune copie ni empreinte
-des images n'est archivée. Ce fichier conserve la recherche d'origine.
-Depuis `aso-knowledge-2026-10-17.2`, trois annotations textuelles sélectionnées
-dans `editorial.json` sont utilisées dans les nouveaux audits IA et
-visibles sous « Public listing examples » dans Sources. Les observations visuelles
-restent hors du contexte IA. Les audits antérieurs gardent leurs propres notes.
+The [first manual review](../addons/aso/knowledge/visual-research.json), on October 17,
+2026, covers Duolingo, Spotify and Tinder: US App Store, English text and iPhone
+galleries browsed to their ends. It retains original observations and links without
+redistributing images. Asset download was denied, so no image copies or hashes are
+archived. This file preserves the original research. Since `aso-knowledge-2026-10-17.2`,
+three selected text annotations in `editorial.json` are used in new AI audits and
+visible under Public listing examples in Sources. Visual observations stay outside
+the text AI context. Earlier audits retain their own notes.
 
-Les instructions de rédaction `.5` et de contrôle des affirmations `.3` distinguent
-ces exemples datés des règles et des fonctionnalités de l'app auditée. Ils peuvent
-inspirer une structure pertinente, sans transfert de marque, de fonction ou de
-promesse, ni recherche de mots-clés. La validation exige toujours une source
-officielle applicable et refuse une citation de ces exemples pour les mots-clés
-ou le texte promotionnel. Le contexte d'observation accompagne les citations
-acceptées. Les deux appels reçoivent les mêmes notes sauvegardées ; l'activité
-indique leur nombre et l'absence de recherche web en direct. Six cas synthétiques
-supplémentaires évaluent les transferts injustifiés et une analogie acceptable.
+Writing instructions `.5` and claim-checking instructions `.3` distinguish these
+dated examples from rules and the audited app's features. They can inspire a relevant
+structure without transferring brands, features or promises, and without keyword
+research. Validation still requires an applicable official source and rejects these
+examples as citations for keywords or promotional text. Observation context accompanies
+accepted citations. Both calls receive the same saved notes; activity indicates their
+count and the absence of live web research. Six additional synthetic cases evaluate
+unjustified transfers and an acceptable analogy.
 
-Le futur workflow devra :
+The future workflow must:
 
-- Ouvrir ou revérifier les pages à chaque recherche ; conserver URL, date, store,
-  pays, langue, appareil et couverture réelle. Une version d'app observée ne date
-  pas ses captures. Une note ancienne ne devient pas une observation actuelle.
-- Examiner nom, sous-titre ou description courte, structure de description,
-  message des captures, interface montrée et ordre de la galerie. Ne pas déduire
-  des mots-clés Apple privés à partir de la fiche publique.
-- Afficher les pages consultées dans l'activité et la couverture obtenue sur les
-  trois références. Une page inaccessible ou une galerie partielle reste signalée ;
-  une observation manquante n'est jamais inventée pour atteindre trois.
-- Séparer règles officielles, recommandations officielles, méthodes de praticiens,
-  observations publiques et résultats d'expériences. Conserver les contradictions
-  et les conditions de paiement, de marché ou de disponibilité.
-- Justifier la pertinence de chaque exemple pour l'app auditée et formuler une
-  hypothèse testable. Ni la notoriété, ni une interface visible ne prouvent une
-  hausse de conversion, la conformité ou le fonctionnement réel d'une feature.
-- Figer les notes utilisées avec l'audit et rendre leurs sources consultables.
-  Avant injection, évaluer les confusions entre exemple et règle, les transferts
-  entre stores/langues, les promesses inventées et les instructions présentes
-  dans les pages. Le choix du modèle et les accès restent propres à l'installation.
+- Open or recheck pages on every research run; retain URL, date, store, country,
+  language, device and actual coverage. An observed app version does not date its
+  screenshots. An old note does not become a current observation.
+- Examine name, subtitle or short description, description structure, screenshot
+  message, visible interface and gallery order. Do not infer private Apple keywords
+  from a public listing.
+- Show visited pages in activity and coverage across all three references.
+  Inaccessible pages or partial galleries remain flagged; missing observations are
+  never invented to reach three.
+- Separate official rules, official recommendations, practitioner methods, public
+  observations and experiment results. Preserve contradictions and conditions about
+  payment, market or availability.
+- Justify each example's relevance to the audited app and formulate a testable
+  hypothesis. Neither reputation nor a visible interface establishes conversion
+  gains, compliance or actual feature behavior.
+- Freeze notes with the audit and make their sources inspectable. Before inclusion,
+  evaluate confusion between examples and rules, transfers between stores/languages,
+  invented promises and instructions embedded in pages. Model choice and access
+  remain specific to the installation.
 
-Pour les captures, la revue préparatoire couvre les règles Apple sur les
-métadonnées, ses spécifications et conseils de présentation, puis les exigences et
-recommandations Google sur les assets. Phiture fournit une méthode d'itération
-historique ; les conseils AppTweak sont retenus par affirmation après recoupement.
-Par exemple, son conseil général d'ajouter des CTA doit être restreint par la
-recommandation Google d'éviter les invitations à installer dans les captures.
-L'agent ne doit pas absorber un article entier au seul motif de la réputation de
-son éditeur. Les méthodes de mesure restent distinctes des observations visuelles.
+For screenshots, preparatory review covers Apple's metadata rules, specifications
+and presentation guidance, followed by Google's asset requirements and recommendations.
+Phiture supplies a historical iteration method; AppTweak guidance is selected claim
+by claim after cross-checking. For example, its general advice to add CTAs must be
+limited by Google's recommendation to avoid installation invitations in screenshots.
+The agent must not absorb an entire article solely because of its publisher's
+reputation. Measurement methods remain separate from visual observations.
 
-### Graphe de connaissances et recherche documentaire
+### Knowledge graph and document research
 
-Le graphe proposé relie chaque proposition à ses preuves :
+The proposed graph links each proposal to its evidence:
 
 ```mermaid
 flowchart LR
-    S[Version de source] -->|appuie ou contredit| R[Affirmation ou règle]
-    R -->|concerne| C[Store, champ, langue et période]
-    O[Observation de la fiche] -->|motive| P[Proposition]
-    R -->|justifie| P
-    P -->|évaluée par| E[Expérience]
-    E -->|produit| M[Résultat et incertitude]
+    S[Source version] -->|supports or contradicts| R[Claim or rule]
+    R -->|applies to| C[Store, field, language and period]
+    O[Listing observation] -->|motivates| P[Proposal]
+    R -->|justifies| P
+    P -->|evaluated by| E[Experiment]
+    E -->|produces| M[Result and uncertainty]
 ```
 
-Des tables Django compatibles SQLite et PostgreSQL suffisent pour commencer ;
-aucun service de graphe supplémentaire n'est obligatoire pour l'auto-hébergement.
-Chaque relation conserve origine, portée et statut de vérification. Une proximité
-sémantique n'est pas une relation causale. Les liens proposés par l'IA doivent être
-vérifiés avant leur utilisation comme preuve.
+Django tables compatible with SQLite and PostgreSQL are enough to start; no additional
+graph service is required for self-hosting. Every relationship retains origin, scope
+and verification status. Semantic similarity is not a causal relationship. Links
+suggested by AI must be checked before being used as evidence.
 
-La recherche filtre d'abord par store, langue, marché, période et fonctionnalité,
-puis retrouve les documents et suit les liens vers les sources, contradictions et
-expériences applicables. Recherche textuelle puis sémantique facultative : les
-embeddings ne remplacent pas les filtres et preuves. Les concepts sont réutilisables ;
-les résultats privés restent limités au workspace. Les apports communautaires passent
-par revue des sources et tests et ne deviennent pas des instructions exécutables.
+Research first filters by store, language, market, period and feature, then retrieves
+documents and follows links to applicable sources, contradictions and experiments.
+Start with text search, with optional semantic search later: embeddings do not replace
+filters and evidence. Concepts are reusable; private results stay within the workspace.
+Community contributions go through source review and tests and do not become
+executable instructions.
 
-### Exécution et validation
+### Execution and validation
 
-Vérifier d'abord la couverture : version, langues, captures par langue et appareil,
-marché cible, fonctions confirmées et statistiques disponibles. L'import actuel
-ne couvre que les captures de la langue principale ; une autre langue non importée
-ne prouve donc pas un défaut de la fiche.
+Check coverage first: version, languages, screenshots by language and device, target
+market, confirmed features and available statistics. The current import covers only
+primary-language screenshots; another unimported language therefore does not establish
+a listing defect.
 
-Le parcours prévu : collecte, contrôles déterministes, recherche documentaire et
-concurrentielle, propositions contextualisées, validation, protocole de mesure.
-Les contrôles déterministes fonctionnent sans clé IA ; l'analyse éditoriale utilise
-le fournisseur et modèle choisis. Les pages et documents sont des données non
-fiables, jamais des instructions pour l'agent.
+The planned flow is collection, deterministic checks, document and competitor research,
+contextualized proposals, validation and a measurement protocol. Deterministic checks
+work without an AI key; editorial analysis uses the selected provider and model.
+Pages and documents are untrusted data, never agent instructions.
 
-Une proposition conserve l'instantané, le champ, le constat, les références exactes,
-le remplacement, les conditions d'application, le statut (correction vérifiable,
-hypothèse à tester ou données insuffisantes) et la méthode de validation. Le validateur
-rejette références inexistantes, contraintes dépassées, fonctions inventées et
-statistiques sans source. Il distingue pertinence d'un terme, demande mesurée et
-estimation tierce. Les connecteurs de données payants restent facultatifs.
+A proposal retains the snapshot, field, finding, exact references, replacement,
+conditions of application, status (verifiable correction, hypothesis to test or
+insufficient data) and validation method. The validator rejects nonexistent references,
+exceeded constraints, invented features and unsourced statistics. It distinguishes
+term relevance, measured demand and third-party estimates. Paid data connectors
+remain optional.
 
-Avant activation, évaluer sur des cas relus par un humain : fiches correctes sans
-correction forcée, données incomplètes, stores différents, langues non couvertes,
-sources obsolètes ou contradictoires, absence de statistiques, promesses non
-confirmées et contenus tentant de détourner l'agent. Vérifier citations, portée
-des règles, utilité des propositions et abstention pour chaque fournisseur.
-Les évaluations du modèle ne remplacent pas la mesure des gains sur le store.
+Before enabling this flow, evaluate human-reviewed cases: correct listings without
+forced changes, incomplete data, different stores, uncovered languages, obsolete or
+contradictory sources, missing statistics, unconfirmed promises and content attempting
+to redirect the agent. Check citations, rule scope, proposal usefulness and abstention
+for each provider. Model evaluations do not replace measuring store gains.
 
-### Revue des captures importées
+### Imported screenshot review
 
-`AuditRun.inputs.mode = screenshots` sélectionne `aso.visual` version 1. Le parcours
-comprend `listing`, `images`, `visual`, `verify_visual`, `report`. Il utilise le
-modèle choisi, deux appels et les mêmes révisions de connexion, délais, notifications,
-permissions et reprises que l'audit texte. Les audits texte gardent leurs contrats.
-La version des instructions visuelles est gelée dans les entrées et contrôlée avant
-un appel. Une reprise conserve les images et appels terminés ; une réponse perdue
-ou invalide peut nécessiter un nouvel appel facturé, jamais lancé automatiquement.
+`AuditRun.inputs.mode = screenshots` selects `aso.visual` version 1. Its steps are
+`listing`, `images`, `visual`, `verify_visual`, `report`. It uses the chosen model,
+two calls and the same connection revisions, deadlines, notifications, permissions
+and retry behavior as text audits. Text audits retain their contracts. The visual
+instruction version is frozen in inputs and checked before a call. Retry preserves
+completed images and calls; a lost or invalid response may require a new billed call,
+never started automatically.
 
-`images.py` ne lit que les URL de l'instantané appartenant à l'app du workspace.
-Seuls les hôtes HTTPS `isN-ssl.mzstatic.com` sont admis, sans identifiants ni port
-alternatif ni redirection. Limites : dix images, 8 MB téléchargés par image,
-12 secondes par téléchargement et 45 secondes pour le lot, 20 millions de pixels,
-formats PNG/JPEG/WebP non animés. Pillow prépare un JPEG sans métadonnées, de côté
-maximal 2048 px et de taille maximale 1,5 MB. Les dimensions téléchargées ne sont
-pas celles des originaux App Store Connect et ne valident pas les spécifications.
+`images.py` reads only snapshot URLs belonging to the workspace's app. Only HTTPS
+hosts matching `isN-ssl.mzstatic.com` are allowed, without credentials, alternate ports
+or redirects. Limits: ten images, 8 MB downloaded per image, 12 seconds per download
+and 45 seconds per batch, 20 million pixels, non-animated PNG/JPEG/WebP formats.
+Pillow prepares a metadata-free JPEG, at most 2048 px on its longest side and 1.5 MB.
+Downloaded dimensions are not those of App Store Connect originals and do not
+validate upload specifications.
 
-`ScreenshotEvidence` conserve ces octets en base et leur empreinte. Ce compromis
-initial fonctionne avec SQLite ou PostgreSQL et évite une configuration de fichiers
-partagés entre worker et API. Coût maximal : 15 MB par nouveau lot, sans politique
-de purge automatique. La suppression de l'audit parent supprime ses images ; les
-reprises référencent les images du premier audit. Une future purge doit donc tenir
-compte de ces références. L'API d'image vérifie l'appartenance au workspace et
-l'activation du module, avec cache privé désactivé. Aucun octet d'image n'apparaît
-dans les réponses d'historique ou les événements du workflow.
+`ScreenshotEvidence` stores these bytes and their hash in the database. This initial
+tradeoff works with SQLite or PostgreSQL and avoids configuring shared files between
+worker and API. Maximum cost: 15 MB per new batch, without an automatic purge policy.
+Deleting the parent audit deletes its images; retries reference images from the first
+audit. Future purging must account for those references. The image API checks workspace
+membership and module activation, with private caching disabled. No image bytes appear
+in history responses or workflow events.
 
-Les transports utilisent les formats d'images des fournisseurs :
+Transports use provider image formats:
 [OpenAI Responses](https://developers.openai.com/api/docs/guides/images-vision),
 [Gemini Generate Content](https://ai.google.dev/gemini-api/docs/generate-content/image-understanding),
-[Claude Messages](https://platform.claude.com/docs/en/build-with-claude/vision) et
+[Claude Messages](https://platform.claude.com/docs/en/build-with-claude/vision) and
 [Z.ai GLM vision](https://docs.z.ai/guides/vlm/glm-4.6v).
-Les mêmes octets et identifiants d'image accompagnent les deux appels. Aucun modèle
-alternatif n'est appelé automatiquement. Les erreurs d'accès, quota, délai ou
-incompatibilité remontent dans le workflow existant.
+Both calls receive the same bytes and image IDs. No alternative model is called
+automatically. Access, quota, timeout or compatibility errors surface in the existing
+workflow.
 
-La revue reçoit cinq notes applicables à l'App Store et les trois observations
-visuelles datées de Duolingo, Spotify et Tinder. Les notes Google sont exclues.
-Le premier appel décrit chaque image et peut suggérer un changement ; le second
-revoit constat, extrait visible, interprétation de règle et recommandation contre
-les mêmes images, la fiche et les références. Une réponse incomplète ou incohérente
-échoue avant publication ; une conclusion non étayée ou incertaine est masquée.
-L'empreinte du contexte empêche de réutiliser une vérification pour d'autres
-candidats. Cette vérification probabiliste ne remplace pas une relecture humaine.
+The review receives five App Store notes and the three dated visual observations
+of Duolingo, Spotify and Tinder. Google notes are excluded. The first call describes
+each image and may suggest a change; the second reviews findings, visible excerpts,
+rule interpretation and recommendations against the same images, listing and references.
+An incomplete or inconsistent response fails before publication; unsupported or
+uncertain conclusions are withheld. The context hash prevents reusing verification
+for other candidates. This probabilistic check does not replace human review.
 
-La langue doit correspondre exactement aux captures importées. Les appareils,
-images indisponibles et éventuelles images au-delà de la limite sont affichés.
-Ni l'ordre importé ni le nom du fichier ne prouvent l'ordre de la galerie en ligne.
-Les observations publiques restent des notes de recherche manuelle ; aucune copie
-des images des trois références n'est téléchargée et aucun navigateur autonome
-n'intervient dans ce workflow. Il n'édite ni ne publie les captures.
+The language must exactly match the imported screenshots. Devices, unavailable images
+and any images beyond the cap are disclosed. Neither import order nor filename proves
+live gallery order. Public observations remain manual research notes; no images from
+the three reference apps are downloaded, and no autonomous browser participates in
+this workflow. It neither edits nor publishes screenshots.
 
-### Briefs de captures
+### Screenshot briefs
 
-Une recommandation visuelle conservée (`reviewed`, `improve`, texte non vide) peut
-créer un `ScreenshotBrief` depuis l'audit terminé de la même app. Les constats
-écartés, images indisponibles et évaluations sans changement ne peuvent pas créer
-un brief. Aucune requête IA ni tâche facturée ne se déclenche : le serveur reprend
-le constat existant, remplace ses identifiants d'image par les noms de fichier,
-et conserve une copie de la fiche et des sources utilisées. Le brief appartient
-au module ASO ; SMM peut être désactivé sans affecter ce parcours.
+A retained visual recommendation (`reviewed`, `improve`, nonempty text) can create
+a `ScreenshotBrief` from a completed audit of the same app. Withheld findings,
+unavailable images and no-change assessments cannot create a brief. No AI request
+or billed task starts: the server reuses the existing finding, replaces image IDs
+with filenames and retains a copy of the listing and sources used. The brief belongs
+to ASO; SMM can be disabled without affecting this flow.
 
-Le contenu éditable comprend le changement, l'écran ou état à capturer, un éventuel
-texte de surimpression et une hypothèse de test. La référence `ScreenshotEvidence`
-est partagée sans recopier ses octets. La suppression de l'audit source met cette
-référence à NULL ; le brief et ses notes survivent, et l'interface indique l'image
-manquante. Une nouvelle importation ou un audit ne modifient pas un brief existant.
+Editable content includes the change, screen or state to capture, optional overlay
+text and a test hypothesis. The `ScreenshotEvidence` reference is shared without
+copying its bytes. Deleting the source audit sets this reference to NULL; the brief
+and notes survive, and the interface indicates the missing image. A new import or
+audit does not modify an existing brief.
 
-`ScreenshotBriefRevision` enregistre contenu, statut, auteur, date et opération.
-Création et modification utilisent des identifiants idempotents. Le verrou de
-workspace et le numéro de version empêchent d'écraser une autre session. Une
-réponse perdue se relit avec le même identifiant ; une ancienne opération après
-une modification ultérieure renvoie un conflit. Dupliquer crée un brouillon
-indépendant. Restaurer ajoute une révision et remet le statut en brouillon.
+`ScreenshotBriefRevision` records content, status, author, date and operation.
+Creation and edits use idempotent IDs. The workspace lock and version number prevent
+overwriting another session. A lost response can be retrieved with the same ID;
+an old operation after a later edit returns a conflict. Duplication creates an
+independent draft. Restoration adds a revision and returns the status to draft.
 
-Le passage à `ready` exige le changement et l'écran renseignés, et une confirmation
-explicite des affirmations produit par un membre autorisé. Il n'est pas combinable
-avec une modification du contenu dans la même requête. Toute modification réelle
-réinitialise ce statut. La révision conserve l'auteur et la confirmation ; il ne
-s'agit ni d'une vérification du fonctionnement de l'app par Panda Store ni d'une
-approbation du store. Les lecteurs peuvent consulter et exporter ; seuls owners
-et editors peuvent créer, modifier ou marquer prêt. Désactiver ASO ferme ces API.
+Moving to `ready` requires a change and screen description, and explicit confirmation
+of product claims by an authorized member. It cannot be combined with a content edit
+in the same request. Any actual edit resets this status. The revision retains the
+author and confirmation; it is neither verification of app behavior by Panda Store
+nor store approval. Viewers can read and export; only owners and editors can create,
+edit or mark ready. Disabling ASO closes these APIs.
 
-L'export ZIP prend une révision précise et des noms de fichiers fixes (`brief.md`,
-`brief.json`, `reference.jpg`). Il inclut la référence privée du workspace et les
-limites des sources ; il ne contacte aucun store et ne télécharge pas une nouvelle
-image. Aucun fichier arbitraire du système n'est ajouté. L'UI sauvegarde avant
-export, duplication et navigation, garde les modifications locales lors d'un
-conflit et réutilise une requête dont le résultat était incertain.
+ZIP export uses a specific revision and fixed filenames (`brief.md`, `brief.json`,
+`reference.jpg`). It includes the private workspace reference and source limits;
+it contacts no store and downloads no new image. No arbitrary system file is added.
+The UI saves before export, duplication and navigation, keeps local edits on conflict
+and reuses requests whose outcome was uncertain.
 
-## Module SMM : marketing organique
+## SMM module: organic marketing
 
-SMM signifie **Social Media Marketing**. Ce nom remplace Studio dans le produit.
-L'identifiant technique `studio` reste stable pour conserver les activations, routes,
-workflows et données existantes. ASO reste indépendant. Ces deux modules constituent
-le périmètre métier de la première version publique communautaire.
+SMM means **Social Media Marketing**. This name replaces Studio in the product.
+The technical identifier `studio` stays stable to preserve existing activations,
+routes, workflows and data. ASO remains independent. These two modules define the
+business scope of the first public community release.
 
-Le parcours cible ci-dessous reste la référence. Une première tranche est implémentée :
-`SocialResearch` fige le contexte et les filtres ; `studio.social` prépare les recherches
-puis analyse les preuves. Le connecteur Chrome Manifest V3 ouvre son propre onglet et
-exécute des commandes bornées de recherche, lecture, défilement et capture. Les commandes
-proviennent uniquement des origines locales autorisées et restent liées à l'onglet
-Panda Store qui les a demandées. Aucune commande JavaScript arbitraire n'est exposée.
+The target flow below remains the reference. An initial implementation is available:
+`SocialResearch` freezes context and filters; `studio.social` prepares searches and
+then analyzes evidence. The Chrome Manifest V3 connector opens its own tab and runs
+bounded search, read, scroll and capture commands. Commands come only from allowed
+local origins and remain tied to the Panda Store tab that requested them. No arbitrary
+JavaScript command is exposed.
 
-`SocialPost` conserve URL normalisée, preuves textuelles, captures JPEG, compteurs bruts
-et normalisés, limites de couverture et revue. Les captures sont immuables par URL/session
-et protégées par les mêmes droits d'espace. La validation serveur ne transforme pas un
-compteur ambigu ou absent en zéro ou en preuve. Après filtres déterministes, deux appels
-distincts analysent puis vérifient la pertinence et les observations. Une à trois sources
-qualifiées distinctes sont figées dans `GenerationRun.inputs` avec `mode=smm` ; chaque
-source produit exactement une variante qui garde son format. Le serveur contrôle le
-nombre, les numéros consécutifs et la correspondance des sources. Les faits produit restent confirmés
-par l'auteur et les propositions passent par une revue séparée avant sauvegarde.
+`SocialPost` retains a normalized URL, text evidence, JPEG captures, raw and normalized
+counters, coverage limits and review. Captures are immutable per URL/session and
+protected by the same workspace permissions. Server validation does not turn an
+ambiguous or missing counter into zero or evidence. After deterministic filters,
+two separate calls analyze and verify relevance and observations. One to three
+distinct qualified sources are frozen in `GenerationRun.inputs` with `mode=smm`;
+each source produces exactly one variant retaining its format. The server checks
+count, consecutive numbering and source correspondence. Product facts remain
+author-confirmed, and proposals undergo a separate review before saving.
 
-`GET social-research/<id>/references/` propose les références qualifiées des autres
-recherches terminées du même espace et de la même app. La réutilisation exige le même
-import, les mêmes faits produit confirmés, la même audience et le même marché.
-Le serveur revérifie la pertinence, la revue et les seuils de performance de la recherche
-cible, sans refaire d'appels IA ni modifier les captures. Les URLs déjà présentes dans
-la recherche cible sont exclues ; les autres sont dédupliquées. L'adaptation vérifie
-à nouveau ces conditions sous verrou, refuse les identifiants et URLs en double,
-puis fige les métriques, l'analyse, le format et la recherche d'origine de
-chaque source. Les compteurs restent des observations datées, sans actualisation implicite.
-Le test réel de réutilisation a sauvegardé un lot MonTri UGC TikTok / carrousel Instagram /
-texte Facebook. Après la revue IA, une correction manuelle tracée a raccourci la voix off
-et retiré les implications de confidentialité et les garanties contre toute suppression
-accidentelle. Les brouillons restent non approuvés. Les consignes demandent une voix off
-compatible avec la durée cible et les médias originaux à fournir. L'historique des
-corrections est conservé dans l'audit, mais les anciennes idées corrigées ne sont pas
-renvoyées au modèle comme inspiration.
+`GET social-research/<id>/references/` offers qualified references from other completed
+research in the same workspace and app. Reuse requires the same import, confirmed
+product facts, audience and market. The server rechecks relevance, review and target
+research performance thresholds without repeating AI calls or modifying captures.
+URLs already present in the target research are excluded; others are deduplicated.
+Adaptation checks these conditions again under a lock, rejects duplicate IDs and
+URLs, then freezes metrics, analysis, format and original research session for each
+source. Counters remain dated observations without implicit refresh.
+The live reuse test saved a MonTri batch of TikTok UGC, Instagram carousel and Facebook
+text. After AI review, a tracked manual correction shortened the voiceover and removed
+privacy implications and guarantees against all accidental deletion. Drafts remain
+unapproved. Instructions require voiceover compatible with target duration and original
+media to supply. Correction history is retained in the audit, but earlier corrected
+ideas are not sent back to the model as inspiration.
 
-L'interface affiche les quatre premières références qualifiées du filtre réseau courant,
-puis une action pour montrer les suivantes. Les autres publications, y compris celles
-en attente d'analyse, sont masquées derrière une action distincte. Les sélections sont
-conservées quand un filtre ou un repli masque une carte. Une nouvelle recherche ouvre un
-formulaire sans effacer les sessions et générations précédentes ; leur consultation
-n'entraîne aucun appel IA.
+The interface shows the first four qualified references for the current network filter,
+then an action to show the rest. Other posts, including those awaiting analysis, stay
+behind a separate action. Selection survives filtering or collapsing a card. New
+research opens a form without deleting previous sessions and generations; viewing
+these makes no AI call.
 
-Le connecteur 0.1.8, protocole 1, reconnecte les tableaux de bord locaux ouverts après
-installation, mise à jour ou démarrage du navigateur, sans rejouer une commande de
-recherche. La version 0.1.7 reste compatible. Une installation par dossier exige toujours
-un rechargement manuel de l'extension pour appliquer les nouveaux fichiers. La collecte
-est bornée à 12 publications et 24 candidats examinés par tentative. Les vues Instagram
-manquantes peuvent être vérifiées sur la grille Reels du créateur, uniquement avec le
-shortcode exact et un compteur de vues identifié. Sa capture occupe la dernière des
-trois images possibles ; une donnée inaccessible reste inconnue. Les images, carrousels
-et textes passent le filtre de mentions J'aime ; les vidéos exigent aussi les vues.
+Connector 0.1.8, protocol 1, reconnects open local dashboards after installation,
+update or browser startup without replaying a research command. Version 0.1.7 remains
+compatible. A folder installation still requires manually reloading the extension
+to apply new files. Collection is bounded to 12 posts and 24 candidates examined per
+attempt. Missing Instagram views can be checked on the creator's Reels grid, only
+with the exact shortcode and an identified view counter. Its capture occupies the
+last of three possible frames; inaccessible data remains unknown. Images, carousels
+and text posts use the likes filter; videos also require views.
 
-Les collecteurs sociaux sont une première version. La collecte
-reste limitée au texte et à trois vues échantillonnées, sans audio ni couverture complète
-de la vidéo ou du carrousel. Le test réel TikTok du 17 octobre 2026 a collecté 11 publications,
-retenu quatre références et enregistré trois adaptations MonTri (UGC, carrousel, UGC).
-Une interruption de chargement a été reprise ; une vérification TikTok a ensuite arrêté
-la collecte, sans empêcher l'analyse des preuves sauvegardées. Les compteurs ambigus des
-cartes de recherche servent uniquement à ordonner les candidats, jamais à établir les vues.
-Une correction tracée a retiré un ancien compteur ambigu et limité l'observation d'un
-carrousel à la diapositive réellement capturée. Une promesse excessive dans un brouillon
-a aussi été corrigée après la revue IA : celle-ci reste faillible. Le test suivant a
-enregistré 12 publications Instagram et trouvé des liens Google. Les deux présentations
-Instagram, les compteurs, les dates et les carrousels contenant de la vidéo ont été corrigés.
-Le budget de collecte alterne les réseaux et les filtres de performance s'appliquent avant
-les appels IA, y compris les vues manquantes. Le connecteur résout jusqu'à trois liens
-Facebook masqués par requête :
-le collecteur DOM identifie une date dans une carte explicitement publique, vérifie
-qu'elle est visible et non recouverte, puis le service utilise des événements pointeur
-Chrome dans son seul onglet. Il lit l'URL permanente et referme le dialogue avant de
-continuer. Les coordonnées ne viennent jamais d'une commande du tableau de bord.
-Le test réel du 17 octobre 2026 a enregistré six publications Facebook, avec liens de
-pages nommées et `permalink.php` (identifiants de page et de publication conservés).
-Un post texte est qualifié avec environ 4 600 likes ; les autres sont écartés par les
-filtres de format/compteurs. La relecture a corrigé une idée qui reprenait des promesses
-non confirmées sur le stockage, en conservant l'ancienne version et la revue IA. Les
-instructions d'analyse et de vérification exigent désormais aussi que l'idée respecte
-les faits produit confirmés et le format source. Les plans natifs refusent la syntaxe
-Google (site:, OR, etc.). Les connexions sociales pour publication, la programmation et
-l'envoi automatique sont réservés à la future version cloud et restent à construire.
+Social collectors are an initial version. Collection remains limited to text and
+three sampled views, without audio or complete video/carousel coverage. The live
+TikTok test on October 17, 2026 collected 11 posts, retained four references and saved
+three MonTri adaptations (UGC, carousel, UGC). A loading interruption was resumed;
+a TikTok verification later stopped collection without preventing saved evidence
+analysis. Ambiguous search-card counters only order candidates, never establish views.
+A tracked correction removed an old ambiguous counter and limited a carousel
+observation to the slide actually captured. An excessive promise in a draft was also
+corrected after AI review: that review remains fallible. The next test saved 12 Instagram
+posts and found Google links. Both Instagram layouts, counters, dates and carousels
+containing video were corrected. The collection budget alternates networks, and
+performance filters apply before AI calls, including missing views.
+The connector resolves up to three hidden Facebook links per query: the DOM collector
+identifies a date in an explicitly public card, checks that it is visible and
+unobscured, then the service uses Chrome pointer events in its own tab. It reads the
+permalink and closes the dialog before continuing. Coordinates never come from a
+dashboard command.
+The live test on October 17, 2026 saved six Facebook posts, with named-page links and
+`permalink.php` (both page and post IDs retained). One text post qualified with about
+4,600 likes; the others were excluded by format/counter filters. Review corrected an
+idea repeating unconfirmed storage promises, preserving the old version and AI review.
+Analysis and verification instructions now also require ideas to respect confirmed
+product facts and source format. Native plans reject Google syntax (site:, OR, etc.).
+Social connections for publishing, scheduling and automatic sending are reserved
+for the future cloud edition and remain to be built.
 
-Parcours communautaire cible (étapes 1 à 5), suivi de l'extension cloud prévue (étape 6) :
+Target community flow (steps 1 to 5), followed by the planned cloud extension (step 6):
 
-1. **Comprendre l'app.** Partir de sa fiche, de ses fonctionnalités confirmées, de son
-   audience et de sa niche pour choisir les concurrents et les sujets pertinents.
-2. **Chercher dans le navigateur de l'utilisateur.** L'agent ouvre un nouvel onglet
-   visible et recherche d'abord sur TikTok, puis sur Instagram, Facebook et Google.
-   Il utilise les accès disponibles dans ce navigateur. Le connecteur local fournit
-   cette liaison ; le navigateur serveur historique ne remplit pas
-   cette fonction. Google sert aussi à découvrir des sources et leurs publications.
-3. **Qualifier les références.** Conserver l'URL, le compte, les dates de publication
-   et d'observation, les vues, likes et autres métriques réellement accessibles.
-   Définir des seuils explicites par plateforme et format, avec le contexte de la
-   niche et de l'ancienneté du post. Une vidéo avec peu de vues et de likes n'est pas
-   retenue comme virale. Des métriques absentes ne deviennent pas une preuve de
-   performance ; un résultat non qualifié reste un candidat. La viralité ne prouve
-   pas la conversion en installations.
-4. **Analyser le contenu réel.** Identifier carrousel de photos, vidéo UGC, publication
-   texte, montage ou vidéo avec des personnes. Étudier les slides, l'accroche, le
-   déroulé, les textes, les visuels, l'audio et l'appel à l'action selon le format.
-   Indiquer les éléments effectivement consultés et ceux qui restent inaccessibles.
-5. **Proposer une à trois adaptations.** Utiliser les contenus qualifiés sélectionnés, pertinents
-   pour l'app, et produire une adaptation originale par référence sélectionnée (une à trois).
-   Produire selon le cas un carrousel slide par slide, un script UGC ou de tournage,
-   un plan de montage, ou le texte du post et son brief visuel. Les fonctionnalités
-   annoncées doivent appartenir à l'app ; préciser les prises de vues humaines requises.
-   Une ou deux références qualifiées suffisent pour créer autant d’adaptations. Si aucune
-   référence ne convient, poursuivre la recherche sans inventer d’exemples qualifiés.
-6. **Extension cloud : publier depuis SMM.** Connecter les comptes ou pages de l'utilisateur pour envoyer
-   et programmer les contenus préparés. Prévoir les autorisations propres à chaque
-   plateforme, l'aperçu, le contrôle de l'utilisateur, le statut d'envoi et la protection
-   contre les doublons. La connexion de publication est distincte de la session du
-   navigateur utilisée pour la recherche. Les possibilités API restent à valider
-   pour chaque plateforme et type de compte.
+1. **Understand the app.** Use its listing, confirmed features, audience and niche to
+   choose relevant competitors and topics.
+2. **Search in the user's browser.** The agent opens a new visible tab and searches
+   TikTok first, then Instagram, Facebook and Google. It uses access available in
+   that browser. The local connector supplies this link; the legacy server browser
+   does not serve this purpose. Google also helps discover sources and their posts.
+3. **Qualify references.** Retain URL, account, publication and observation dates,
+   views, likes and other actually accessible metrics. Define explicit thresholds
+   per platform and format, considering niche and post age. A video with few views
+   and likes is not retained as viral. Missing metrics do not become performance
+   evidence; an unqualified result remains a candidate. Virality does not prove
+   conversion to installs.
+4. **Analyze actual content.** Identify photo carousels, UGC videos, text posts,
+   edits or videos with people. Examine slides, hooks, sequence, text, visuals,
+   audio and calls to action as appropriate to the format. State what was actually
+   inspected and what remains inaccessible.
+5. **Propose one to three adaptations.** Use selected qualified content relevant to
+   the app and produce one original adaptation per source (one to three). Depending
+   on format, produce a slide-by-slide carousel, UGC or shooting script, editing plan,
+   or post text and visual brief. Advertised features must belong to the app; specify
+   required human footage. One or two qualified references are enough to create
+   the matching number of adaptations. If none fits, continue research without
+   inventing qualified examples.
+6. **Cloud extension: publish from SMM.** Connect the user's accounts or pages to send
+   and schedule prepared content. Include platform-specific permissions, preview,
+   user control, sending status and duplicate prevention. Publishing connections
+   are separate from the browser session used for research. API capabilities still
+   need validation for each platform and account type.
 
-Les briefs, sources, faits produit, connexions IA et journaux de workflows existants
-constituent un socle réutilisable. L'ancienne recherche sur pages publiques et ses
-références de fiches stores ne qualifient pas des contenus sociaux viraux. Les scènes et exports
-MP4 sont des outils complémentaires ; ils ne déterminent ni le format des adaptations
-ni la prochaine priorité. La synthèse vocale n'est pas la prochaine tranche.
+Existing briefs, sources, product facts, AI connections and workflow logs provide
+a reusable foundation. Legacy public-page research and its store-listing references
+do not qualify viral social content. Scenes and MP4 exports are supporting tools;
+they determine neither adaptation formats nor the next priority. Voice synthesis
+is not the next milestone.
 
-### Recherche sur pages publiques (ancienne version)
+### Public-page research (legacy)
 
-Ce parcours côté serveur reste accessible séparément de la recherche sociale principale
-avec le connecteur Chrome. Ses pages et observations ne sont pas des `SocialPost` qualifiés.
+This server-side flow remains accessible separately from primary social research
+with the Chrome connector. Its pages and observations are not qualified `SocialPost`
+records.
 
-`ResearchRun` fige l'import, le sujet, le marché, le fournisseur/modèle et la révision
-de connexion. Le workflow `studio.research` suit six étapes : contrôle du navigateur,
-découverte web, consultation des sources, analyse, vérification séparée, rapport.
-Il utilise le même journal durable, l'annulation coopérative et les reprises que l'ASO.
-La création IA exploite ensuite une sélection explicite de ces observations ; les modèles
-locaux restent un mode de démonstration séparé. La veille ne modifie ni les fiches stores ni les comptes sociaux.
+`ResearchRun` freezes the import, topic, market, provider/model and connection revision.
+The `studio.research` workflow has six steps: browser check, web discovery, source
+visits, analysis, separate verification and report. It uses the same durable log,
+cooperative cancellation and retries as ASO. AI creation then uses an explicit
+selection of these observations; local templates remain a separate demonstration
+mode. Research modifies neither store listings nor social accounts.
 
-Les adaptateurs de découverte utilisent les outils officiels
+Discovery adapters use the official
 [OpenAI Web search](https://developers.openai.com/api/docs/guides/tools-web-search),
 [Google Search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search)
-et [Claude Web search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool),
-consultés le 17 octobre 2026. Les URLs candidates proviennent des métadonnées des
-outils, jamais d'une URL inventée dans le texte du modèle. Les réponses narratives
-de recherche ne sont pas utilisées comme observations. Les liens de redirection de
-Google sont résolus uniquement sur son endpoint documenté, puis la page de destination
-subit les contrôles habituels. Les suggestions Google sont affichées dans une iframe
-sandboxée sans scripts, formulaires ni accès à l'origine de l'application.
+and [Claude Web search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool)
+tools, consulted on October 17, 2026. Candidate URLs come from tool metadata, never
+URLs invented in model text. Narrative search responses are not used as observations.
+Google redirect links are resolved only through its documented endpoint; the
+destination then undergoes normal checks. Google suggestions appear in a sandboxed
+iframe without scripts, forms or access to the application origin.
 
-Un processus Chromium éphémère ouvre au maximum six sources découvertes et les trois
-références Duolingo, Spotify et Tinder. Il capture le premier écran, fait défiler d'un
-écran partiel et capture une seconde vue. `ResearchPage` conserve le texte borné,
-les JPEG, les empreintes, les dates, les URLs et les actions effectivement réalisées.
-Ce parcours n'est pas une exploration illimitée, une lecture de carrousel complet ni
-une analyse vidéo/audio. Les pages bloquées, incomplètes et les références manquantes
-sont visibles ; une réussite de workflow ne signifie pas couverture complète.
+An ephemeral Chromium process opens at most six discovered sources and the three
+Duolingo, Spotify and Tinder references. It captures the first viewport, scrolls
+part of a screen and captures a second view. `ResearchPage` retains bounded text,
+JPEGs, hashes, dates, URLs and actions actually performed. This flow is not unlimited
+exploration, complete carousel reading or video/audio analysis. Blocked or incomplete
+pages and missing references remain visible; workflow success does not mean full coverage.
 
-Le navigateur reçoit un environnement minimal, un HOME temporaire, aucun cookie
-personnel et aucune clé fournisseur. Son sandbox Chromium reste activé. Les requêtes
-GET passent par un relais HTTPCore qui résout chaque hôte, refuse toute adresse privée
-ou réservée et connecte l'IP contrôlée en gardant le nom TLS d'origine. Le navigateur
-a un proxy fermé, sans contournement loopback ; il ne peut pas utiliser un chemin réseau
-direct si le relais refuse. Les robots des pages destinations sont vérifiés. Les
-services workers, WebSockets, médias, formulaires et frames sont bloqués. Les captures
-sont accessibles seulement aux membres de l'espace si SMM est actif.
+The browser receives a minimal environment, temporary HOME, no personal cookies and
+no provider keys. Its Chromium sandbox remains enabled. GET requests pass through
+an HTTPCore relay that resolves each host, rejects private or reserved addresses and
+connects to the checked IP while retaining the original TLS hostname. The browser
+has a closed proxy without loopback bypass; it cannot use a direct network route
+if the relay refuses. Destination robots rules are checked. Service workers,
+WebSockets, media, forms and frames are blocked. Captures are accessible only to
+workspace members with SMM enabled.
 
-Chaque page a un délai externe de 65 secondes, un budget réseau de 20 Mo et 120 requêtes,
-avec des bornes par réponse et capture. L'annulation tue le groupe du processus navigateur.
-Ces limites et le sandbox ne remplacent pas l'isolation de déploiement nécessaire à une
-offre cloud : ses workers et quotas restent un chantier distinct. Docker utilise le
-profil seccomp Playwright fourni et un utilisateur non root, sans désactiver le sandbox.
+Each page has a 65-second external deadline, a 20 MB network budget and 120 requests,
+with limits per response and capture. Cancellation kills the browser process group.
+These limits and the sandbox do not replace deployment isolation needed for a cloud
+offering: its workers and quotas remain separate work. Docker uses the bundled
+Playwright seccomp profile and a non-root user without disabling the sandbox.
 
-L'analyse reçoit seulement les pages observées et deux vues au maximum par page.
-Les citations textuelles et métriques doivent être retrouvées dans le texte archivé.
-Une seconde analyse vérifie les constats contre les mêmes preuves. Les résultats
-retenus restent des observations IA à relire, pas des mesures de conversion. Aucune
-note de viralité ou causalité sur les installations n'est calculée. Les références
-transversales ne sont pas des concurrents supposés. Le texte des pages reste une donnée
-non fiable et ne donne aucune instruction au navigateur ni au worker.
+Analysis receives only observed pages and at most two views per page. Text quotes
+and metrics must be found in archived text. A second analysis checks findings against
+the same evidence. Retained results remain AI observations to review, not conversion
+measurements. No virality score or install causality is calculated. Cross-domain
+references are not assumed competitors. Page text remains untrusted data and gives
+no instructions to the browser or worker.
 
-La reprise après échec réutilise les étapes terminées et les pages déjà archivées.
-Après une réussite partielle, `Retry unavailable sources` conserve la découverte,
-copie les pages lisibles avec leurs dates, empreintes et références d'origine, puis
-retente seulement les sources manquantes dans une nouvelle exécution. L'analyse et
-la vérification peuvent être facturées à nouveau. Le rapport d'origine est conservé.
-La consommation enregistrée dans une étape réutilisée vient de la tentative d'origine ;
-le journal indique sa réutilisation, ce n'est pas un nouvel appel facturé.
+Retry after failure reuses completed steps and archived pages. After partial success,
+`Retry unavailable sources` preserves discovery, copies readable pages with their
+dates, hashes and original references, and retries only missing sources in a new
+execution. Analysis and verification may be billed again. The original report is
+preserved. Usage recorded in a reused step comes from its original attempt; the log
+indicates reuse, not a new billed call.
 
-### Création IA depuis les pages publiques (ancienne version)
+### AI creation from public pages (legacy)
 
-Le brief conserve une session `ResearchRun` et un à trois identifiants de pages dont
-les observations ont été retenues. Le serveur vérifie l'app, l'espace, le statut terminé
-et l'existence des preuves ; aucun extrait envoyé par le client n'est accepté comme
-source. `Use observations in brief` sauvegarde cette sélection avec les éditions locales
-du brief puis ouvre Scripts. Les observations de veille restent des hypothèses.
+The brief retains a `ResearchRun` session and one to three page IDs with retained
+observations. The server checks app, workspace, completed status and evidence;
+no client-submitted excerpt is accepted as a source. `Use observations in brief`
+saves the selection with local brief edits, then opens Scripts. Research observations
+remain hypotheses.
 
-`POST apps/{app}/ai-runs/` reçoit un identifiant de requête, l'import choisi, le brief
-explicite, la sélection et le modèle. La confirmation des faits produit est requise et
-datée avec l'auteur. Il s'agit d'une déclaration de l'auteur, pas d'un test fonctionnel
-effectué par Panda Store. La requête normalisée et les entrées sont figées dans
-`GenerationRun`, avec la révision de connexion. Une réponse perdue peut être récupérée
-sans consulter un nouvel import ou une nouvelle clé ; une réutilisation de l'identifiant
-avec un contenu différent est refusée. Une génération active par espace est autorisée.
+`POST apps/{app}/ai-runs/` receives a request ID, selected import, explicit brief,
+selection and model. Product-fact confirmation is required and dated with its author.
+This is an author declaration, not a functional test by Panda Store. The normalized
+request and inputs are frozen in `GenerationRun` with the connection revision.
+A lost response can be retrieved without consulting a new import or key; reusing
+the ID with different content is rejected. One active generation per workspace is allowed.
 
-Dans ce parcours, le workflow `studio.ai_scripts` vérifie le contexte, écrit trois scripts, effectue une
-seconde revue et sauvegarde les sorties. Les adaptateurs structurés existants sont
-réutilisés pour les quatre fournisseurs. Ce parcours historique produit toujours trois
-scripts ; le parcours social principal utilise le même workflow avec une adaptation
-par source sélectionnée. Le format suit la
-[documentation officielle OpenAI sur les sorties structurées](https://developers.openai.com/api/docs/guides/structured-outputs),
-consultée le 17 octobre 2026 ; un schéma valide ne garantit pas un contenu correct.
-Les variantes, limites de champs, références connues, citations de faits produit et
-doublons exacts sont contrôlés par le code. Le vérificateur relit aussi les affirmations
-omises de la liste de preuves, les scènes, la langue, la durée cible et la différence des angles.
-La revue sémantique peut manquer des erreurs ; elle ne vaut ni validation humaine,
-ni conformité à une politique publicitaire, ni preuve de performance.
+In this flow, `studio.ai_scripts` checks context, writes three scripts, performs a
+second review and saves outputs. Existing structured adapters are reused for all
+four providers. This legacy flow always produces three scripts; primary social
+research uses the same workflow with one adaptation per selected source. The format
+follows the [official OpenAI structured output documentation](https://developers.openai.com/api/docs/guides/structured-outputs),
+consulted on October 17, 2026; a valid schema does not guarantee correct content.
+Variants, field limits, known references, product-fact quotes and exact duplicates
+are checked in code. The verifier also reviews claims omitted from the evidence
+list, scenes, language, target duration and distinct angles. Semantic review can
+miss errors; it is neither human approval, advertising-policy compliance nor
+performance evidence.
 
-Une revue qui rejette un script conserve ses motifs mais n'enregistre aucun `Creative`.
-Le brief doit être ajusté avant une nouvelle génération ; ce rejet ne peut pas être
-rejoué par Retry. Un incident fournisseur peut reprendre les étapes terminées sans
-réécrire les scripts, avec le même modèle et contexte. Les appels n'ont pas de reprise
-payante automatique. Les écritures finales et l'activité sont protégées par le jeton
-d'exécution ; une réponse arrivée après annulation ne peut pas enregistrer de scripts.
+A review rejecting a script retains its reasons but saves no `Creative`. Adjust
+the brief before a new generation; Retry cannot replay this rejection. A provider
+incident can resume completed steps without rewriting scripts, with the same model
+and context. Calls have no automatic paid retry. Final writes and activity are
+protected by the execution token; a response arriving after cancellation cannot
+save scripts.
 
-Chaque Creative garde la justification et les preuves originales dans `provenance`.
-Les éditions humaines ne réécrivent pas cet historique et remettent l'approbation à faux.
-L'export indique le modèle, les faits confirmés, les sources et l'état de revue. Les
-scripts décrivent un tournage à réaliser : aucun média n'est produit ou publié par ce workflow.
-Le mode `demo_templates` et son ancien workflow restent disponibles séparément.
+Each Creative retains original rationale and evidence in `provenance`. Human edits
+do not rewrite this history and reset approval to false. Export includes the model,
+confirmed facts, sources and review status. Scripts describe footage to produce:
+no media is generated or published by this workflow. The `demo_templates` mode and
+its older workflow remain separately available.
 
+### SMM scenes and visuals
 
-### Scènes et visuels de SMM
+`Storyboard` belongs to a `Creative` and retains source text and its hash. Creation
+is idempotent per script. Splitting recognizes only explicit `[Scene N: …]` blocks;
+all other text is preserved as one free-form shot. Hook and CTA remain separate.
+No new shots are inferred, and no AI call or automatic approval occurs. Initial
+durations are distributed by word count without claiming to measure recorded speech.
 
-`Storyboard` appartient à un `Creative` et conserve le texte source et son empreinte.
-La création est idempotente par script. Le découpage reconnaît seulement les blocs explicites
-`[Scene N: …]` ; tout autre texte est conservé en un plan libre. Hook et CTA restent distincts.
-Aucune inférence de nouveaux plans, aucun appel IA ni approbation automatique. Les durées
-initiales sont réparties selon les mots, sans prétendre mesurer une voix enregistrée.
+Each shot retains an ID, title, direction, voiceover, on-screen text, duration and
+optional `SceneAsset` reference. A revision contains all shots; PATCH requires the
+expected version and a request ID. A workspace lock, permission recheck and storyboard
+lock protect writes. A lost response can be replayed with the same request; a
+conflict preserves local edits and requires explicit reloading. Script changes
+flag a mismatch without rewriting the storyboard.
 
-Chaque plan conserve un identifiant, titre, direction, voix off, texte à l'écran, durée et
-référence facultative à un `SceneAsset`. Une révision contient l'ensemble des plans ; PATCH
-exige la version attendue et un identifiant de requête. Verrou d'espace, nouvelle vérification
-des droits et verrou du storyboard protègent les écritures. Une réponse perdue se rejoue avec
-la même requête ; un conflit conserve les retouches locales et impose un rechargement explicite.
-Les modifications du script signalent un décalage, sans réécrire le storyboard.
+Store-imported visuals come from a screenshot in the specified app snapshot, never
+a free-form URL or competitor captures. Bounded downloading and decoding are shared
+with ASO in `panda_store.core.images`, without a functional dependency on that module.
+Downloads use HTTPS on allowed Apple or Google image hosts, no redirects, at most
+12 seconds/8 MB; static JPEG/PNG/WebP raster, at most 20 megapixels, with a JPEG
+derivative of at most 2048 px and 1.5 MB. Rows are deduplicated by snapshot/position,
+private to the app and limited to 60 per app. The visual list does not load binary
+data. Unarchived thumbnails come from Apple and Google CDNs without referrer;
+selecting one archives a local copy. SMM activation and write permissions are
+rechecked after download and before saving.
 
-Les visuels importés du store proviennent d'une capture du snapshot de l'app désignée,
-jamais d'une URL libre ni des captures concurrentes. Le téléchargement et le décodage bornés sont
-partagés avec ASO dans `panda_store.core.images`, sans dépendance fonctionnelle à ce module.
-Téléchargement HTTPS sur hôtes d'images Apple ou Google autorisés, sans redirection, 12 secondes/8 MB maximum ;
-raster fixe JPEG/PNG/WebP, 20 mégapixels maximum, dérivé JPEG de 2048 px et 1.5 MB maximum.
-Les lignes sont dédupliquées par snapshot/position, privées à l'app, et limitées à 60 par app.
-La liste des visuels ne charge pas leurs données binaires. Les miniatures non archivées viennent
-des CDN Apple et Google sans referrer ; leur sélection archive une copie locale. L'activation SMM et
-les droits d'écriture sont revérifiés après le téléchargement avant la sauvegarde.
+The library also accepts user-supplied PNG/JPEG/WebP images, H.264 MP4 videos and
+MP3/M4A/WAV audio. FFmpeg and ffprobe validate recordings on the API and worker.
+Database storage is limited to 60 files and 200 MB per app, with 25 MB per upload
+and 120 seconds per recording. A storyboard revision referencing media prevents
+its deletion.
 
-La bibliothèque accepte aussi les images PNG/JPEG/WebP, vidéos H.264 MP4 et fichiers
-audio MP3/M4A/WAV fournis par l'utilisateur. FFmpeg et ffprobe vérifient les enregistrements
-sur l'API et le worker. Le stockage en base est limité à 60 fichiers et 200 MB par app,
-avec 25 MB par envoi et 120 secondes par enregistrement. Une révision de storyboard
-qui référence un média empêche sa suppression.
+The React preview sequences images and videos in 9:16 without cropping, with text
+overlays and play/pause/position controls. This preview is silent. ZIP export targets
+a specific revision, validates hashes and contains `storyboard.json`, `storyboard.md`
+and selected media under fixed UUID filenames. Images, exports and plans require
+workspace membership and active SMM. Viewers can read and export without editing.
 
-Le preview React séquence les images et vidéos en 9:16, sans recadrage, avec textes
-superposés et lecture/pause/position. Cet aperçu est silencieux. L'export ZIP cible une
-révision précise, valide les empreintes et contient `storyboard.json`, `storyboard.md`
-et les médias sélectionnés sous noms UUID fixes. Les images, exports et plans demandent
-une adhésion à l'espace et SMM activé. Les lecteurs peuvent consulter et exporter,
-sans modifier.
-
-Le workflow de rendu MP4 utilise FFmpeg pour une révision sauvegardée, en 1080 × 1920
-à 30 images/seconde, avec textes et audio choisi. Chaque plan exige une image ou une
-vidéo et le total ne dépasse pas 120 secondes. Un audio attaché remplace celui de la
-vidéo ; le texte de voix off n'est pas synthétisé. Les exports et plans rendus partagent
-un quota de 500 MB par espace. Arrêt et reprise suivent le socle commun, avec réutilisation
-des plans terminés. Les limites détaillées figurent dans le [guide SMM](smm.md#plan-scenes-and-prepare-an-editing-package).
+The MP4 rendering workflow uses FFmpeg for a saved revision, at 1080 × 1920 and 30 fps,
+with text and selected audio. Each shot requires an image or video, and the total
+must not exceed 120 seconds. Attached audio replaces video audio; voiceover text is
+not synthesized. Exports and rendered shots share a 500 MB workspace quota. Stop and
+retry use the shared foundation, reusing completed shots. Detailed limits are in the
+[SMM guide](smm.md#plan-scenes-and-prepare-an-editing-package).

@@ -1,71 +1,61 @@
-# Sécurité
+# Security
 
-Cette alpha est destinée aux démonstrations locales et au développement.
-Elle ne doit pas encore être exposée comme service public avec des données client.
-Les clés App Store Connect, Google Play et les clés IA sont chiffrées en base avec
-Fernet et une clé propre à l'installation (`PANDA_CREDENTIAL_KEYS`), distincte de
-la clé de session Django.
+This alpha is intended for local demonstrations and development. It should not yet
+be exposed as a public service with customer data. App Store Connect, Google Play
+and AI keys are encrypted in the database with Fernet and an installation-specific
+key (`PANDA_CREDENTIAL_KEYS`), separate from Django's session signing key.
 
-Les contrôles présents incluent les sessions Django, CSRF, les rôles, les filtres
-par espace, les secrets locaux aléatoires et la validation des manifestes.
-Seul le propriétaire d'un espace peut ajouter, remplacer ou supprimer ses clés
-Apple, Google Play et IA. Elles ne sont jamais renvoyées par l'API ni placées dans le stockage navigateur.
-Le connecteur Apple utilise des JWT ES256 de deux minutes limités aux requêtes GET.
-Il refuse les redirections et les liens de pagination vers un autre hôte ou chemin.
-Une erreur d'import conserve le dernier instantané ; une modification ou suppression
-de connexion pendant un import empêche l'enregistrement de ses résultats périmés.
+Existing controls include Django sessions, CSRF, roles, workspace filters, random
+local secrets and manifest validation. Only a workspace owner can add, replace or
+remove its Apple, Google Play and AI keys. Keys are never returned by the API or
+placed in browser storage. The Apple connector uses two-minute ES256 JWTs restricted
+to GET requests. It rejects redirects and pagination links to another host or path.
+Import errors preserve the last snapshot; changing or deleting a connection during
+an import prevents stale results from being saved.
 
-Google Play utilise un compte de service dédié et un échange OAuth vers les hôtes
-Google fixes. La lecture des fiches nécessite la création puis la suppression d'une
-session d'édition temporaire. Aucune publication ni modification de fiche n'est
-envoyée. Une nouvelle session peut invalider une autre session du même compte :
-ne pas partager ce compte de service avec un outil de publication. Une réservation
-temporaire empêche les imports simultanés du même compte dans cette installation.
+Google Play uses a dedicated service account and an OAuth exchange with fixed Google
+hosts. Reading listings requires creating and then deleting a temporary edit session.
+No publication or listing change is sent. A new session can invalidate another session
+owned by the same account: do not share this service account with a publishing tool.
+A temporary lease prevents concurrent imports for the same account within this installation.
 
-Sauvegarder la base et les clés de chiffrement séparément. Ne pas remplacer une
-clé de chiffrement existante au redémarrage. Pour une rotation, placer la nouvelle
-clé en tête de `PANDA_CREDENTIAL_KEYS`, suivie de l'ancienne, séparées par une virgule.
-Les nouvelles écritures utilisent la première ; conserver les anciennes tant que
-des identifiants ou sauvegardes les utilisent. Il n'existe pas encore d'outil de
-réencryption globale. Déconnecter dans Panda Store ne révoque pas la clé chez Apple.
-Le proxy Compose limite les tentatives sur la connexion ; l'API lancée directement
-avec Uvicorn ou `runserver` n'inclut pas cette limitation. Le compte de démo n'est pas
-un administrateur Django.
+Back up the database and encryption keys separately. Do not replace an existing
+encryption key on restart. To rotate keys, put the new key first in
+`PANDA_CREDENTIAL_KEYS`, followed by the old key, separated by a comma. New writes
+use the first key; retain old keys while credentials or backups still depend on them.
+There is no bulk re-encryption tool yet. Disconnecting in Panda Store does not revoke
+the key at Apple. The Compose proxy limits sign-in attempts; the API launched directly
+with Uvicorn or `runserver` does not include this limit. The demo account is not a
+Django administrator.
 
-La configuration locale active `PANDA_SETUP_ENABLED=true` pour créer une organisation
-et son propriétaire au premier lancement. Conserver la liaison à localhost fournie
-par Vite, Uvicorn et Compose : le premier visiteur peut configurer une installation
-vide. L'assistant est protégé par CSRF ; une transaction et un enregistrement unique
-empêchent une seconde configuration. Seul l'ancien compte de démo non administrateur,
-isolé dans son espace prédéfini, peut être repris ; les autres bases avec des comptes
-existants ne peuvent pas être réinitialisées par cet assistant.
+The local configuration enables `PANDA_SETUP_ENABLED=true` to create an organization
+and its owner on first launch. Keep the localhost bindings provided for Vite, Uvicorn
+and Compose: the first visitor can configure an empty installation. Setup is protected
+by CSRF; a transaction and a unique record prevent a second setup. Only the old
+non-administrator demo account, isolated in its predefined workspace, can be claimed;
+other databases with existing accounts cannot be reset through this wizard.
 
-Le mot de passe passe par les validateurs et le hachage Django. Le propriétaire de
-l'espace n'est pas un administrateur Django. Après configuration, les sessions,
-les rôles et l'isolation des espaces restent requis. L'ancienne ouverture automatique
-sans mot de passe a été retirée. L'e-mail reste local, sans vérification ni récupération
-de mot de passe par e-mail à ce stade.
+Passwords use Django's validators and hashing. A workspace owner is not a Django
+administrator. Sessions, roles and workspace isolation remain required after setup.
+The former automatic passwordless access has been removed. Email is stored locally,
+without verification or password recovery by email at this stage.
 
-Avant une offre publique : HTTPS et cookies sécurisés, gestion opérationnelle des secrets,
-gestion des invitations/révocations, limitation distribuée des requêtes,
-observabilité, journal d'audit, sauvegardes et restauration testées, budgets
-de tâches et revue de l'isolation doivent être complétés.
+Before a public service: complete HTTPS and secure cookies, operational secret
+management, invitations and revocations, distributed rate limits, observability,
+audit logging, tested backups and restoration, task budgets and an isolation review.
 
-Les modules installés sont du code Python de confiance. Ne pas installer un
-module inconnu sans revue. Les workflows détectent les baux expirés après un arrêt
-de worker et proposent une reprise explicite des étapes inachevées. Ils ne relancent
-pas automatiquement un appel IA payant. Les brouillons ASO et storyboards détectent
-les conflits de version ; l'édition d'un même script SMM ne dispose pas encore de
-ce contrôle.
+Installed modules are trusted Python code. Do not install an unknown module without
+review. Workflows detect expired leases after a worker stops and offer an explicit
+retry of unfinished steps. They do not automatically repeat a paid AI call. ASO drafts
+and storyboards detect version conflicts; concurrent edits of the same SMM script do
+not yet have this control.
 
-La recherche SMM transmet au fournisseur IA choisi le contexte confirmé de l'app,
-le texte capturé et des vues de l'onglet de recherche. Les mots de passe et cookies
-sociaux ne sont pas exportés. Les sources web sont traitées comme des données non
-fiables ; elles n'autorisent aucune commande arbitraire. Voir les
-[limites du connecteur](addons/studio/browser_extension/README.md).
+SMM research sends the confirmed app context, captured text and views of the research
+tab to the selected AI provider. Social passwords and cookies are not exported. Web
+sources are treated as untrusted data and cannot authorize arbitrary commands. See
+the [connector limits](addons/studio/browser_extension/README.md).
 
-Ne pas publier les détails exploitables d'une vulnérabilité dans une issue.
-Utiliser « Report a vulnerability » dans l'onglet Security du dépôt si le
-signalement privé y est activé. Sinon, ouvrir une demande générique de canal
-privé sans détails, secrets ni données clients. Aucun délai de réponse n'est
-garanti pour cette alpha.
+Do not publish exploitable vulnerability details in an issue. Use **Report a
+vulnerability** in the repository's Security tab if private reporting is enabled.
+Otherwise, request a private reporting channel without details, secrets or customer
+data. No response time is guaranteed for this alpha.

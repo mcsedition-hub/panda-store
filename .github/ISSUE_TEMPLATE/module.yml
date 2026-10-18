@@ -1,18 +1,18 @@
-name: Proposer un module
-description: Un besoin métier ou une intégration
+name: Propose a module
+description: A business need or integration
 body:
   - type: textarea
     id: need
     attributes:
-      label: Quel besoin voulez-vous résoudre ?
+      label: What need would this address?
     validations:
       required: true
   - type: textarea
     id: workflow
     attributes:
-      label: Parcours proposé
-      description: Entrée, actions et résultat attendu.
+      label: Proposed workflow
+      description: Inputs, actions and expected result.
   - type: textarea
     id: dependencies
     attributes:
-      label: Données, services et permissions nécessaires
+      label: Required data, services and permissions

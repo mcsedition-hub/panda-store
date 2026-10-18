@@ -1,13 +1,13 @@
-## Problème et comportement obtenu
+## Problem and resulting behavior
 
-Décrire le besoin et ce qui change pour l'utilisateur.
+Describe the need and what changes for the user.
 
-## Vérification
+## Validation
 
-Indiquer les tests réalisés et les limites non vérifiées.
+State the checks performed and any unverified limitations.
 
-## Données et droits
+## Data and permissions
 
-Préciser les migrations, permissions ou accès externes modifiés, si applicable.
+Describe changes to migrations, permissions or external access, if applicable.
 
-Les contributions suivent la licence et les consignes de CONTRIBUTING.md.
+Contributions follow the license and guidance in CONTRIBUTING.md.
