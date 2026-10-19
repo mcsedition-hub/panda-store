@@ -25,7 +25,7 @@ You can run Panda Store locally with Docker Compose or Python and Node.js.
 ## Getting started
 
 Follow the [installation guide](docs/installation.md), then create a project, import an app or try the demo.
-This project is in alpha for local use. ASO audits currently support App Store listings.
+This project is in alpha for local use. ASO audits support App Store and Google Play listings.
 
 The [documentation](docs/README.md) covers [ASO](docs/aso.md), [SMM](docs/smm.md)
 and [connections](docs/connections.md). Planned work is in the [roadmap](docs/roadmap.md).
