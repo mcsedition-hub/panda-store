@@ -1,6 +1,6 @@
 # Panda SMM Browser (local alpha)
 
-[SMM guide](../../../docs/smm.md) · [Installation](../../../docs/installation.md)
+[SMM guide](https://github.com/mcsedition-hub/panda-store/blob/main/docs/smm.md) · [Installation](https://github.com/mcsedition-hub/panda-store/blob/main/docs/installation.md)
 
 ## Install
 

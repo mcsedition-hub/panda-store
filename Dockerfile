@@ -10,7 +10,8 @@ RUN useradd --create-home --uid 10001 panda && mkdir /app/staticfiles && chown p
 COPY --chown=panda:panda manage.py ./
 COPY --chown=panda:panda panda_store ./panda_store
 COPY --chown=panda:panda addons ./addons
-COPY --chown=panda:panda LICENSE ./
+COPY --chown=panda:panda LICENSE COPYRIGHT THIRD_PARTY_NOTICES.md ./
+COPY --chown=panda:panda licenses ./licenses
 USER panda
 EXPOSE 8000
 CMD ["uvicorn", "panda_store.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

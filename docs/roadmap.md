@@ -39,9 +39,14 @@ establishing a publishing connection.
 
 ## Next milestone
 
-**Priority: complete ASO and SMM flows for independent first-time use.**
-Live collection and generation across formats have been exercised. Release preparation
-now focuses on reliability, installation, interface clarity and exports. See the
+**Community alpha: gather feedback from independent first-time installations.**
+Version `v0.1.0-alpha.2` is the first published Community prerelease. Its
+[release notes](https://github.com/mcsedition-hub/panda-store/releases/tag/v0.1.0-alpha.2)
+describe installation and known limits. ASO and SMM are the two business modules.
+SMM exposes Research and Scripts; its Scenes interface is disabled while the
+existing implementation and saved data remain in the backend. Live collection
+and generation across formats have been exercised. Feedback now guides reliability,
+installation, interface clarity and exports. See the
 [SMM scope](architecture.md#smm-module-organic-marketing).
 
 Remaining work includes live validation of GLM vision models, trials with other accounts

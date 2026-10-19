@@ -150,7 +150,7 @@ The displayed result total follows the selected platform. Current and previous r
 have separate qualified counts; the saved-reference summary names its platforms and
 offers a shortcut back to qualified results. Static posts omit missing video-view counters.
 
-**New research** is available from Research, Scripts and Scenes. It opens a fresh form;
+**New research** is available from Research and Scripts. It opens a fresh form;
 the previous research, captured evidence and scripts stay saved. Only **Start social
 research** starts the new task. Use the saved research selector to reopen a session
 and the generation history in Scripts to revisit earlier drafts. Reading saved results
@@ -198,45 +198,17 @@ These are editable scripts and shooting directions, not generated video files. T
 an estimate. No social account is connected or post published. AI generation works with demo mode
 disabled; **Demo templates · No AI** remains a separate optional local mode.
 
-## Plan scenes and prepare an editing package
+## Scenes availability
 
-Open **Scripts → Plan scenes**, or **SMM → Scenes**, and choose a saved script.
-**Create storyboard** keeps explicit scene labels and separates the opening and call to action.
-Other script formats are preserved in one editable shot. This step makes no model call and does
-not approve the script. Adjust shot order, direction, voiceover, on-screen text and duration.
+The Community alpha interface has two tabs: **Research** and **Scripts**. The
+Scenes tab, storyboard editor, media library and MP4 rendering controls are disabled.
+Prepare and export scripts, carousel plans, image briefs and text posts from Scripts;
+produce the final media with your own footage, visuals and editing tools.
 
-Select an image in **App visuals** to archive and attach one of the connected app's own store
-screenshots. Supported imports come from the allowed Apple and Google Play image hosts;
-competitor research captures are not offered as production assets. Images retain their aspect ratio in the 9:16
-preview. They are store-image derivatives, potentially with marketing text, not raw screen
-recordings. Upload PNG, JPEG or WebP images, H.264 MP4 recordings, or MP3, M4A and WAV
-audio in the same library. Choose a clip start, attach voiceover audio or keep the recording's
-original sound. Attached voiceover replaces recording audio; short audio is padded with silence.
-**Play preview** sequences images and recordings silently. Check the rendered MP4 for final
-sound and timing. Voiceover text remains a script; it is not synthesized speech.
-
-Save a storyboard before recording. Each save creates a revision; competing edits return a
-conflict without overwriting local work. Navigation saves pending edits and stops if saving fails.
-A script change is flagged without replacing the shot plan. **Export package** downloads the
-selected saved revision with `storyboard.json`, a Markdown shot list and the selected media.
-**Save & export** saves the current edits first. The last 100 versions are selectable in the UI;
-older saved versions remain available through the versioned export API.
-
-**Render MP4** renders a saved revision as a 1080 × 1920, 30 fps video with on-screen text
-and selected audio. Every shot needs an image or recording, and the total must be at most
-120 seconds. The workflow shows progress, supports stopping and reuses completed shots on
-retry. Preview or download finished videos privately. Deleting an export removes its saved
-shots and activity; a render used by a later retry can only be deleted after that retry.
-
-SMM works with ASO disabled. Its private app library stores at most 60 files / 200 MB per
-app, with a 25 MB upload limit. Images are normalized to JPEGs of at most 1.5 MB; recordings
-are limited to 120 seconds. Renders and saved shots share a 500 MB workspace quota. These
-files are stored in the database; include them in backups. Media referenced by any saved
-storyboard revision cannot be deleted. Up to 20 shots and ten minutes per plan are supported,
-but video exports have the shorter limit above.
-
-Apply migrations and restart the API and worker when upgrading. Install FFmpeg and ffprobe
-on both; the Docker image includes them. Voice synthesis and generated video remain to be built.
+Existing storyboard and media data remain in the backend. Developers can consult the
+[retained implementation](architecture.md#smm-scenes-and-visuals). These APIs and
+components are not an available production workflow in this release. Voice synthesis,
+generated video and automatic social publishing are outside this alpha.
 
 ## Activity and recovery
 

@@ -891,6 +891,10 @@ its older workflow remain separately available.
 
 ### SMM scenes and visuals
 
+This implementation is retained for existing data and developer reference. The
+Community alpha interface exposes Research and Scripts; Scenes, its media library
+and video rendering controls are disabled. They are not part of the current user flow.
+
 `Storyboard` belongs to a `Creative` and retains source text and its hash. Creation
 is idempotent per script. Splitting recognizes only explicit `[Scene N: …]` blocks;
 all other text is preserved as one free-form shot. Hook and CTA remain separate.
@@ -932,4 +936,4 @@ with text and selected audio. Each shot requires an image or video, and the tota
 must not exceed 120 seconds. Attached audio replaces video audio; voiceover text is
 not synthesized. Exports and rendered shots share a 500 MB workspace quota. Stop and
 retry use the shared foundation, reusing completed shots. Detailed limits are in the
-[SMM guide](smm.md#plan-scenes-and-prepare-an-editing-package).
+[SMM guide](smm.md#scenes-availability).

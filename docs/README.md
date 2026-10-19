@@ -15,7 +15,7 @@ and start from an idea, an imported app or a demo.
 screenshot reviews and editable drafts.
 
 [SMM](smm.md) covers browser research, saved sessions, reference filters,
-one to three adaptations, scripts, scenes and exports.
+one to three adaptations, editable scripts and exports.
 
 ## Development
 

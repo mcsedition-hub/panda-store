@@ -4,6 +4,8 @@
 
 Open **AI usage** in the sidebar to inspect tokens and estimated USD costs for ASO,
 SMM and AI connection checks. Filter by month, application, provider or module.
+The module selector offers ASO and SMM. Connection checks remain part of the
+unfiltered totals and call history, rather than appearing as a business module.
 The page groups consumption by application, provider and operation, with individual
 requests under **Call details**. Workflow activity also shows its recorded usage.
 

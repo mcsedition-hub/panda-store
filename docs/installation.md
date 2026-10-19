@@ -2,7 +2,22 @@
 
 [Documentation](README.md)
 
-Panda Store is currently an alpha for local use. Choose Docker Compose or a native installation.
+Panda Store Community is an alpha for local use. Choose Docker Compose or a native installation.
+
+## Get the source
+
+With Git installed, download the Community release:
+
+```sh
+git clone https://github.com/mcsedition-hub/panda-store.git
+cd panda-store
+git checkout v0.1.0-alpha.2
+```
+
+You can also extract the source ZIP from the
+[release page](https://github.com/mcsedition-hub/panda-store/releases/tag/v0.1.0-alpha.2)
+and open a terminal in that folder. Choose one installation method below;
+both use port 5173, so run only one frontend at a time.
 
 ## Docker Compose demo
 
@@ -76,9 +91,11 @@ paste your idea, or import a `.md` / `.markdown` file. Choose **Idea** or
 those already implemented. The description is editable and accepts up to 20,000
 characters. No store account is required. SMM can research comparable apps and
 prepare launch content from this context. In ASO, choose an AI model and select
-**Analyze idea and suggest listing** to get positioning analysis and a first App Store
-listing. ASO proposes the name, subtitle, description, keywords and promotional text;
-you can then save and edit the complete proposal in **Drafts**.
+**Analyze idea and suggest listing** to get positioning analysis and a first listing.
+Android projects receive a Google Play name, short description and full description.
+iOS projects, and projects with an undecided platform, receive an App Store name,
+subtitle, promotional text, description and keywords. You can save and edit the complete
+proposal in **Drafts**.
 
 For an existing app, use **My apps → Import an app**, choose App Store or Google Play,
 then select one app to import. Repeat whenever you want to add another app. See
@@ -89,6 +106,18 @@ New AI analyses and explanations follow this language, including evidence review
 Store copy keeps the listing locale; scripts follow the language selected in their brief.
 New briefs default to the account language. Imported listings and earlier results are preserved.
 
+## Connect AI
+
+Open **AI settings** in ASO or SMM and connect a provider with your own API key.
+OpenAI, Google Gemini, Anthropic Claude and Z.ai (GLM) are supported. Keys and model
+catalogues are saved for your workspace; choose a model before starting a task.
+The provider charges your account according to its pricing. Panda's
+[AI usage and limits](ai-usage.md) page tracks usage and lets you set a local budget.
+
+The bootstrap script creates `.env` for server configuration. Provider keys are
+entered through AI settings; `.env.ai.local` is not loaded automatically. Keep your
+database and `PANDA_CREDENTIAL_KEYS` when upgrading to retain saved connections.
+
 ## Update an existing installation
 
 The local configuration enables `PANDA_SETUP_ENABLED=true`. Setup can run only once.
@@ -97,7 +126,13 @@ single seeded demo workspace can be renamed and claimed without losing its apps.
 Installations with other existing accounts retain sign-in. The bootstrap script
 preserves existing `.env` files; this file contains secrets and must never be published.
 
-For a native installation, after pulling changes, install the Python requirements,
+For a Git installation, fetch tags and check out the release you want to install.
+For example, update to this Community alpha with `git fetch --tags` followed by
+`git checkout v0.1.0-alpha.2`. Preserve local configuration and data. If you use a
+source ZIP, extract the new version separately and transfer your existing configuration
+and database according to your installation method.
+
+For a native installation, after updating the source, install the Python requirements,
 run `npm --prefix web ci`, apply migrations and restart the API, workflow worker and
 frontend. The native worker does not reload backend code automatically. For Compose,
 run `docker compose up --build`; its initialization service applies migrations.

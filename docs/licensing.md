@@ -1,7 +1,10 @@
 # License
 
 Panda Store is distributed under the GNU Lesser General Public License, version 3
-(LGPLv3). [LICENSE](../LICENSE) contains its full text and the GPLv3 text it incorporates.
+(LGPLv3 only). [LICENSE](../LICENSE) contains the standard LGPLv3 text. The
+[GPLv3 text it incorporates](../licenses/GPL-3.0.txt) is supplied separately.
+Copyright information is in [COPYRIGHT](../COPYRIGHT). This file arrangement
+preserves the existing license and lets GitHub identify it.
 
 This license permits using, modifying and redistributing the software, including
 for commercial activities or a hosted service, subject to its conditions.

@@ -79,7 +79,7 @@ original upload files. Category, release version, custom store listings, reviews
 installs and financial data are not imported. Android metadata is available in
 **My apps**, **ASO** and **SMM**. ASO reviews the three Google Play text fields and
 imported screenshots, and saves comparisons and drafts with Google Play guidance.
-Imported Google screenshots can also be archived as image assets in SMM scenes.
+The Community SMM interface provides research and scripts; its Scenes tab is disabled.
 
 Google requires a [temporary edit](https://developers.google.com/android-publisher/edits)
 to read these resources. Panda Store creates that edit, reads its copy of the deployed

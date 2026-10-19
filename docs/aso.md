@@ -136,11 +136,12 @@ suggested or evidence is missing. Mechanical limits remain under **Apple checks*
 or **Google Play checks**, according to the app's platform.
 Each AI proposal includes a replacement, rationale, quoted listing evidence and
 curated references. **Add to draft** starts a separate editable draft.
-The report records the requested/resolved model and token usage, not an estimated
-price. Sources and instructions are versioned; the selected connection revision
-is frozen. Replacing/removing its key requires a new audit if the AI call has not
-completed. Retry reuses a saved model response when available; a lost response can
-require a new paid request. Stopping discards a late result but cannot undo usage.
+The report records the requested/resolved model and token usage. Workflow activity
+and **AI usage** show recorded usage and estimated costs when pricing is available.
+Sources, instructions and the selected connection revision are frozen. After replacing
+a key, use **Change provider or model** when retrying to select the current connection.
+Keeping the original AI choice reuses completed steps when possible; a lost response
+can require a new paid request. Stopping discards a late result but cannot undo usage.
 
 New AI audits use up to **two model calls** with the selected provider/model: copy
 review, then **Check claims against listing**. The second call checks observations,
