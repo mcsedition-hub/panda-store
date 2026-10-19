@@ -166,7 +166,6 @@ export default function Setup({ onComplete }: { onComplete: (session: Session) =
             </button>
           )}
         </form>
-        <p className="setup-footnote">{t('Account data is stored on this server.')}</p>
       </section>
     </main>
   );

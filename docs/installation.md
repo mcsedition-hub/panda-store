@@ -13,7 +13,7 @@ python3 scripts/bootstrap.py
 docker compose up --build
 ```
 
-Open **http://127.0.0.1:8080**, choose English or French, then create your organization
+Open **http://127.0.0.1:5173**, choose English or French, then create your organization
 and owner account.
 For browser research, download **Panda SMM Browser** from SMM and follow the
 [connector instructions](../addons/studio/browser_extension/README.md). The current

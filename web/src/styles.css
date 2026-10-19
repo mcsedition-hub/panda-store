@@ -315,11 +315,6 @@ strong {
 .setup-back {
   align-self: center;
 }
-.setup-footnote {
-  margin-top: 28px;
-  color: var(--muted);
-  font-size: 12px;
-}
 .app-shell {
   display: flex;
   min-height: 100vh;

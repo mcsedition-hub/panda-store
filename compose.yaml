@@ -61,7 +61,7 @@ services:
       init: {condition: service_completed_successfully}
   web:
     build: {context: ., dockerfile: web/Dockerfile}
-    ports: ["127.0.0.1:8080:80"]
+    ports: ["127.0.0.1:5173:80"]
     volumes: ["static:/staticfiles:ro"]
     depends_on:
       api: {condition: service_healthy}

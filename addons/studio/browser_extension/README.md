@@ -6,8 +6,8 @@
 
 1. Extract this ZIP. In Chrome, open `chrome://extensions`.
 2. Enable Developer mode, choose **Load unpacked**, and select the `panda-smm` folder.
-3. Return to Panda Store at `http://127.0.0.1:5173` (development) or
-   `http://localhost:8080` (Docker Compose) and open SMM → Research. The connection is detected automatically.
+3. Return to Panda Store at `http://127.0.0.1:5173` (development or Docker Compose)
+   and open SMM → Research. The connection is detected automatically.
 
 ## Update and reconnect
 
