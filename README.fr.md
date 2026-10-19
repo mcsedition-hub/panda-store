@@ -12,6 +12,9 @@
 Panda Store est un espace de travail open source pour le marketing des applications mobiles.
 Partez d'une idée ou importez vos apps iOS et Android, puis préparez vos fiches store et vos contenus sociaux.
 
+**Connexions** relie vos comptes App Store Connect et Google Play Console
+pour importer les applications de votre choix et actualiser leurs fiches.
+
 **ASO** (App Store Optimization) analyse vos fiches et captures d'écran,
 puis vous aide à rédiger, comparer et exporter vos améliorations.
 
@@ -19,7 +22,7 @@ puis vous aide à rédiger, comparer et exporter vos améliorations.
 Facebook et Google depuis votre navigateur. Sélectionnez une à trois références pertinentes
 aux performances observées, puis adaptez leurs formats en scripts, carrousels ou textes pour votre app.
 
-Les deux modules partagent les informations de vos apps et vos propres connexions IA.
+ASO et SMM partagent les informations de vos apps et utilisent vos propres fournisseurs IA.
 Panda Store fonctionne en local avec Docker Compose ou Python et Node.js.
 
 ## Démarrer
