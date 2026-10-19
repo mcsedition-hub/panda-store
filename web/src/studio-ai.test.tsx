@@ -15,7 +15,24 @@ vi.mock('./ai/AIOptions', () => ({
     </button>
   ),
 }));
-vi.mock('./workflows/WorkflowPanel', () => ({ default: () => <div>Live generation</div> }));
+vi.mock('./workflows/WorkflowPanel', () => ({
+  default: ({
+    onRetry,
+    retryAI,
+  }: {
+    onRetry: (choice: { provider: string; model: string }) => Promise<void>;
+    retryAI?: unknown;
+  }) => (
+    <div>
+      Live generation
+      {!!retryAI && (
+        <button onClick={() => onRetry({ provider: 'google', model: 'gemini-2.5-flash' })}>
+          Retry using Gemini
+        </button>
+      )}
+    </div>
+  ),
+}));
 vi.mock('../../addons/studio/frontend/SocialResearch', () => ({
   default: () => <p>Social research</p>,
 }));
@@ -142,6 +159,39 @@ it('shows the frozen social context instead of the unrelated legacy generation f
   expect(screen.queryByLabelText('Generation mode')).toBeNull();
   expect(screen.queryByText('Selected source')).toBeNull();
   expect(screen.getAllByRole('link', { name: 'TikTok reference ↗' }).length).toBeGreaterThan(0);
+});
+
+it('sends the retry model choice with the saved script attempt', async () => {
+  const implementation = mocked.getMockImplementation()!;
+  const failed = {
+    ...queued,
+    status: 'failed',
+    provider: 'openai',
+    context: {
+      mode: 'smm',
+      brief,
+      ai: { provider: 'openai', model: 'gpt-4.1-mini' },
+      sources: brief.research_sources,
+    },
+  };
+  mocked.mockImplementation(async (path, options) => {
+    if (path.endsWith('/retry/')) return { ...failed, id: 'gen-two', status: 'queued' };
+    if (path.endsWith('runs/')) return [failed];
+    return implementation(path, options);
+  });
+  render(<Studio {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Scripts' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry using Gemini' }));
+  await waitFor(() =>
+    expect(mocked.mock.calls.some(([path]) => path.endsWith('/retry/'))).toBe(true),
+  );
+  const [path, request] = mocked.mock.calls.find(([path]) => path.endsWith('/retry/'))!;
+  expect(path).toContain('runs/gen-one/retry/');
+  expect(JSON.parse(String(request?.body))).toEqual({
+    request_id: expect.any(String),
+    provider: 'google',
+    model: 'gemini-2.5-flash',
+  });
 });
 it('saves a research selection and keeps the edited brief when moving from Research to Scripts', async () => {
   render(<Studio {...props} />);

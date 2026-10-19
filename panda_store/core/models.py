@@ -86,3 +86,55 @@ class AIConnection(models.Model):
                 fields=["workspace", "provider"], name="unique_workspace_ai_provider"
             )
         ]
+
+
+class AIBudget(models.Model):
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, primary_key=True)
+    monthly_usd = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True)
+    operation_usd = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True)
+    monthly_tokens = models.PositiveBigIntegerField(null=True, blank=True)
+    operation_tokens = models.PositiveBigIntegerField(null=True, blank=True)
+    revision = models.UUIDField(default=uuid.uuid4, editable=False)
+    lock_version = models.PositiveBigIntegerField(default=0)
+    tracking_started_at = models.DateTimeField(auto_now_add=True)
+
+
+class AIUsage(models.Model):
+    """One outbound request. Never store credentials, prompts or generated content here."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="ai_usage")
+    operation_key = models.CharField(max_length=100)
+    operation_label = models.CharField(max_length=160)
+    module = models.CharField(max_length=32)
+    app_id = models.UUIDField(null=True)
+    app_name = models.CharField(max_length=255, blank=True)
+    workflow_id = models.UUIDField(null=True)
+    provider = models.CharField(max_length=20)
+    model = models.CharField(max_length=120)
+    resolved_model = models.CharField(max_length=120, blank=True)
+    status = models.CharField(max_length=16, default="pending")
+    error_code = models.CharField(max_length=64, blank=True)
+    input_tokens = models.PositiveBigIntegerField(null=True)
+    output_tokens = models.PositiveBigIntegerField(null=True)
+    cached_tokens = models.PositiveBigIntegerField(null=True)
+    cache_write_tokens = models.PositiveBigIntegerField(null=True)
+    reasoning_tokens = models.PositiveBigIntegerField(null=True)
+    estimated_cost_usd = models.DecimalField(max_digits=18, decimal_places=8, null=True)
+    reserved_cost_usd = models.DecimalField(max_digits=18, decimal_places=8, null=True)
+    reserved_tokens = models.PositiveBigIntegerField(default=0)
+    price = models.JSONField(default=dict)
+    usage = models.JSONField(default=dict)
+    historical = models.BooleanField(default=False)
+    source_key = models.CharField(max_length=150, null=True, unique=True)
+    created_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True)
+    reconciled_by = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    reconciled_at = models.DateTimeField(null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["workspace", "created_at"]),
+            models.Index(fields=["workspace", "operation_key"]),
+            models.Index(fields=["workflow_id"]),
+        ]

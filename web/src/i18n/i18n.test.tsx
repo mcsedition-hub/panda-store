@@ -39,6 +39,24 @@ it('preserves all interpolation slots in the French catalog', () => {
   for (const [key, value] of Object.entries(french)) expect(slots(value), key).toEqual(slots(key));
 });
 
+it('explains the precise failed script field and evidence check in French', () => {
+  setLanguage('fr');
+  expect(
+    t(
+      'Script 1: The angle field contains 117 characters; the limit is 100. Retry the unfinished step.',
+    ),
+  ).toBe(
+    'Script 1 : le champ « Angle » contient 117 caractères ; la limite est 100. Réessayez l’étape inachevée.',
+  );
+  expect(
+    t(
+      'Script 1: Claim 2: the evidence quote is absent from the confirmed product facts. Retry the unfinished step.',
+    ),
+  ).toBe(
+    'Script 1, affirmation 2 : la citation justificative ne figure pas dans les faits confirmés de l’application. Réessayez l’étape inachevée.',
+  );
+});
+
 it('explains project validation failures in French with the exact measured limits', () => {
   setLanguage('fr');
   expect(

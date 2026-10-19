@@ -5,6 +5,7 @@ import re
 
 from panda_store.ai.context import include_app_context
 from panda_store.ai.providers import ProviderError, generate
+from panda_store.ai.usage import tracked_operation
 from panda_store.core.credentials import decrypt
 from panda_store.core.models import AIConnection
 
@@ -126,6 +127,7 @@ def page_context(pages):
     return evidence, images
 
 
+@tracked_operation("studio", "legacy")
 def call(run, pages, findings=None):
     evidence, images = page_context(pages)
     context = {

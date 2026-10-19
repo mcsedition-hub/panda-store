@@ -12,7 +12,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 
+from panda_store.ai.usage import totals
 from panda_store.core.access import workspace_access
+from panda_store.core.models import AIUsage
 
 from .models import WorkflowRun
 from .services import cancel, recover
@@ -55,6 +57,9 @@ def snapshot(user, workspace_id, run_id, after):
         )
         next_cursor = events[-1]["sequence"] if events else min(after, run.event_sequence)
         return {
+            "ai_usage": totals(
+                AIUsage.objects.filter(workspace_id=workspace_id, workflow_id=run.pk)
+            ),
             "id": str(run.pk),
             "title": run.title,
             "status": run.status,

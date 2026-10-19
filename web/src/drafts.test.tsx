@@ -78,6 +78,41 @@ const tick = async () => {
   });
 };
 
+it('edits and autosaves only the three Google Play fields with the short description limit', async () => {
+  const googleContent = {
+    name: 'Panda',
+    short_description: 'Track runs.',
+    description: 'A training diary.',
+  };
+  const googleDraft: Draft = {
+    ...initial,
+    platform: 'android',
+    content: googleContent,
+    baseline: googleContent,
+    changed_fields: [],
+    latest: { ...initial.latest, content: googleContent },
+  };
+  mockApi.mockImplementation(async (_url, options) => {
+    const body = JSON.parse(options!.body as string);
+    return { ...googleDraft, content: body.content, name: body.name, version: 2 };
+  });
+  render(<DraftEditor {...props} app={{ ...app, platform: 'android' }} initial={googleDraft} />);
+  expect(screen.queryByLabelText('Draft Subtitle')).toBeNull();
+  expect(screen.queryByLabelText('Draft Keywords')).toBeNull();
+  expect(screen.queryByLabelText('Draft Hook (promotional text)')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Draft Short description'), {
+    target: { value: 'Track every run.' },
+  });
+  expect(screen.getByText('16 / 80 characters')).toBeTruthy();
+  await tick();
+  expect(screen.getByText('Saved')).toBeTruthy();
+  expect(JSON.parse(mockApi.mock.calls[0][1]!.body as string)).toMatchObject({
+    content: { ...googleContent, short_description: 'Track every run.' },
+  });
+  expect(Object.keys(JSON.parse(mockApi.mock.calls[0][1]!.body as string).content)).toHaveLength(3);
+  expect(screen.getByText('Track runs.')).toBeTruthy();
+});
+
 it('autosaves changed fields with a version and preserves the imported reference', async () => {
   mockApi.mockImplementation(async (_url, options) => {
     const body = JSON.parse(options!.body as string);

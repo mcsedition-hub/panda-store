@@ -199,6 +199,73 @@ it('keeps workflow activity read-only for viewers and closes streams on unmount'
   expect(Source.current.close).toHaveBeenCalled();
 });
 
+it('lets a failed workflow retry with a connected provider and model selected explicitly', async () => {
+  const failed = { ...running, status: 'failed' as const, cursor: 3 };
+  mockApi.mockImplementation(async (path) =>
+    path.endsWith('/ai/')
+      ? {
+          credentials_ready: true,
+          providers: [
+            { id: 'openai', name: 'OpenAI', connected: true, models: [{ id: 'gpt-4.1-mini' }] },
+            {
+              id: 'google',
+              name: 'Google Gemini',
+              connected: true,
+              models: [{ id: 'gemini-2.5-flash' }],
+            },
+          ],
+        }
+      : failed,
+  );
+  render(
+    <WorkflowPanel
+      {...props}
+      retryAI={{
+        choice: { provider: 'openai', model: 'gpt-4.1-mini' },
+        owner: true,
+        moduleContext: 'smm',
+      }}
+    />,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Change provider or model' }));
+  await waitFor(() =>
+    expect((screen.getByLabelText('Model') as HTMLSelectElement).value).toBe('gpt-4.1-mini'),
+  );
+  expect(props.onRetry).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('AI provider'), { target: { value: 'google' } });
+  expect(
+    (screen.getByRole('button', { name: 'Retry with this model' }) as HTMLButtonElement).disabled,
+  ).toBe(true);
+  fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'gemini-2.5-flash' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Retry with this model' }));
+  await waitFor(() =>
+    expect(props.onRetry).toHaveBeenCalledWith({ provider: 'google', model: 'gemini-2.5-flash' }),
+  );
+  expect(screen.queryByText(/Retry keeps the original app, model/)).toBeNull();
+  props.onRetry.mockReset();
+  fireEvent.click(screen.getByRole('button', { name: 'Keep original model' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retry unfinished steps' }));
+  await waitFor(() => expect(props.onRetry).toHaveBeenCalledWith(undefined));
+});
+
+it('does not expose model changes for viewers', async () => {
+  mockApi.mockResolvedValue({ ...running, status: 'failed', cursor: 3 });
+  render(
+    <WorkflowPanel
+      {...props}
+      canWrite={false}
+      retryAI={{
+        choice: { provider: 'openai', model: 'gpt-4.1-mini' },
+        owner: false,
+        moduleContext: 'aso',
+      }}
+    />,
+  );
+  await screen.findByText('Saved');
+  expect(screen.queryByRole('button', { name: 'Change provider or model' })).toBeNull();
+  expect(props.onRetry).not.toHaveBeenCalled();
+});
+
 it('reloads interrupted activity without retrying the task or losing saved results', async () => {
   mockApi.mockRejectedValue(new ApiError('Cannot reach Panda Store.', 0));
   render(<WorkflowPanel {...props} />);

@@ -99,7 +99,9 @@ def context(inputs, report):
                 }
             )
     return {
-        "listing": localized_metadata(inputs["metadata"], inputs["locale"]),
+        "listing": localized_metadata(
+            inputs["metadata"], inputs["locale"], inputs.get("platform", "ios")
+        ),
         "locale": inputs["locale"],
         "guidance": inputs["knowledge"],
         "existing_findings": editorial.existing_findings(report["checks"]),
@@ -138,10 +140,13 @@ def review(run, report):
     if run.inputs["ai"].get("grounding_version") != VERSION:
         raise ProviderError("The evidence review changed. Start a new audit.")
     data = context(run.inputs, report)
+    instruction = INSTRUCTION
+    if run.inputs.get("platform") == "android":
+        instruction = instruction.replace("an Apple requirement", "a Google Play requirement")
     if data["candidates"]:
         output = editorial.call(
             run,
-            INSTRUCTION,
+            instruction,
             data,
             schema(data["candidates"]),
             max_output_tokens=run.inputs["ai"]["grounding_max_output_tokens"],

@@ -41,7 +41,7 @@ AI_STEPS = [
 ]
 
 
-def create_ai_workflow(run, retry_of=None):
+def create_ai_workflow(run, retry_of=None, reuse_steps=None):
     workflow = create_run(
         workspace=run.workspace,
         user=run.created_by,
@@ -51,6 +51,7 @@ def create_ai_workflow(run, retry_of=None):
         title="Create scripts from research",
         steps=AI_STEPS,
         retry_of=retry_of,
+        reuse_steps=reuse_steps,
     )
     run.workflow = workflow
     run.save(update_fields=["workflow"])

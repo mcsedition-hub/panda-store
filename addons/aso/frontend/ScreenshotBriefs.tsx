@@ -2,7 +2,7 @@ import { t } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
-import { SourceReference, type Source } from './Sources';
+import { isStoreSource, SourceReference, type Source } from './Sources';
 import { when } from './draftTypes';
 
 const fields = [
@@ -324,12 +324,14 @@ function Editor({
               </div>
             ))}
           </details>
-          <details>
-            <summary>{t('Sources')}</summary>
-            {saved.source.finding.sources.map((source) => (
-              <SourceReference key={source.id} source={source} />
-            ))}
-          </details>
+          {saved.source.finding.sources.some(isStoreSource) && (
+            <details>
+              <summary>{t('Sources')}</summary>
+              {saved.source.finding.sources.map((source) => (
+                <SourceReference key={source.id} source={source} />
+              ))}
+            </details>
+          )}
         </aside>
         <div className="screenshot-brief-form">
           <label>

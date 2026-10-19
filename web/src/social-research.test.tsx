@@ -10,7 +10,10 @@ vi.mock('./api', async (original) => ({
   ...(await original<typeof import('./api')>()),
   api: vi.fn(),
 }));
-vi.mock('../../addons/studio/frontend/browserBridge', () => ({ browserCommand: vi.fn() }));
+vi.mock('../../addons/studio/frontend/browserBridge', async (original) => ({
+  ...(await original<typeof import('../../addons/studio/frontend/browserBridge')>()),
+  browserCommand: vi.fn(),
+}));
 vi.mock('./ai/AIOptions', () => ({
   default: ({
     onChange,
@@ -22,7 +25,26 @@ vi.mock('./ai/AIOptions', () => ({
     </button>
   ),
 }));
-vi.mock('./workflows/WorkflowPanel', () => ({ default: () => <p>Workflow progress</p> }));
+vi.mock('./workflows/WorkflowPanel', () => ({
+  default: ({
+    onRetry,
+    retryAI,
+    canWrite,
+  }: {
+    onRetry: (choice: { provider: string; model: string }) => Promise<void>;
+    retryAI?: unknown;
+    canWrite?: boolean;
+  }) => (
+    <div>
+      Workflow progress
+      {!!retryAI && canWrite && (
+        <button onClick={() => onRetry({ provider: 'google', model: 'gemini-2.5-flash' })}>
+          Retry research using Gemini
+        </button>
+      )}
+    </div>
+  ),
+}));
 const mockedApi = vi.mocked(api);
 const mockedBrowser = vi.mocked(browserCommand);
 function browserReplies(
@@ -88,6 +110,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   setLanguage('en');
 });
 function setup(saved: SocialSession) {
@@ -119,6 +142,112 @@ function setup(saved: SocialSession) {
     throw new Error(path);
   });
 }
+it('selects the new research session after retrying with another provider and keeps history', async () => {
+  const saved = session('failed');
+  saved.inputs.ai = { provider: 'openai', model: 'gpt-4.1-mini' };
+  const fork = { ...saved, id: 'fork', status: 'analyzing', workflow_id: 'fork-workflow' };
+  mockedApi.mockImplementation(async (path, options) => {
+    if (path.endsWith('/apps/app/social-research/')) return [saved];
+    if (options?.method === 'POST') return fork;
+    return path.includes('/fork/') ? fork : saved;
+  });
+  render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
+  const retry = await screen.findByRole('button', { name: 'Retry research using Gemini' });
+  fireEvent.click(retry);
+  await waitFor(() =>
+    expect((screen.getByLabelText('Research session') as HTMLSelectElement).value).toBe('fork'),
+  );
+  const options = (screen.getByLabelText('Research session') as HTMLSelectElement).options;
+  expect(Array.from(options, (option) => option.value)).toEqual(['fork', 'session']);
+  const [path, request] = mockedApi.mock.calls.find(([, options]) => options?.method === 'POST')!;
+  expect(path).toContain('social-research/session/');
+  expect(JSON.parse(String(request?.body))).toEqual({
+    action: 'retry',
+    request_id: expect.any(String),
+    provider: 'google',
+    model: 'gemini-2.5-flash',
+  });
+});
+
+it('explains saved exclusions in French and reveals the posts without rerunning research', async () => {
+  setLanguage('fr');
+  const saved = session('completed');
+  saved.posts = [
+    {
+      ...qualified('1'),
+      qualification: {
+        status: 'unqualified',
+        reasons: ['Views were not observed.', 'Likes were not observed.'],
+        like_rate: null,
+      },
+    },
+    {
+      ...qualified('2', 'unknown'),
+      qualification: {
+        status: 'unqualified',
+        reasons: [
+          'Content format is not established.',
+          'Views were not observed.',
+          'Likes 181 is below the 500 filter.',
+        ],
+        like_rate: null,
+      },
+    },
+    {
+      ...qualified('3'),
+      qualification: { status: 'unqualified', reasons: ['Unrelated to the app.'], like_rate: null },
+    },
+  ];
+  setup(saved);
+  render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
+  await screen.findByText('Recherche terminée sans référence qualifiée.');
+  await screen.findByText(
+    'Aucune référence qualifiée pour le moment. Précisez le sujet ou recherchez sur un autre réseau dans une nouvelle session.',
+  );
+  expect(screen.getByText('Publications sous les seuils de performance : 1.')).toBeTruthy();
+  expect(
+    screen.getByText(
+      'Publications avec des compteurs de vues ou de mentions J’aime manquants : 2.',
+    ),
+  ).toBeTruthy();
+  expect(screen.getByText('Publications dont le format n’a pas pu être reconnu : 1.')).toBeTruthy();
+  expect(
+    screen.getByText('Publications dont la pertinence ou les preuves sont insuffisantes : 1.'),
+  ).toBeTruthy();
+  expect(screen.queryByText('Post 1 ↗')).toBeNull();
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Voir les publications et leurs motifs (3)' }),
+  );
+  expect(screen.getByText('Post 1 ↗')).toBeTruthy();
+  expect(screen.getByText('Post 2 ↗')).toBeTruthy();
+  expect(screen.getByText('Post 3 ↗')).toBeTruthy();
+  expect(mockedApi.mock.calls.some(([, options]) => options?.method)).toBe(false);
+  expect(mockedBrowser.mock.calls.every(([command]) => command === 'ping')).toBe(true);
+});
+
+it('does not report empty completed results while analysis is pending or a post is qualified', async () => {
+  const excluded = {
+    ...qualified('2'),
+    qualification: {
+      status: 'unqualified',
+      reasons: ['Views were not observed.'],
+      like_rate: null,
+    },
+  };
+  for (const saved of [
+    { ...session('analyzing'), posts: [excluded] },
+    { ...session('completed'), posts: [qualified('1'), excluded] },
+  ]) {
+    setup(saved);
+    const view = render(
+      <SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />,
+    );
+    await screen.findByText('Find runner content');
+    expect(screen.queryByText('Search completed without qualified references.')).toBeNull();
+    view.unmount();
+  }
+});
+
 it('opens a fresh search from completed research, keeps history and only starts on submission', async () => {
   const saved = { ...session('completed'), posts: [qualified('1')] };
   setup(saved);
@@ -149,7 +278,12 @@ it('opens a fresh search from completed research, keeps history and only starts 
   );
   await screen.findByText('References · 1 qualified / 1 collected');
   fireEvent.click(screen.getByRole('button', { name: 'Choose research model', hidden: true }));
-  fireEvent.click(screen.getByLabelText('I checked these features for this app.'));
+  fireEvent.change(screen.getByLabelText('Target audience (optional)'), {
+    target: { value: 'Runners' },
+  });
+  fireEvent.change(screen.getByLabelText('Feature scope for this search (optional)'), {
+    target: { value: 'Plan a short run.' },
+  });
   view.rerender(
     <SocialResearch
       workspace={workspace}
@@ -165,15 +299,12 @@ it('opens a fresh search from completed research, keeps history and only starts 
   const topic = screen.getByLabelText('Research topic');
   expect(document.activeElement).toBe(topic);
   expect(screen.getByText('App context and new research').closest('details')?.open).toBe(true);
-  expect(
-    (screen.getByLabelText('I checked these features for this app.') as HTMLInputElement).checked,
-  ).toBe(false);
+  expect(screen.queryByLabelText('I checked these features for this app.')).toBeNull();
   expect((screen.getByLabelText('Research session') as HTMLSelectElement).value).toBe('');
   expect(screen.getByRole('option', { name: /Running apps/ }).getAttribute('value')).toBe(saved.id);
   expect(screen.queryByText('Post 1 ↗')).toBeNull();
   expect(mockedApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
   fireEvent.change(topic, { target: { value: 'Running habits on Instagram' } });
-  fireEvent.click(screen.getByLabelText('I checked these features for this app.'));
   fireEvent.click(screen.getByRole('button', { name: 'Start social research' }));
   await screen.findByText('Workflow progress');
   const writes = mockedApi.mock.calls.filter(([, options]) => options?.method === 'POST');
@@ -184,6 +315,7 @@ it('opens a fresh search from completed research, keeps history and only starts 
     topic: 'Running habits on Instagram',
     provider: 'openai',
     model: 'gpt-4.1-mini',
+    context_mode: 'app',
     brief: { audience: 'Runners', product_facts: 'Plan a short run.' },
   });
   expect(screen.getByRole('option', { name: /Running apps/ }).getAttribute('value')).toBe(saved.id);
@@ -297,7 +429,7 @@ it.each(['0.1.0', '0.1.3', '0.1.4', '0.1.5', '0.1.6'])(
     setup(session());
     mockedBrowser.mockResolvedValue({ version });
     render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
-    await screen.findByText('Update Panda SMM Browser to 0.1.8');
+    await screen.findByText('Update Panda SMM Browser to 0.1.11');
     expect(
       (screen.getByRole('button', { name: 'Search in my browser' }) as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -770,7 +902,7 @@ it('checks a disconnected browser before changing a saved research session', asy
   render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Resume browser research' }));
   await screen.findByRole('alert');
-  expect(screen.getByText('Refresh Panda Store to reconnect')).toBeTruthy();
+  expect(screen.getByText('Browser disconnected · automatic retry')).toBeTruthy();
   expect(mockedApi.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
   mockedBrowser.mockResolvedValue({ version: '0.1.7' });
   fireEvent.click(screen.getByRole('button', { name: 'Check connection' }));
@@ -886,7 +1018,7 @@ it('combines saved references with the current session and sends the chosen orde
     return normal(path, options);
   });
   render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
-  await screen.findByText(/2 additional qualified reference\(s\) · 3 available/);
+  await screen.findByText('This research: 1 qualified · Previous research: 2 qualified.');
   expect(screen.queryByText(/more qualified reference\(s\) needed/)).toBeNull();
   expect(screen.getByText('From research: Photo sorting')).toBeTruthy();
   for (const input of screen.getAllByLabelText('Use this reference')) fireEvent.click(input);
@@ -896,6 +1028,48 @@ it('combines saved references with the current session and sends the chosen orde
   expect(call[0]).toContain('/social-research/session/adapt/');
   expect(JSON.parse(String(call[1]?.body)).post_ids).toEqual(['1', '2', '3']);
   expect(mockedBrowser.mock.calls.map(([command]) => command)).toEqual(['ping']);
+});
+
+it('distinguishes six Facebook exclusions from thirteen saved qualified references on other networks', async () => {
+  const posts = Array.from({ length: 6 }, (_, i) => ({
+    ...qualified(String(i), 'image'),
+    evidence: { ...qualified(String(i), 'image').evidence, platform: 'facebook' },
+    metrics: { likes: { value: 122, raw: '122', approximate: false } },
+    qualification: {
+      status: 'unqualified',
+      reasons: ['Likes 122 is below the 500 filter.'],
+      like_rate: null,
+    },
+  }));
+  setup({ ...session('completed'), posts });
+  const normal = mockedApi.getMockImplementation()!;
+  mockedApi.mockImplementation(async (path, options) => {
+    if (path.endsWith('/references/'))
+      return {
+        posts: Array.from({ length: 13 }, (_, i) => ({
+          ...qualified(`saved-${i}`),
+          research_id: 'older',
+          research_topic: 'Earlier research',
+        })),
+      };
+    return normal(path, options);
+  });
+  render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
+  await screen.findByText('This research: 0 qualified · Previous research: 13 qualified.');
+  expect(screen.getByText('Saved references on: TikTok.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Facebook 6' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Show other references (6)' }));
+  expect(screen.getByText('6 of 6 references shown · Facebook')).toBeTruthy();
+  expect(screen.getAllByRole('article')).toHaveLength(6);
+  for (const article of screen.getAllByRole('article'))
+    expect(within(article).queryByText('views')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Show qualified references (13)' }));
+  expect(screen.getAllByRole('article')).toHaveLength(4);
+  expect(
+    screen.getByRole('button', { name: 'All platforms 19' }).getAttribute('aria-pressed'),
+  ).toBe('true');
+  expect(screen.getAllByLabelText('Use this reference')).toHaveLength(4);
+  expect(mockedApi.mock.calls.some(([, options]) => options?.method)).toBe(false);
 });
 
 it('filters current and reusable references by network while keeping selections across filters', async () => {
@@ -1049,11 +1223,12 @@ it('starts browser collection automatically after the requested plan and reuses 
     />,
   );
   await screen.findByText('Browser connected');
-  expect((screen.getByLabelText('Confirmed app features') as HTMLTextAreaElement).value).toBe(
-    'The app helps plan a short run.',
-  );
+  expect(screen.getByText('Plan a run.')).toBeTruthy();
+  expect(
+    (screen.getByLabelText('Feature scope for this search (optional)') as HTMLTextAreaElement)
+      .value,
+  ).toBe('');
   fireEvent.click(screen.getByRole('button', { name: 'Choose research model' }));
-  fireEvent.click(screen.getByLabelText('I checked these features for this app.'));
   fireEvent.click(screen.getByRole('button', { name: 'Start social research' }));
   await screen.findByText('TikTok: Platform unavailable');
   expect(mockedBrowser.mock.calls.filter(([command]) => command === 'open')).toHaveLength(1);
@@ -1108,7 +1283,7 @@ function ideaApp(specification = 'Suggest meals using ingredients already in the
   } as MobileApp;
 }
 
-it.each(['ready', 'visible'])(
+it.each(['ready', 'visible', 'focus', 'online'])(
   'reconnects on %s without losing the reviewed research form or starting a search',
   async (trigger) => {
     setLanguage('fr');
@@ -1117,7 +1292,7 @@ it.each(['ready', 'visible'])(
       new Error('Browser connector was reloaded. Refresh Panda Store and resume research.'),
     );
     render(<SocialResearch workspace={workspace} app={ideaApp()} onGenerated={onGenerated} />);
-    await screen.findByText('Actualisez Panda Store pour reconnecter le navigateur');
+    await screen.findByText('Navigateur déconnecté · reconnexion automatique');
     expect(
       screen.getAllByText(
         'Le connecteur a été rechargé. Actualisez Panda Store et reprenez la recherche.',
@@ -1133,10 +1308,9 @@ it.each(['ready', 'visible'])(
     }
     const instagram = screen.getByRole('checkbox', { name: 'Instagram' }) as HTMLInputElement;
     if (!instagram.checked) fireEvent.click(instagram);
-    const confirm = screen.getByLabelText(
-      'J’ai vérifié le périmètre de ce projet, y compris les fonctionnalités encore prévues.',
-    ) as HTMLInputElement;
-    fireEvent.click(confirm);
+    fireEvent.change(screen.getByLabelText('Public cible (facultatif)'), {
+      target: { value: 'Étudiants' },
+    });
     const start = screen.getByRole('button', {
       name: 'Démarrer la recherche sociale',
     }) as HTMLButtonElement;
@@ -1151,14 +1325,16 @@ it.each(['ready', 'visible'])(
           data: { channel: 'panda-smm-ready' },
         }),
       );
-    } else {
+    } else if (trigger === 'visible') {
       const visible = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
       fireEvent(document, new Event('visibilitychange'));
       visible.mockRestore();
-    }
+    } else fireEvent(window, new Event(trigger));
     await screen.findByText('Navigateur connecté');
     expect(start.disabled).toBe(false);
-    expect(confirm.checked).toBe(true);
+    expect((screen.getByLabelText('Public cible (facultatif)') as HTMLInputElement).value).toBe(
+      'Étudiants',
+    );
     expect(instagram.checked).toBe(true);
     expect((screen.getByRole('checkbox', { name: 'TikTok' }) as HTMLInputElement).checked).toBe(
       false,
@@ -1166,9 +1342,7 @@ it.each(['ready', 'visible'])(
     expect((screen.getByLabelText('Sujet de recherche') as HTMLInputElement).value).toBe(
       'Repas pour étudiants',
     );
-    expect(
-      (screen.getByLabelText('Périmètre confirmé du projet') as HTMLTextAreaElement).value,
-    ).toBe(ideaApp().metadata!.data.project!.specification);
+    expect(screen.getByText(ideaApp().metadata!.data.project!.specification)).toBeTruthy();
     expect(mockedApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
     expect(mockedBrowser.mock.calls.every(([command]) => command === 'ping')).toBe(true);
   },
@@ -1177,13 +1351,84 @@ it.each(['ready', 'visible'])(
 it.each([
   { version: '0.1.7' },
   { version: '0.1.8', protocol: 1 },
-  { version: '0.1.9', protocol: 1 },
+  { version: '0.1.10', protocol: 1 },
 ])('accepts compatible connector %j without requiring an update', async (info) => {
   mockedApi.mockResolvedValue([]);
   mockedBrowser.mockResolvedValue(info);
   render(<SocialResearch workspace={workspace} app={ideaApp()} onGenerated={onGenerated} />);
   await screen.findByText('Browser connected');
   expect(screen.queryByText('Browser connector update needed')).toBeNull();
+});
+
+it('detects a lost connection and recovers while staying on the page, preserving saved results', async () => {
+  setup({ ...session('completed'), posts: [qualified('1')] });
+  render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
+  await screen.findByText('Browser connected');
+  await screen.findByText('Post 1 ↗');
+  await waitFor(() => expect(screen.queryByText('Loading reusable references…')).toBeNull());
+  fireEvent.click(screen.getByLabelText('Use this reference'));
+  fireEvent.change(screen.getByLabelText('Research topic'), { target: { value: 'Unsaved topic' } });
+  vi.useFakeTimers();
+  const visible = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  try {
+    // Rearm the health check on the fake clock. A background ping must not disable editing.
+    await act(async () => fireEvent(window, new Event('focus')));
+    let failPing!: (reason: Error) => void;
+    mockedBrowser.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          failPing = reject;
+        }),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45000);
+    });
+    expect((screen.getByLabelText('Use this reference') as HTMLInputElement).disabled).toBe(false);
+    await act(async () =>
+      failPing(
+        new Error('Connection to Panda SMM Browser was interrupted. Reconnecting automatically…'),
+      ),
+    );
+    expect(screen.getByText('Browser disconnected · automatic retry')).toBeTruthy();
+    mockedBrowser.mockResolvedValue({ version: '0.1.11', protocol: 1 });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    expect(screen.getByText('Browser connected')).toBeTruthy();
+    expect(screen.getByText('Connected extension: 0.1.11.')).toBeTruthy();
+    expect((screen.getByLabelText('Use this reference') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText('Research topic') as HTMLInputElement).value).toBe(
+      'Unsaved topic',
+    );
+    expect(mockedApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+    expect(mockedBrowser.mock.calls.every(([command]) => command === 'ping')).toBe(true);
+    cleanup();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    visible.mockRestore();
+  }
+});
+
+it('does not poll hidden pages and reconnects when the tab becomes visible', async () => {
+  mockedApi.mockResolvedValue([]);
+  render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
+  await screen.findByText('Browser connected');
+  vi.useFakeTimers();
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  try {
+    await act(async () => fireEvent(window, new Event('focus')));
+    const calls = mockedBrowser.mock.calls.length;
+    visibility.mockReturnValue('hidden');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(90000);
+    });
+    expect(mockedBrowser.mock.calls).toHaveLength(calls);
+    visibility.mockReturnValue('visible');
+    await act(async () => fireEvent(document, new Event('visibilitychange')));
+    expect(mockedBrowser.mock.calls).toHaveLength(calls + 1);
+  } finally {
+    visibility.mockRestore();
+  }
 });
 
 it('rejects an unsupported explicit protocol even if the version was previously compatible', async () => {
@@ -1196,118 +1441,146 @@ it('rejects an unsupported explicit protocol even if the version was previously 
   ).toBe(true);
 });
 
-it('starts research directly from an idea without any imported store fields', async () => {
-  const idea = ideaApp();
-  mockedApi.mockImplementation(async (_path, options) =>
-    options?.method ? session('planning') : [],
-  );
-  render(<SocialResearch workspace={workspace} app={idea} onGenerated={onGenerated} />);
-  await screen.findByText('Browser connected');
-  expect((screen.getByLabelText('Confirmed project scope') as HTMLTextAreaElement).value).toBe(
-    idea.metadata!.data.project!.specification,
-  );
-  expect((screen.getByLabelText('Target audience') as HTMLInputElement).value).toBe(
-    'Busy households',
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Choose research model' }));
-  const start = screen.getByRole('button', { name: 'Start social research' }) as HTMLButtonElement;
-  expect(start.disabled).toBe(true);
-  expect(
-    screen.getByText('Check the confirmation box after reviewing the project scope.'),
-  ).toBeTruthy();
-  expect(mockedApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
-  fireEvent.click(
-    screen.getByLabelText(
-      'I checked this project scope, including which features are still planned.',
-    ),
-  );
-  expect(start.disabled).toBe(false);
-  fireEvent.click(start);
-  await screen.findByText('Workflow progress');
-  const calls = mockedApi.mock.calls.filter(([, options]) => options?.method === 'POST');
-  expect(calls).toHaveLength(1);
-  expect(JSON.parse(String(calls[0][1]?.body))).toMatchObject({
-    snapshot_id: 'project-snapshot',
-    facts_confirmed: true,
-    market: 'fr-FR',
-    brief: {
-      product_facts: idea.metadata!.data.project!.specification,
-      audience: 'Busy households',
-      goal: 'Encourage the right audience to try the app.',
-    },
-  });
-});
+it.each(['idea', 'store'])(
+  'starts research from the saved %s description without a manual brief',
+  async (origin) => {
+    const currentApp =
+      origin === 'idea'
+        ? ideaApp()
+        : ({
+            ...app,
+            metadata: {
+              ...app.metadata!,
+              data: { description: 'Adopt and care for a virtual pet, decorate its home.' },
+            },
+          } as MobileApp);
+    if (currentApp.metadata?.data.project) currentApp.metadata.data.project.audience = '';
+    mockedApi.mockImplementation(async (_path, options) =>
+      options?.method ? session('planning') : [],
+    );
+    render(<SocialResearch workspace={workspace} app={currentApp} onGenerated={onGenerated} />);
+    await screen.findByText('Browser connected');
+    expect((screen.getByLabelText('Target audience (optional)') as HTMLInputElement).value).toBe(
+      '',
+    );
+    expect(
+      (screen.getByLabelText('Feature scope for this search (optional)') as HTMLTextAreaElement)
+        .value,
+    ).toBe('');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose research model' }));
+    const start = screen.getByRole('button', {
+      name: 'Start social research',
+    }) as HTMLButtonElement;
+    expect(start.disabled).toBe(false);
+    expect(mockedApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+    fireEvent.click(start);
+    await screen.findByText('Workflow progress');
+    const calls = mockedApi.mock.calls.filter(([, options]) => options?.method === 'POST');
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(String(calls[0][1]?.body))).toMatchObject({
+      snapshot_id: currentApp.metadata!.id,
+      context_mode: 'app',
+      brief: {
+        product_facts: '',
+        audience: '',
+        goal: 'Encourage the right audience to try the app.',
+      },
+    });
+  },
+);
 
-it('explains missing inputs in French and requires review again after editing the scope', async () => {
+it('allows optional French context edits and a return to automatic context', async () => {
   setLanguage('fr');
-  const idea = ideaApp();
-  idea.metadata!.data.project!.audience = '';
   mockedApi.mockResolvedValue([]);
-  render(<SocialResearch workspace={workspace} app={idea} onGenerated={onGenerated} />);
+  render(<SocialResearch workspace={workspace} app={ideaApp()} onGenerated={onGenerated} />);
   await screen.findByText('Navigateur connecté');
   fireEvent.click(screen.getByRole('button', { name: 'Choose research model' }));
-  fireEvent.click(
-    screen.getByLabelText(
-      'J’ai vérifié le périmètre de ce projet, y compris les fonctionnalités encore prévues.',
-    ),
-  );
   const start = screen.getByRole('button', {
     name: 'Démarrer la recherche sociale',
   }) as HTMLButtonElement;
-  expect(start.disabled).toBe(true);
-  expect(
-    screen.getByText('Précisez à qui s’adresse cette application dans le champ Public cible.'),
-  ).toBeTruthy();
-  fireEvent.change(screen.getByLabelText('Public cible'), { target: { value: 'Parents pressés' } });
   expect(start.disabled).toBe(false);
-  fireEvent.change(screen.getByLabelText('Périmètre confirmé du projet'), {
+  fireEvent.click(screen.getByText('Ajuster le contexte (facultatif)'));
+  fireEvent.change(screen.getByLabelText('Public cible (facultatif)'), {
+    target: { value: 'Parents pressés' },
+  });
+  const scope = screen.getByLabelText(
+    'Fonctionnalités à retenir pour cette recherche (facultatif)',
+  );
+  fireEvent.change(scope, { target: { value: 'court' } });
+  expect(start.disabled).toBe(true);
+  fireEvent.change(scope, {
     target: { value: 'Planifier des repas simples à partir des restes.' },
   });
-  expect(start.disabled).toBe(true);
-  expect(
-    screen.getByText('Cochez la confirmation après avoir relu le périmètre du projet.'),
-  ).toBeTruthy();
+  expect(start.disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Utiliser le contexte automatique' }));
+  expect((scope as HTMLTextAreaElement).value).toBe('');
+  expect((screen.getByLabelText('Public cible (facultatif)') as HTMLInputElement).value).toBe('');
+  expect(start.disabled).toBe(false);
 });
 
-it('bounds the prefilled scope and preserves an explicitly reviewed scope when the saved brief arrives late', async () => {
+it('keeps the complete project source and ignores a late legacy brief when using automatic context', async () => {
   mockedApi.mockResolvedValue([]);
-  const idea = ideaApp('Project feature. '.repeat(400));
+  const idea = ideaApp('Project feature. '.repeat(400) + 'Reminders are optional.');
   const { rerender } = render(
     <SocialResearch workspace={workspace} app={idea} onGenerated={onGenerated} />,
   );
   await screen.findByText('Browser connected');
-  const scope = screen.getByLabelText('Confirmed project scope') as HTMLTextAreaElement;
-  expect(scope.value).toBe(idea.metadata!.data.project!.specification.slice(0, 4000));
-  expect(screen.getByText(/The editable scope contains the first 4,000 characters/)).toBeTruthy();
-  fireEvent.click(
-    screen.getByLabelText(
-      'I checked this project scope, including which features are still planned.',
-    ),
+  const scope = screen.getByLabelText(
+    'Feature scope for this search (optional)',
+  ) as HTMLTextAreaElement;
+  expect(scope.value).toBe('');
+  expect(screen.getByText(/Reminders are optional/).textContent).toBe(
+    idea.metadata!.data.project!.specification,
   );
+  fireEvent.change(screen.getByLabelText('Target audience (optional)'), {
+    target: { value: 'Home cooks' },
+  });
   rerender(
     <SocialResearch
       workspace={workspace}
       app={idea}
       onGenerated={onGenerated}
       initialBrief={{
-        audience: 'Saved audience',
-        product_facts: 'A previously saved scope.',
+        audience: 'No existing users',
+        product_facts: 'An old description.',
         goal: 'Learn',
         tone: 'Clear',
       }}
     />,
   );
-  expect(scope.value).toBe(idea.metadata!.data.project!.specification.slice(0, 4000));
-  expect((screen.getByLabelText('Target audience') as HTMLInputElement).value).toBe(
-    'Saved audience',
+  expect(scope.value).toBe('');
+  expect((screen.getByLabelText('Target audience (optional)') as HTMLInputElement).value).toBe(
+    'Home cooks',
   );
+});
+
+it('shows the audience and feature excerpts saved by the planner', async () => {
+  const saved = session('completed');
+  saved.plan.app_understanding = { audience: 'Home cooks', features: ['Reminders are optional.'] };
+  setup(saved);
+  render(<SocialResearch workspace={workspace} app={app} onGenerated={onGenerated} />);
+  fireEvent.click(await screen.findByText('App context identified for this search'));
+  expect(screen.getByText('Home cooks')).toBeTruthy();
+  expect(screen.getByText('Reminders are optional.')).toBeTruthy();
+  expect(mockedApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+});
+
+it('requires a real description when the selected app only has a name', async () => {
+  mockedApi.mockResolvedValue([]);
+  const empty = {
+    ...app,
+    metadata: { ...app.metadata!, data: { name: 'An app name alone is insufficient' } },
+  } as MobileApp;
+  render(<SocialResearch workspace={workspace} app={empty} onGenerated={onGenerated} />);
+  await screen.findByText('Browser connected');
+  fireEvent.click(screen.getByRole('button', { name: 'Choose research model' }));
   expect(
-    (
-      screen.getByLabelText(
-        'I checked this project scope, including which features are still planned.',
-      ) as HTMLInputElement
-    ).checked,
-  ).toBe(true);
+    screen.getByText('Add an app description in My apps before starting research.'),
+  ).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Start social research' })).toHaveProperty(
+    'disabled',
+    true,
+  );
 });
 
 it('identifies invalid search settings before submitting a paid plan', async () => {
@@ -1315,11 +1588,6 @@ it('identifies invalid search settings before submitting a paid plan', async () 
   render(<SocialResearch workspace={workspace} app={ideaApp()} onGenerated={onGenerated} />);
   await screen.findByText('Browser connected');
   fireEvent.click(screen.getByRole('button', { name: 'Choose research model' }));
-  fireEvent.click(
-    screen.getByLabelText(
-      'I checked this project scope, including which features are still planned.',
-    ),
-  );
   fireEvent.change(screen.getByLabelText('Minimum likes'), { target: { value: '0' } });
   const start = screen.getByRole('button', { name: 'Start social research' }) as HTMLButtonElement;
   expect(start.disabled).toBe(true);

@@ -35,7 +35,8 @@ def test_curated_annotations_have_traceable_scope_and_separate_dates():
         "Tinder",
     }
     # A catalog entry alone does not make its advice eligible for generation.
-    assert knowledge(platform="android") == []
+    assert {item["source"]["publisher"] for item in knowledge(platform="android")} == {"Google"}
+    assert knowledge(platform="android", fields=["keywords", "subtitle"]) == []
     assert knowledge(platform="unsupported") == []
     assert knowledge(fields=[]) == []
     assert all(item["fields"] == ["keywords"] for item in knowledge(fields=["keywords"]))

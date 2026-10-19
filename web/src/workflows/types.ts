@@ -1,3 +1,4 @@
+import type { UsageTotals } from '../ai-usage/types';
 export type WorkflowStatus =
   'queued' | 'running' | 'canceling' | 'succeeded' | 'failed' | 'canceled';
 export interface WorkflowEvent {
@@ -8,6 +9,7 @@ export interface WorkflowEvent {
   created_at: string;
 }
 export interface WorkflowSnapshot {
+  ai_usage?: UsageTotals;
   id: string;
   title: string;
   status: WorkflowStatus;

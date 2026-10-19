@@ -543,8 +543,9 @@ def review_inputs(listing):
 
 
 @pytest.mark.parametrize("failure_code", ["quota_exhausted", "timeout"])
+@pytest.mark.parametrize("change_model", [False, True])
 def test_evidence_review_failure_and_retry_reuse_the_saved_copy(
-    api, workspace, listing, connection, failure_code
+    api, workspace, listing, connection, failure_code, change_model
 ):
     response, _ = start(api, workspace, listing)
     run = AuditRun.objects.get(pk=response.data["id"])
@@ -557,15 +558,25 @@ def test_evidence_review_failure_and_retry_reuse_the_saved_copy(
     run.refresh_from_db()
     assert run.report is None and run.workflow.status == "failed"
     assert run.workflow.steps.get(key="editorial").status == "succeeded"
+    choice = {}
+    if change_model:
+        connection.model_catalog.append({"id": "gpt-4.1"})
+        connection.save()
+        choice = {"provider": "openai", "model": "gpt-4.1"}
     retry = api.post(
         f"/api/workspaces/{workspace.pk}/aso/runs/{run.pk}/retry/",
-        {"request_id": str(uuid.uuid4())},
+        {"request_id": str(uuid.uuid4()), **choice},
         format="json",
     )
     retried = AuditRun.objects.get(pk=retry.data["id"])
     with patch("addons.aso.editorial.generate", side_effect=provider(output())) as generate:
         audit_listing(str(retried.workflow_id))
-    assert generate.call_count == 1
+    assert generate.call_count == (2 if change_model else 1)
+    assert all(
+        call.args[2] == choice.get("model", "gpt-4.1-mini") for call in generate.call_args_list
+    )
+    assert bool(retried.workflow.steps.get(key="editorial").reused_from_id) == (not change_model)
+    assert retried.workflow.steps.get(key="checks").reused_from_id
     assert generate.call_args.args[3] == grounding.INSTRUCTION
     retried.refresh_from_db()
     assert retried.workflow.status == "succeeded"

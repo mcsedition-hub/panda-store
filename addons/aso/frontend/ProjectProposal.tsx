@@ -1,8 +1,9 @@
 import { t } from '../../../web/src/i18n';
-import { fieldNames, SourceReference, type Source } from './Sources';
-import { fields } from './draftTypes';
+import { fieldNames, isStoreSource, SourceReference, type Source } from './Sources';
+import { listingFields } from './draftTypes';
 
 export interface ProjectProposalReport {
+  platform?: 'ios' | 'android';
   version?: string;
   stage: 'idea' | 'development';
   analysis: {
@@ -33,6 +34,7 @@ export default function ProjectProposal({
   report: ProjectProposalReport;
   onUse?: () => void;
 }) {
+  const fields = listingFields(report.platform);
   return (
     <>
       <p className="note">
@@ -76,7 +78,13 @@ export default function ProjectProposal({
       ) : (
         <>
           <div className="heading-split">
-            <h3>{t('Suggested App Store listing')}</h3>
+            <h3>
+              {t(
+                report.platform === 'android'
+                  ? 'Suggested Google Play listing'
+                  : 'Suggested App Store listing',
+              )}
+            </h3>
             {onUse && (
               <button className="button primary" onClick={onUse}>
                 {t('Use this listing as a draft')}
@@ -85,7 +93,7 @@ export default function ProjectProposal({
           </div>
           <p className="note">
             {t(
-              'All five fields are ready to review and edit in ASO Drafts. Nothing has been published.',
+              'All listing fields are ready to review and edit in ASO Drafts. Nothing has been published.',
             )}
           </p>
           {fields.map(([field, label, limit]) => {
@@ -125,11 +133,13 @@ export default function ProjectProposal({
                     <blockquote key={index}>{evidence.quote}</blockquote>
                   ))}
                 </details>
-                <div className="aso-sources">
-                  {item.sources.map((source) => (
-                    <SourceReference key={source.id} source={source} />
-                  ))}
-                </div>
+                {item.sources.some(isStoreSource) && (
+                  <div className="aso-sources">
+                    {item.sources.map((source) => (
+                      <SourceReference key={source.id} source={source} />
+                    ))}
+                  </div>
+                )}
               </section>
             );
           })}

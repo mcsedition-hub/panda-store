@@ -77,7 +77,8 @@ also imports the default language's icon, feature graphic and phone, tablet, TV 
 Wear screenshots when available. Images are Google-hosted previews, not verified
 original upload files. Category, release version, custom store listings, reviews,
 installs and financial data are not imported. Android metadata is available in
-**My apps** and **SMM**. ASO audits still support App Store listings only.
+**My apps**, **ASO** and **SMM**. ASO reviews the three Google Play text fields and
+imported screenshots, and saves comparisons and drafts with Google Play guidance.
 Imported Google screenshots can also be archived as image assets in SMM scenes.
 
 Google requires a [temporary edit](https://developers.google.com/android-publisher/edits)
@@ -164,3 +165,9 @@ Live checks on October 18, 2026 (UTC) confirmed connection and structured text
 output with `glm-4.7-flash`. Synthetic image checks with `glm-4.6v-flash` returned
 Z.ai's temporary overload error (1305), so live vision validation remains pending.
 No paid model was used for these checks.
+
+## Usage and budgets
+
+Open **AI usage** in the sidebar for tokens, estimated USD costs and optional workspace
+limits across ASO and SMM. See [AI usage and limits](ai-usage.md) for reservations,
+partial historical counters and the distinction from a provider account balance.

@@ -1,5 +1,5 @@
 import { t } from '../../../web/src/i18n';
-import { SourceReference, type Source } from './Sources';
+import { isStoreSource, SourceReference, type Source } from './Sources';
 
 export interface VisualImage {
   image_id: string;
@@ -20,6 +20,7 @@ export interface VisualImage {
 }
 type Usage = { input_tokens?: number; output_tokens?: number; reasoning_tokens?: number };
 export interface VisualReport {
+  platform?: 'ios' | 'android';
   images: VisualImage[];
   total_imported: number;
   reviewed_images: number;
@@ -36,6 +37,14 @@ const labels = {
   unavailable: 'Image unavailable',
 };
 function deviceLabel(value: string) {
+  const googleDevices: Record<string, string> = {
+    phoneScreenshots: 'Phone screenshots',
+    sevenInchScreenshots: '7-inch tablet screenshots',
+    tenInchScreenshots: '10-inch tablet screenshots',
+    tvScreenshots: 'TV screenshots',
+    wearScreenshots: 'Watch screenshots',
+  };
+  if (googleDevices[value]) return t(googleDevices[value]);
   const phone = value.match(/^APP_IPHONE_(\d)(\d)$/);
   return phone
     ? `iPhone ${phone[1]}.${phone[2]}″`
@@ -126,11 +135,13 @@ export default function Screenshots({
                     )}
                   </div>
                 )}
-                <footer className="aso-sources">
-                  {image.sources?.map((source) => (
-                    <SourceReference key={source.id} source={source} />
-                  ))}
-                </footer>
+                {image.sources?.some(isStoreSource) && (
+                  <footer className="aso-sources">
+                    {image.sources?.map((source) => (
+                      <SourceReference key={source.id} source={source} />
+                    ))}
+                  </footer>
+                )}
               </>
             ) : (
               <p>
@@ -170,7 +181,9 @@ export default function Screenshots({
       </p>
       <p className="aso-report-footnote">
         {t(
-          'No changes have been sent to Apple. The three public gallery examples are dated reference notes, not live competitor research. Download effects are not measured.',
+          report.platform === 'android'
+            ? 'No changes have been sent to Google Play. Download effects are not measured.'
+            : 'No changes have been sent to Apple. Download effects are not measured.',
         )}
       </p>
     </div>

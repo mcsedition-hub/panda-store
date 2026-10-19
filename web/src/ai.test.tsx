@@ -44,6 +44,25 @@ const zaiCatalog = {
   ],
 };
 
+it('does not restore a saved text model for a retry requiring images', async () => {
+  mockApi.mockResolvedValue(zaiCatalog);
+  const changed = vi.fn();
+  render(
+    <AIOptions
+      workspaceId="one"
+      owner
+      disabled={false}
+      onChange={changed}
+      capability="vision"
+      initialChoice={{ provider: 'zai', model: 'glm-5.3' }}
+    />,
+  );
+  await waitFor(() =>
+    expect(changed).toHaveBeenLastCalledWith({ provider: 'zai', model: '' }, false),
+  );
+  expect((screen.getByLabelText('Model') as HTMLSelectElement).value).toBe('');
+});
+
 it('connects Z.ai explicitly and explains its connection check and standard key', async () => {
   mockApi.mockImplementation(async (_, options) =>
     options?.method === 'PUT'

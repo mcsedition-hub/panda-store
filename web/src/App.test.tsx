@@ -62,12 +62,12 @@ it('waits for module edits before navigation and stays put when saving fails', a
   fireEvent.click(await screen.findByRole('button', { name: 'SMM' }));
   await screen.findByRole('heading', { name: 'Script workspace' });
   guardMock.mockResolvedValue(false);
-  fireEvent.click(screen.getByRole('button', { name: 'Modules' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Manage modules' }));
   await waitFor(() => expect(guardMock).toHaveBeenCalled());
   expect(screen.getByRole('heading', { name: 'Script workspace' })).toBeTruthy();
   guardMock.mockResolvedValue(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Modules' }));
-  await screen.findByRole('heading', { name: 'Modules' });
+  fireEvent.click(screen.getByRole('button', { name: 'Manage modules' }));
+  await screen.findByRole('heading', { name: 'Manage modules' });
 });
 
 async function fillSetup() {
@@ -173,8 +173,8 @@ it('shows module states and blocks navigation after disabling, including changes
   });
   render(<App />);
   await screen.findByRole('heading', { name: 'Your apps' });
-  const nav = within(screen.getByRole('navigation', { name: 'Modules' }));
-  fireEvent.click(nav.getByRole('button', { name: 'Modules' }));
+  const nav = within(screen.getByRole('navigation', { name: 'Main navigation' }));
+  fireEvent.click(nav.getByRole('button', { name: 'Manage modules' }));
   const studioCard = within(screen.getByRole('heading', { name: 'SMM' }).closest('article')!);
   expect(studioCard.getByText('Enabled')).toBeTruthy();
   const planned = within(screen.getByRole('heading', { name: 'ASO' }).closest('article')!);

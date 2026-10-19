@@ -99,11 +99,36 @@ const savedGuidance = {
   fields: ['subtitle'],
   source: {
     id: 'saved-source',
+    publisher: 'Apple',
+    title: 'Product page optimization',
+    url: 'https://developer.apple.com/app-store/product-page-optimization/',
+    reviewed_on: '2026-10-16',
+    kind: 'official_guidance',
+  },
+};
+const vendorGuidance = {
+  ...savedGuidance,
+  id: 'vendor-source',
+  guidance: 'Additional testing methods kept for the model.',
+  source: {
+    ...savedGuidance.source,
+    id: 'vendor-source',
     publisher: 'SplitMetrics',
     title: 'Testing framework',
     url: 'https://splitmetrics.com/',
-    reviewed_on: '2026-10-16',
     kind: 'vendor_methodology',
+  },
+};
+const googleGuidance = {
+  ...savedGuidance,
+  id: 'google-source',
+  guidance: 'Google Play listing guidance.',
+  source: {
+    ...savedGuidance.source,
+    id: 'google-source',
+    publisher: 'Google',
+    title: 'Create and set up your app',
+    url: 'https://support.google.com/googleplay/android-developer/answer/9859152',
   },
 };
 
@@ -111,14 +136,14 @@ it('shows frozen audit notes separately from the library for new audits', async 
   const aiRun = {
     ...run,
     ai: { provider: 'google', model: 'model' },
-    knowledge: [savedGuidance],
+    knowledge: [savedGuidance, vendorGuidance],
     knowledge_version: 'saved-version',
   };
   mockData(async (path) =>
     path.endsWith('/knowledge/')
       ? {
           version: 'new-version',
-          entries: [{ ...savedGuidance, guidance: 'Updated library notes.' }],
+          entries: [{ ...savedGuidance, guidance: 'Updated library notes.' }, vendorGuidance],
         }
       : [aiRun],
   );
@@ -126,15 +151,19 @@ it('shows frozen audit notes separately from the library for new audits', async 
   await screen.findByText('sort: already in subtitle');
   fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
   expect(screen.getByText(savedGuidance.guidance)).toBeTruthy();
-  expect(screen.getByText('Vendor methodology')).toBeTruthy();
+  expect(screen.getByText('Official guidance')).toBeTruthy();
+  expect(screen.queryByText(vendorGuidance.guidance)).toBeNull();
+  expect(screen.queryByText('SplitMetrics')).toBeNull();
   expect(screen.getByText('Reviewed 2026-10-16')).toBeTruthy();
   expect(mockApi.mock.calls.some(([path]) => path.endsWith('/knowledge/'))).toBe(false);
   fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'current' } });
   await screen.findByText('Updated library notes.');
+  expect(screen.queryByText(vendorGuidance.guidance)).toBeNull();
   expect(screen.queryByText(savedGuidance.guidance)).toBeNull();
   fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'saved' } });
   expect(screen.getByText(savedGuidance.guidance)).toBeTruthy();
   expect(screen.queryByText('Updated library notes.')).toBeNull();
+  expect(aiRun.knowledge).toEqual([savedGuidance, vendorGuidance]);
 });
 
 it('loads the library without an AI audit and recovers from a load error', async () => {
@@ -176,10 +205,11 @@ const listingExample = {
   },
 };
 
-it('distinguishes dated public examples from guidance and keeps old audits unchanged', async () => {
+it('shows Apple and Google references while hiding third-party examples hosted on a store', async () => {
+  const entries = [savedGuidance, googleGuidance, vendorGuidance, listingExample];
   mockData(async (path) =>
     path.endsWith('/knowledge/')
-      ? { entries: [savedGuidance, listingExample] }
+      ? { entries }
       : [{ ...run, ai: { provider: 'google', model: 'model' }, knowledge: [savedGuidance] }],
   );
   render(<ASO {...props} />);
@@ -187,19 +217,18 @@ it('distinguishes dated public examples from guidance and keeps old audits uncha
   fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
   expect(screen.queryByRole('region', { name: 'Public listing examples' })).toBeNull();
   fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'current' } });
-  const examples = await screen.findByRole('region', { name: 'Public listing examples' });
-  expect(within(examples).getByText(listingExample.guidance)).toBeTruthy();
-  expect(within(examples).queryByText(savedGuidance.guidance)).toBeNull();
-  expect(
-    within(examples).getByText(/US · English · Audio entertainment · Manual browser review/),
-  ).toBeTruthy();
-  expect(within(examples).getByText(/Saved observations, not live research/)).toBeTruthy();
-  expect(within(examples).getByRole('link').getAttribute('href')).toBe(listingExample.source.url);
+  await screen.findByText(googleGuidance.guidance);
+  expect(screen.getByRole('link', { name: /Product page optimization/ })).toBeTruthy();
+  expect(screen.getByRole('link', { name: /Create and set up your app/ })).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Public listing examples' })).toBeNull();
+  expect(screen.queryByText(listingExample.guidance)).toBeNull();
+  expect(screen.queryByText(vendorGuidance.guidance)).toBeNull();
+  expect(entries).toEqual([savedGuidance, googleGuidance, vendorGuidance, listingExample]);
   fireEvent.change(screen.getByLabelText('Reference set'), { target: { value: 'saved' } });
   expect(screen.queryByText(listingExample.guidance)).toBeNull();
 });
 
-it('shows the dated observation behind a cited public listing example', async () => {
+it('hides third-party citations without hiding the audit finding or leaving an empty footer', async () => {
   mockData(async () => [
     {
       ...run,
@@ -220,13 +249,11 @@ it('shows the dated observation behind a cited public listing example', async ()
       },
     },
   ]);
-  render(<ASO {...props} />);
-  await screen.findByText('Observation used');
-  expect(screen.getByText(/Public listing example · Reviewed/)).toBeTruthy();
-  expect(
-    screen.getByText(/US · English · Audio entertainment · Manual browser review/),
-  ).toBeTruthy();
-  expect(screen.getByText(listingExample.guidance)).toBeTruthy();
+  const { container } = render(<ASO {...props} />);
+  await screen.findByText('sort: already in subtitle');
+  expect(screen.queryByText('Observation used')).toBeNull();
+  expect(screen.queryByText(listingExample.guidance)).toBeNull();
+  expect(container.querySelector('.aso-sources')).toBeNull();
 });
 
 it('does not substitute current guidance for an older audit without saved notes', async () => {
@@ -238,7 +265,7 @@ it('does not substitute current guidance for an older audit without saved notes'
   expect(mockApi.mock.calls.some(([path]) => path.endsWith('/knowledge/'))).toBe(false);
 });
 
-it('labels cited vendor methodology and shows its saved annotation', async () => {
+it('shows official citations and annotations while hiding vendor citations in the same finding', async () => {
   mockData(async () => [
     {
       ...run,
@@ -249,6 +276,8 @@ it('labels cited vendor methodology and shows its saved annotation', async () =>
             ...check,
             basis: 'editorial_hypothesis',
             sources: [
+              vendorGuidance.source,
+              googleGuidance.source,
               {
                 ...savedGuidance.source,
                 guidance: savedGuidance.guidance,
@@ -262,7 +291,10 @@ it('labels cited vendor methodology and shows its saved annotation', async () =>
   ]);
   render(<ASO {...props} />);
   await screen.findByText('sort: already in subtitle');
-  expect(screen.getByText('Vendor methodology · Reviewed 2026-10-16')).toBeTruthy();
+  expect(screen.getAllByText('Official guidance · Reviewed 2026-10-16')).toHaveLength(2);
+  expect(screen.getByRole('link', { name: /Apple · Product page optimization/ })).toBeTruthy();
+  expect(screen.getByRole('link', { name: /Google · Create and set up your app/ })).toBeTruthy();
+  expect(screen.queryByRole('link', { name: /SplitMetrics/ })).toBeNull();
   expect(screen.getByText('Guidance used')).toBeTruthy();
   expect(screen.getByText(savedGuidance.guidance)).toBeTruthy();
   expect(screen.queryByText(/Editorial hypothesis · Apple guidance/)).toBeNull();
@@ -291,6 +323,50 @@ it('sends the chosen locale and exact snapshot, and shows a sourced copyable pro
   expect(screen.getByText(/No changes have been sent to Apple/)).toBeTruthy();
 });
 
+it('runs a Google Play audit and loads the store-specific source library', async () => {
+  const androidApp: MobileApp = {
+    ...app,
+    platform: 'android',
+    metadata: { ...app.metadata!, source: 'google_play.api' },
+  };
+  const googleCheck = {
+    ...check,
+    id: 'short_description.length',
+    field: 'short_description',
+    title: 'Short description length',
+    status: 'passed',
+    basis: 'official_requirement',
+    observation: 'Google Play short description fits the 80-character limit.',
+    action: '',
+    replacement: null,
+    observed: 'Track runs.',
+    sources: [googleGuidance.source],
+  };
+  mockData(async (path, options) => {
+    if (path.includes('/knowledge/')) return { entries: [googleGuidance] };
+    return options?.method === 'POST'
+      ? { ...run, platform: 'android', report: { checks: [googleCheck], counts: { passed: 1 } } }
+      : [];
+  });
+  render(<ASO {...props} apps={[androidApp]} selectedApp={androidApp} />);
+  await screen.findByText('Review your store listing');
+  fireEvent.click(screen.getByRole('button', { name: 'Run audit' }));
+  await screen.findByRole('heading', { name: 'Google Play checks' });
+  expect(screen.queryByRole('heading', { name: 'Apple checks' })).toBeNull();
+  const post = mockApi.mock.calls.find(([, options]) => options?.method === 'POST')!;
+  expect(JSON.parse(post[1]!.body as string)).toMatchObject({
+    locale: 'en-US',
+    snapshot_id: 'snapshot-one',
+  });
+  fireEvent.click(screen.getByText('1 Google Play checks passed'));
+  expect(screen.getByText(googleCheck.observation)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Sources' }));
+  await screen.findByText(googleGuidance.guidance);
+  expect(mockApi.mock.calls.some(([path]) => path.endsWith('/knowledge/?platform=android'))).toBe(
+    true,
+  );
+});
+
 it('keeps languages separate and marks audits of older imports', async () => {
   mockData(async () => [{ ...run, snapshot_id: 'older' }]);
   render(<ASO {...props} />);
@@ -307,8 +383,10 @@ it('prevents viewer actions and unsupported store audits', async () => {
   expect((screen.getByRole('button', { name: 'Run audit' }) as HTMLButtonElement).disabled).toBe(
     true,
   );
-  view.rerender(<ASO {...props} selectedApp={{ ...app, id: 'android', platform: 'android' }} />);
-  await screen.findByText(/Audits currently support App Store/);
+  view.rerender(
+    <ASO {...props} selectedApp={{ ...app, id: 'undecided', platform: 'undecided' }} />,
+  );
+  await screen.findByText('Choose App Store or Google Play.');
   expect(screen.queryByRole('button', { name: 'Run audit' })).toBeNull();
 });
 

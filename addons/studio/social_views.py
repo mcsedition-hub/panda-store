@@ -7,6 +7,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -17,6 +18,7 @@ from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
 from panda_store.ai.providers import PROVIDERS, ProviderError, check_capabilities
+from panda_store.ai.retries import AIRetryRequest, matches_retry_choice, retry_choice
 from panda_store.core.access import workspace_access
 from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows import services
@@ -30,6 +32,13 @@ from .views import dispatch_generation
 from .workflow import create_ai_workflow
 
 
+class ResearchBrief(ScriptBrief):
+    audience = serializers.CharField(max_length=500, allow_blank=True, default="")
+    product_facts = serializers.CharField(
+        min_length=10, max_length=4000, allow_blank=True, default=""
+    )
+
+
 class Start(serializers.Serializer):
     request_id = serializers.UUIDField()
     snapshot_id = serializers.UUIDField()
@@ -40,10 +49,32 @@ class Start(serializers.Serializer):
     )
     min_views = serializers.IntegerField(min_value=100, max_value=1000000000)
     min_likes = serializers.IntegerField(min_value=10, max_value=100000000)
-    brief = ScriptBrief()
-    facts_confirmed = serializers.BooleanField()
+    brief = ResearchBrief()
+    context_mode = serializers.ChoiceField(choices=["app", "manual"], default="manual")
+    facts_confirmed = serializers.BooleanField(default=False)
     provider = serializers.ChoiceField(choices=list(PROVIDERS))
     model = serializers.CharField(max_length=120)
+
+    def validate(self, attrs):
+        if attrs["context_mode"] == "manual":
+            brief = ScriptBrief(data=attrs["brief"])
+            brief.is_valid(raise_exception=True)
+        return attrs
+
+
+def app_product_facts(data):
+    """Use the saved source verbatim, including restrictions and planned scope."""
+    project = data.get("project") or {}
+    if project:
+        return project.get("specification", "").strip()
+    parts = [
+        data.get(field, "")
+        for field in ("subtitle", "short_description", "description", "promotional_text")
+    ] + (data.get("features") or [])
+    content = "\n\n".join(
+        dict.fromkeys(p.strip() for p in parts if isinstance(p, str) and p.strip())
+    )
+    return "\n\n".join(filter(None, [data.get("name", ""), content])) if len(content) >= 10 else ""
 
 
 class Adapt(serializers.Serializer):
@@ -90,7 +121,22 @@ def serialize_post(post):
 def compatible_posts(session):
     """Reuse relevance only when the app and confirmed research context still match."""
     inputs = session.inputs
+    audience = Q(research__inputs__brief__audience=inputs["brief"]["audience"])
+    if (
+        inputs.get("context_mode") == "app"
+        and inputs.get("context_origin", {}).get("audience") == "ai"
+    ):
+        # Generated wording is not a stable context identifier. Reuse only when
+        # both audiences came from the same app facts, topic, market and language.
+        # Manual targeting and genuinely different contexts still require an exact match.
+        audience |= Q(
+            research__inputs__context_mode="app",
+            research__inputs__context_origin__audience="ai",
+            research__inputs__topic=inputs["topic"],
+            research__inputs__brief__language=inputs["brief"]["language"],
+        )
     return SocialPost.objects.filter(
+        audience,
         research__workspace_id=session.workspace_id,
         research__app_id=session.app_id,
         research__status="completed",
@@ -98,7 +144,6 @@ def compatible_posts(session):
         research__inputs__snapshot_id=inputs["snapshot_id"],
         research__inputs__market=inputs["market"],
         research__inputs__brief__product_facts=inputs["brief"]["product_facts"],
-        research__inputs__brief__audience=inputs["brief"]["audience"],
         qualification__status="qualified",
     ).select_related("research")
 
@@ -176,6 +221,37 @@ def launch(session, user, kind):
     transaction.on_commit(lambda: dispatch(workflow.pk))
 
 
+def fork_research(session, user, choice, request_id):
+    """Keep the old analysis and reuse only the observed evidence for a new AI choice."""
+    inputs = copy.deepcopy(session.inputs)
+    inputs["ai"] = choice
+    inputs["retry_operation_id"] = inputs.get("retry_operation_id", str(session.pk))
+    fork = SocialResearch.objects.create(
+        workspace=session.workspace,
+        app=session.app,
+        created_by=user,
+        request_id=request_id,
+        request={"retry_of": str(session.pk)},
+        inputs=inputs,
+        plan=copy.deepcopy(session.plan),
+        events=copy.deepcopy(session.events),
+    )
+    thresholds = {k: inputs[k] for k in ("min_views", "min_likes")}
+    for post in session.posts.all():
+        saved = SocialPost.objects.create(
+            research=fork,
+            url=post.url,
+            evidence=post.evidence,
+            frames=post.frames,
+            metrics=post.metrics,
+            qualification=qualify(post.evidence, post.metrics, thresholds),
+        )
+        # auto_now_add must not make a retained capture look newly observed.
+        SocialPost.objects.filter(pk=saved.pk).update(captured_at=post.captured_at)
+    event(fork, "AI choice changed for this retry. Saved captures retained; analysis restarts.")
+    return fork
+
+
 def adaptation_brief(inputs, language):
     brief = copy.deepcopy(inputs["brief"])
     # Earlier browser searches automatically selected concept feedback for every
@@ -206,7 +282,7 @@ def sessions(request, workspace_id, app_id):
     payload = Start(data=request.data)
     payload.is_valid(raise_exception=True)
     operation = json.loads(json.dumps(payload.validated_data, default=str))
-    if not operation["facts_confirmed"]:
+    if operation["context_mode"] == "manual" and not operation["facts_confirmed"]:
         raise ValidationError("Confirm the app's product facts before starting research.")
     with transaction.atomic():
         Workspace.objects.select_for_update().get(pk=workspace.pk)
@@ -215,11 +291,22 @@ def sessions(request, workspace_id, app_id):
             workspace=workspace, request_id=operation["request_id"]
         ).first()
         if existing:
-            if existing.app_id != app.pk or existing.request != operation:
+            previous_request = {
+                "context_mode": "manual",
+                "facts_confirmed": False,
+                **existing.request,
+            }
+            if existing.app_id != app.pk or previous_request != operation:
                 return Response({"error": "Request ID already used."}, status=409)
             return Response(serialize(existing))
         snapshot = get_object_or_404(app.snapshots, pk=operation["snapshot_id"])
         ai = connection(workspace, operation["provider"], operation["model"])
+        brief = copy.deepcopy(operation["brief"])
+        automatic = operation["context_mode"] == "app"
+        if automatic and not brief["product_facts"]:
+            brief["product_facts"] = app_product_facts(snapshot.data)
+            if len(brief["product_facts"]) < 10:
+                raise ValidationError("Add an app description in My apps before starting research.")
         session = SocialResearch.objects.create(
             workspace=workspace,
             app=app,
@@ -228,6 +315,14 @@ def sessions(request, workspace_id, app_id):
             created_by=request.user,
             inputs={
                 **operation,
+                "brief": brief,
+                "facts_confirmed": True,
+                "context_origin": {
+                    "product_facts": "snapshot"
+                    if automatic and not operation["brief"]["product_facts"]
+                    else "user",
+                    "audience": "user" if brief["audience"] else "pending",
+                },
                 "app_context": snapshot.data.get("project", {}),
                 "response_language": request.user.language,
                 "metadata": {
@@ -238,6 +333,7 @@ def sessions(request, workspace_id, app_id):
                         "short_description",
                         "description",
                         "category",
+                        "audience",
                         "locale",
                         "platform",
                     )
@@ -282,6 +378,24 @@ def detail(request, workspace_id, session_id):
                 raise ValidationError("Collect at least one post before analyzing references.")
             launch(session, request.user, "analyze")
         elif action == "retry":
+            values = {}
+            if "provider" in request.data or "model" in request.data:
+                payload = AIRetryRequest(data=request.data)
+                payload.is_valid(raise_exception=True)
+                values = payload.validated_data
+            existing = SocialResearch.objects.filter(
+                workspace=workspace, request__retry_of=str(session.pk)
+            ).first()
+            if existing:
+                if not matches_retry_choice(existing.inputs["ai"], session.inputs["ai"], values):
+                    return Response(
+                        {
+                            "error": "A retry already exists with a different AI choice. "
+                            "Reload the latest attempt."
+                        },
+                        status=409,
+                    )
+                return Response(serialize(existing))
             if session.workflow_id:
                 services.recover(session.workflow_id)
                 session.workflow.refresh_from_db()
@@ -289,6 +403,13 @@ def detail(request, workspace_id, session_id):
                     raise ValidationError("Wait for the current task to stop before retrying.")
             if session.status == "completed":
                 raise ValidationError("This research is already complete.")
+            choice = retry_choice(workspace, session.inputs["ai"], values, images=True)
+            if choice != session.inputs["ai"]:
+                if SocialResearch.objects.filter(
+                    workspace=workspace, request_id=values["request_id"]
+                ).exists():
+                    return Response({"error": "Request ID already used."}, status=409)
+                session = fork_research(session, request.user, choice, values["request_id"])
             launch(session, request.user, "analyze" if session.posts.exists() else "plan")
         elif action == "event":
             if session.status != "collecting":
@@ -407,6 +528,7 @@ def adapt(request, workspace_id, session_id):
                 "response_language": request.user.language,
                 "mode": "smm",
                 "app_context": session.inputs.get("app_context", {}),
+                "context_origin": session.inputs.get("context_origin", {}),
                 "snapshot_id": session.inputs["snapshot_id"],
                 "metadata": session.inputs["metadata"],
                 "brief": adaptation_brief(session.inputs, request.user.language),

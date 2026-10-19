@@ -137,8 +137,9 @@ def test_idea_to_full_listing_and_editable_draft_without_store_or_prepared_text(
     assert task.app.snapshots.count() == 1  # Proposed texts never become imported product evidence.
 
 
+@pytest.mark.parametrize("change_model", [False, True])
 def test_project_analysis_freezes_full_idea_language_and_retry_reuses_writing(
-    api, owner, workspace, project, run
+    api, owner, workspace, project, run, connection, change_model
 ):
     task, body = run
     original = copy.deepcopy(task.inputs)
@@ -159,17 +160,29 @@ def test_project_analysis_freezes_full_idea_language_and_retry_reuses_writing(
     assert task.workflow.status == "failed"
     assert task.report is None
     base = f"/api/workspaces/{workspace.pk}/aso/"
+    choice = {}
+    if change_model:
+        connection.model_catalog.append({"id": "gpt-4.1"})
+        connection.save()
+        choice = {"provider": "openai", "model": "gpt-4.1"}
     response = api.post(
-        f"{base}runs/{task.pk}/retry/", {"request_id": str(uuid.uuid4())}, format="json"
+        f"{base}runs/{task.pk}/retry/", {"request_id": str(uuid.uuid4()), **choice}, format="json"
     )
     assert response.status_code == 202, response.data
     retry = AuditRun.objects.get(pk=response.data["id"])
-    assert retry.inputs == original
-    with patch.object(editorial, "generate", return_value=verification()) as reviewer:
+    expected = copy.deepcopy(original)
+    expected["ai"].update(choice)
+    assert retry.inputs == expected
+    with patch.object(
+        editorial,
+        "generate",
+        side_effect=[writing(), verification()] if change_model else [verification()],
+    ) as reviewer:
         audit_listing(str(retry.workflow_id))
     retry.refresh_from_db()
     assert retry.workflow.status == "succeeded", retry.workflow.error
-    assert reviewer.call_count == 1
+    assert reviewer.call_count == (2 if change_model else 1)
+    assert bool(retry.workflow.steps.get(key="strategy").reused_from_id) == (not change_model)
     for call in [*model.call_args_list, *reviewer.call_args_list]:
         assert call.args[4]["app_context"] == original["app_context"]
         assert call.kwargs["response_language"] == original["response_language"]

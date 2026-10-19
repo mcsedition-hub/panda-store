@@ -9,17 +9,23 @@ from panda_store.ai.providers import ProviderError
 from . import editorial
 from .images import model_images
 from .rules import localized_metadata
+from .stores import publisher, store_key
 
 VERSION = "apple-visual-2026-10-17.2"
+GOOGLE_VERSION = "google-visual-2026-10-19.1"
 MAX_TOKENS = 10000
 RESEARCH = json.loads((Path(__file__).parent / "knowledge/visual-research.json").read_text())
 KNOWLEDGE_VERSION = RESEARCH["version"]
 
 
-def knowledge():
+def version_for(platform="ios"):
+    return GOOGLE_VERSION if platform == "android" else VERSION
+
+
+def knowledge(platform="ios"):
     entries = []
     for item in RESEARCH["sources"]:
-        if "app_store" not in item["stores"]:
+        if store_key(platform) not in item["stores"]:
             continue
         entries.append(
             {
@@ -34,6 +40,8 @@ def knowledge():
                 },
             }
         )
+    if platform == "android":
+        return entries
     review = RESEARCH["listing_review"]
     for item in review["apps"]:
         entries.append(
@@ -128,11 +136,13 @@ minor typographic quote differences. If any material part is unsupported, withho
 
 
 def context(run, manifest):
-    if run.inputs.get("visual_version") != VERSION:
+    if run.inputs.get("visual_version") != version_for(run.inputs.get("platform", "ios")):
         raise ProviderError("The screenshot instructions changed. Start a new review.")
     return {
         "locale": run.locale,
-        "listing": localized_metadata(run.inputs["metadata"], run.locale),
+        "listing": localized_metadata(
+            run.inputs["metadata"], run.locale, run.inputs.get("platform", "ios")
+        ),
         "guidance": run.inputs["knowledge"],
         "images": [item for item in manifest["images"] if item.get("asset_id")],
         "order": "Import order; live storefront sequence not verified.",
@@ -172,7 +182,7 @@ def analyze(run, manifest):
     )
     return editorial.call(
         run,
-        INSTRUCTION,
+        google_instruction() if run.inputs.get("platform") == "android" else INSTRUCTION,
         ctx,
         schema,
         max_output_tokens=MAX_TOKENS,
@@ -214,7 +224,11 @@ def candidates(run, manifest, output):
             if (
                 not refs
                 or len(refs) > 8
-                or not any(ref["source"]["publisher"] == "Apple" for ref in refs)
+                or not any(
+                    ref["source"]["publisher"] == publisher(run.inputs.get("platform", "ios"))
+                    and ref["source"].get("kind", "").startswith("official_")
+                    for ref in refs
+                )
             ):
                 raise ValueError()
         return items
@@ -252,7 +266,9 @@ def verify(run, manifest, output):
     )
     result = editorial.call(
         run,
-        REVIEW_INSTRUCTION,
+        google_review_instruction()
+        if run.inputs.get("platform") == "android"
+        else REVIEW_INSTRUCTION,
         ctx,
         schema,
         max_output_tokens=MAX_TOKENS,
@@ -304,7 +320,8 @@ def report(run, manifest, output, reviewed):
             finding["url"] = f"/api/workspaces/{run.workspace_id}/aso/images/{image['asset_id']}/"
         findings.append(finding)
     return {
-        "version": VERSION,
+        "version": version_for(run.inputs.get("platform", "ios")),
+        "platform": run.inputs.get("platform", "ios"),
         "total_imported": manifest["total_imported"],
         "images": findings,
         "reviewed_images": len(items),
@@ -315,3 +332,37 @@ def report(run, manifest, output, reviewed):
         "usage": output["usage"],
         "verification": {"resolved_model": reviewed["resolved_model"], "usage": reviewed["usage"]},
     }
+
+
+def google_instruction():
+    common = INSTRUCTION.split("Cite only applicable supplied reference IDs")[0]
+    return (
+        common.replace("App Store screenshot", "Google Play screenshot")
+        + """
+Cite applicable supplied notes with at least one official Google source per image.
+Apply Google's scoped screenshot guidance, distinguishing publication requirements, device-specific
+requirements and highly recommended practices for promotional eligibility. Do not transfer Apple
+rules. Text prominence, UI focus and installation CTA advice are guidance, not measured performance
+or proof of approval. Do not infer original upload dimensions from resized derivatives.
+There are no competitor galleries or live research in this review. Do not invent comparisons.
+Visible UI is not tested functionality. Do not turn subjective style preferences, overlap or
+cropping into policy violations without concrete evidence. Preserve payment/privacy qualifications.
+An unmentioned feature in the listing is an evidence gap, not proof it is absent from the app.
+Write observations and recommendations in the response language. Proposed captions use the listing
+locale. Keep each under 100 words; abstain when uncertain. All proposals require human review.
+"""
+    )
+
+
+def google_review_instruction():
+    return (
+        REVIEW_INSTRUCTION.split("Reject invented Apple rules")[0]
+        + """
+Apply only the supplied Google Play guidance at its documented scope. Reject transferred Apple
+rules, unsupported claims of noncompliance, competitor research or guaranteed conversion.
+Distinguish required specifications from recommended creative practices and promotional eligibility.
+Do not infer original upload dimensions or complete device coverage from resized screenshots.
+An absent feature in the listing is an evidence gap, not proof of absence in the actual app.
+Allow concrete, qualified design hypotheses grounded in the image; withhold unsupported items.
+"""
+    )

@@ -252,7 +252,10 @@ def test_rejected_review_blocks_output_and_retry(api, creative_setup):
     assert response.status_code == 400 and "new generation" in str(response.data)
 
 
-def test_timeout_retry_reuses_writing_and_never_switches_provider(api, creative_setup):
+@pytest.mark.parametrize("choice_mode", ["original", "same", "model", "provider", "connection"])
+def test_timeout_retry_respects_explicit_choice_and_preserves_original(
+    api, creative_setup, choice_mode
+):
     original = create(api, creative_setup)
     with patch.object(
         ai,
@@ -265,19 +268,76 @@ def test_timeout_retry_reuses_writing_and_never_switches_provider(api, creative_
         generate_ai_scripts(str(original.pk))
     original.refresh_from_db()
     assert original.status == "failed" and not original.creatives.exists()
+    saved = copy.deepcopy(original.inputs)
+    choice = {}
+    if choice_mode != "original":
+        choice = {"provider": "openai", "model": "gpt-4.1-mini"}
+        connection = AIConnection.objects.get(workspace_id=original.workspace_id, provider="openai")
+        if choice_mode == "model":
+            connection.model_catalog.append({"id": "gpt-4.1"})
+            choice["model"] = "gpt-4.1"
+        elif choice_mode == "connection":
+            connection.revision = uuid.uuid4()
+        elif choice_mode == "provider":
+            AIConnection.objects.create(
+                workspace_id=original.workspace_id,
+                provider="google",
+                encrypted_key=encrypt("test-google-key"),
+                model_catalog=[{"id": "gemini-2.5-flash"}],
+            )
+            choice = {"provider": "google", "model": "gemini-2.5-flash"}
+        connection.save()
+    body = {"request_id": str(uuid.uuid4()), **choice}
+    url = f"{creative_setup[-1]}runs/{original.pk}/retry/"
     response = api.post(
-        f"{creative_setup[-1]}runs/{original.pk}/retry/",
-        {"request_id": str(uuid.uuid4())},
+        url,
+        body,
         format="json",
     )
     assert response.status_code == 202, response.data
     retry = GenerationRun.objects.get(pk=response.data["id"])
-    with patch.object(ai, "call", return_value=review()) as model:
+    changed = choice_mode not in {"original", "same"}
+    assert api.post(url, body, format="json").data["id"] == response.data["id"]
+    assert (
+        api.post(url, {**body, "provider": "zai", "model": "glm-4.7"}, format="json").status_code
+        == 409
+    )
+    with patch.object(
+        ai, "call", side_effect=[proposals(retry.inputs), review()] if changed else [review()]
+    ) as model:
         generate_ai_scripts(str(retry.pk))
     retry.refresh_from_db()
-    assert retry.status == "succeeded" and model.call_count == 1
-    assert retry.provider == "openai" and retry.inputs == original.inputs
-    assert retry.workflow.steps.get(key="scripts").reused_from_id
+    assert retry.status == "succeeded" and model.call_count == (2 if changed else 1)
+    assert retry.provider == choice.get("provider", "openai")
+    assert retry.inputs["ai"]["model"] == choice.get("model", "gpt-4.1-mini")
+    assert bool(retry.workflow.steps.get(key="scripts").reused_from_id) == (not changed)
+    assert retry.workflow.steps.get(key="context").reused_from_id
+    original.refresh_from_db()
+    assert original.inputs == saved and original.status == "failed"
+    assert {k: v for k, v in retry.inputs.items() if k != "ai"} == {
+        k: v for k, v in saved.items() if k != "ai"
+    }
+
+
+@pytest.mark.parametrize(
+    "choice",
+    [
+        {"provider": "google"},
+        {"model": "gpt-4.1-mini"},
+        {"provider": "openai", "model": "missing"},
+        {"provider": "google", "model": "gemini-2.5-flash"},
+    ],
+)
+def test_retry_rejects_incomplete_unavailable_or_disconnected_choice(api, creative_setup, choice):
+    original = create(api, creative_setup)
+    services.fail(original.workflow_id, "Test interruption")
+    response = api.post(
+        f"{creative_setup[-1]}runs/{original.pk}/retry/",
+        {"request_id": str(uuid.uuid4()), **choice},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert GenerationRun.objects.count() == 1
 
 
 def test_cancellation_discards_late_response(api, creative_setup):
@@ -348,6 +408,126 @@ def test_bad_proposals_rejected_before_review(api, creative_setup, change):
     assert run.status == "failed" and not run.creatives.exists() and model.call_count == 1
 
 
+@pytest.mark.parametrize(
+    "field,reason",
+    [
+        ("fact_quote", "the evidence quote is absent"),
+        ("claim", "the assertion is not quoted from the proposed script"),
+    ],
+)
+def test_explicit_retry_corrects_private_rejected_response_then_reviews(
+    api, creative_setup, field, reason
+):
+    original = create(api, creative_setup)
+    rejected = proposals(original.inputs)
+    rejected["result"]["scripts"][0]["product_claims"][0][field] = "Unsupported private quote."
+    with patch.object(ai, "call", return_value=rejected) as model:
+        generate_ai_scripts(str(original.pk))
+    original.refresh_from_db()
+    assert model.call_count == 1
+    assert f"Claim 1: {reason}" in original.error
+    step = original.workflow.steps.get(key="scripts")
+    assert step.status == "failed" and step.output == rejected
+    assert not original.creatives.exists()
+    response = api.get(f"{creative_setup[-1]}apps/{original.app_id}/runs/")
+    assert "Unsupported private quote" not in str(response.data)
+    response = api.post(
+        f"{creative_setup[-1]}runs/{original.pk}/retry/",
+        {"request_id": str(uuid.uuid4())},
+        format="json",
+    )
+    assert response.status_code == 202
+    retry = GenerationRun.objects.get(pk=response.data["id"])
+    with patch.object(ai, "call", side_effect=[proposals(retry.inputs), review()]) as model:
+        generate_ai_scripts(str(retry.pk))
+    retry.refresh_from_db()
+    assert retry.status == "succeeded" and retry.creatives.count() == 3
+    assert retry.inputs == original.inputs
+    assert model.call_count == 2
+    assert model.call_args_list[0].kwargs["correction"] == {
+        "proposal": rejected["result"],
+        "validation_error": original.error,
+    }
+    assert len(model.call_args_list[1].args[1]) == 3
+    assert not retry.workflow.steps.get(key="scripts").reused_from_id
+
+
+@pytest.mark.parametrize("field,limit", ai.FIELD_LIMITS.items())
+def test_script_field_failure_names_the_measured_limit(field, limit):
+    inputs = {
+        "sources": [{"page_id": "source"}],
+        "brief": {"product_facts": "Runclub has running plans."},
+    }
+    output = proposals(inputs)
+    output["result"]["scripts"][0][field] = "x" * (limit + 1)
+    with pytest.raises(
+        ProviderError,
+        match=f"Script 1: The {field} field contains {limit + 1} characters; the limit is {limit}",
+    ):
+        ai.validate_scripts(output, inputs)
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+def test_script_schema_constrains_count_limits_sources_and_formats_without_mutating_shared_fields(
+    count,
+):
+    inputs = {
+        "mode": "smm",
+        "sources": [{"page_id": str(i), "format": "carousel"} for i in range(count)],
+    }
+    original = copy.deepcopy(ai.SOCIAL_SCHEMA)
+    scripts = ai.script_schema(inputs)["properties"]["scripts"]
+    assert scripts["minItems"] == scripts["maxItems"] == count
+    fields = scripts["items"]["properties"]
+    assert fields["variant"]["enum"] == list(range(1, count + 1))
+    assert fields["source_page_ids"]["items"]["enum"] == [str(i) for i in range(count)]
+    assert fields["source_page_ids"]["maxItems"] == 1
+    assert fields["content_format"]["enum"] == ["carousel"]
+    for field, limit in ai.FIELD_LIMITS.items():
+        assert fields[field]["maxLength"] == limit
+    assert fields["product_claims"]["maxItems"] == 20
+    assert fields["product_claims"]["items"]["properties"]["fact_quote"]["maxLength"] == 500
+    assert ai.SOCIAL_SCHEMA == original and ai.TEXT == {"type": "string"}
+
+
+def test_french_typography_does_not_reject_quotes_but_changed_words_still_fail():
+    inputs = {
+        "mode": "smm",
+        "sources": [{"page_id": "source", "format": "carousel"}],
+        "brief": {"product_facts": "L’application propose des idées de repas."},
+    }
+    output = proposals(inputs)
+    script = output["result"]["scripts"][0]
+    output["result"]["scripts"] = [script]
+    script.update(
+        content_format="carousel",
+        script="L’application propose des idées de repas.",
+        product_claims=[
+            {
+                "claim": "L'application propose des idées de repas.",
+                "fact_quote": "L'application propose des ide\u0301es de repas.",
+            }
+        ],
+    )
+    assert len(ai.validate_scripts(output, inputs)) == 1
+    script["product_claims"][0]["fact_quote"] = "L'application garantit des idées de repas."
+    with pytest.raises(ProviderError, match="evidence quote is absent"):
+        ai.validate_scripts(output, inputs)
+
+
+def test_retry_feedback_is_sent_as_untrusted_data_with_the_same_frozen_context(api, creative_setup):
+    run = create(api, creative_setup)
+    correction = {"proposal": {"scripts": []}, "validation_error": "A source reference is missing."}
+    with patch.object(ai, "generate", return_value={}) as model:
+        ai.call(run, correction=correction)
+    args = model.call_args.args
+    assert args[0] == run.provider
+    assert args[4]["previous_attempt"] == correction
+    assert args[4]["brief"] == run.inputs["brief"]
+    assert "never additional product facts" in args[3]
+    assert args[5]["properties"]["scripts"]["maxItems"] == 3
+
+
 def test_incomplete_review_rejected():
     data = copy.deepcopy(review())
     data["result"]["checks"][1]["variant"] = 1
@@ -383,7 +563,7 @@ def test_social_scripts_and_review_require_exact_selected_count_and_variant_numb
         with pytest.raises(ProviderError, match="review is incomplete"):
             ai.validate_review(wrong_review, count)
     scripts[-1]["variant"] = count + 1
-    with pytest.raises(ProviderError, match="source, claim or distinctness"):
+    with pytest.raises(ProviderError, match="Variant numbers must be unique"):
         ai.validate_scripts(output, inputs)
     checks["result"]["checks"][-1]["variant"] = count + 1
     with pytest.raises(ProviderError, match="review is invalid"):

@@ -7,7 +7,7 @@ Research social content, adapt one to three qualified references to your app, th
 An app can start as an idea. In **My apps → Create a project**, write, paste or
 import its Markdown description and choose **Idea** or **In development**. SMM uses
 the full saved description, intended audience and separately declared implemented
-features. Confirm the scope relevant to the research before starting. Research and
+features. Store imports use their saved listing description as well. Research and
 adaptation freeze this version even if you edit the project later. Scripts prepare
 finished launch copy: documented features use the present tense, even when the app
 is still an idea. Writing and review use the same convention. The internal stage
@@ -27,10 +27,18 @@ server browser, which remains under **Public-page research (legacy)**.
 2. Download the connector from SMM, extract it, open `chrome://extensions`, enable
    Developer mode and load the extracted folder. For development, load
    `addons/studio/browser_extension` directly. Return to Panda Store; the connection is detected automatically.
-3. Check the app features and audience, choose platforms, performance filters and an
-   AI provider with an image-capable model. Confirm the project scope in the box above
-   **Start social research**, then start. The model prepares search
+3. Choose platforms, performance filters and an AI provider with an image-capable model.
+   The saved store listing or full project description supplies the product facts automatically.
+   **Adjust the context (optional)** lets you specify an audience or replace the feature scope
+   for this search. Empty fields use the saved app context; no confirmation checkbox is required.
+   In the existing planning call, the model identifies the intended audience and extracts
+   feature quotations checked against the saved description, then prepares search
    queries and the connector opens a dedicated visible tab in your current Chrome profile.
+   The identified context is saved with the search and used by post analysis and script generation.
+   An inferred audience is a targeting suggestion, not evidence of existing users. The full source
+   description, including restrictions, remains the basis for product claims; the extracted
+   feature summary does not replace it. Legacy API clients supplying a manual brief still need
+   explicit confirmation. Existing research and scripts keep their original context.
 4. Keep Panda Store open. Collection saves up to 12 posts, their observed counters,
    dates, text and up to three viewport frames. An individual post that does not load
    is skipped and its link remains in the activity log. Each collection attempt checks
@@ -49,23 +57,51 @@ server browser, which remains under **Public-page research (legacy)**.
    when the app, metadata snapshot, confirmed features, audience and market match.
    Current performance filters are checked again. A repeated URL counts only once;
    each selected source retains its original research session in the generation context.
+   When both audiences were inferred automatically, different wording does not hide
+   previous references if the app import, full description, market, research topic and
+   content language are identical. Manual audience edits still require an exact match.
 
 The default 10,000 video views and 500 likes are editable filters, not a universal
 definition of virality. Missing or ambiguous counts cannot pass. Video requires both
 views and likes; text/image/carousel requires likes. Relevance and evidence undergo a separate
 AI review. At least one qualified reference is required for adaptation; no extra generic examples
 are generated to fill a smaller selection. Google discovers posts on the supported social sites.
+Google planning uses short competitor and broader niche phrases, with separate site
+filters for TikTok, Instagram and Facebook. Google-only research can execute six queries;
+when native networks are also selected, all searches share the same six-query limit.
+The market determines the wording and adaptation context; geographic terms are only
+requested when the subject depends on a location. Search ranking does not establish
+virality: only observed counters on original posts can pass the unchanged performance filters.
+Saved plans and observations stay unchanged; new research uses the revised planning.
 
 The form shows the expected AI calls before starting: one planning call, up to two
 analysis calls per eligible post and two calls for adaptations. Your selected provider
 bills usage. **Show connection instructions** opens the connector setup beside the form
 when it is not connected; an enabled extension still needs a working dashboard connection.
 
-Connector 0.1.8 reconnects open dashboard tabs automatically after extension installation,
-reload/update, or browser startup, preserving the form. Compatible patch versions no
-longer require an extension update just to start research; 0.1.7 remains supported.
+Connector 0.1.11 repairs missing dashboard bridges when the extension worker starts,
+when returning to a tab or Chrome window, after navigation, installation or browser startup.
+The dashboard also checks its connection every 45 seconds while visible and retries
+failed checks after 10 seconds, preserving the form. A lost connection is shown explicitly;
+no research or AI call is automatically repeated. The connected extension version and
+update instructions are visible in SMM. Compatible patch versions do not block research;
+0.1.7 remains supported.
 Unpacked installations still need a manual extension reload to apply new files.
 The local ZIP does not provide Chrome Web Store automatic updates.
+
+Research sessions, saved captures, counters, analyses and generated scripts are stored in
+the backend database. Closing or reloading the browser does not delete them. Reopen a
+saved session from **Research session**; a capture still in transit when a tab closes may
+need to be collected again. The session selector shows the most recent 20 sessions per app;
+older sessions are not deleted by this limit. Keep the local database and its backups.
+
+Connector 0.1.9 recognizes loaded Facebook photo attachments and galleries, excluding
+avatars and comment images, so they use the likes-only filter. Reel comments and
+shares support French and English controls. Aggregate Facebook reactions do not
+replace the Like reaction count, and missing video views remain unknown.
+Version 0.1.10 also scrolls within static Facebook posts to observe their media and
+reaction controls after long captions. It waits briefly for delayed controls, saves
+separate evidence within the three-frame limit, and leaves unavailable counts unknown.
 
 Connector 0.1.7 and later can verify missing Instagram video views on the creator's Reels grid.
 Only the exact post's labelled counter is accepted, with a screenshot and source URL.
@@ -99,11 +135,20 @@ references from earlier research. **Show more** reveals the remaining qualified 
 Reaching the thresholds alone does not qualify a post: relevance and evidence must also
 pass the AI review.
 
+When a completed search has no qualified posts, a visible summary explains the
+exclusions: low performance, missing counters, unidentified formats or insufficient
+relevance/evidence. A post can have several reasons. **View collected posts and reasons**
+reveals the saved posts without repeating collection or AI calls. Missing counts do
+not mean zero engagement. Compatible references from earlier research remain usable.
+
 Use the platform filters to show TikTok, Instagram or Facebook separately. Google is
 a discovery source; a found post belongs to its social platform. Changing the filter
 or opening another research session restores the compact display. Filtering or collapsing
 cards does not clear your selection; the interface indicates selected references hidden
 from the current view.
+The displayed result total follows the selected platform. Current and previous research
+have separate qualified counts; the saved-reference summary names its platforms and
+offers a shortcut back to qualified results. Static posts omit missing video-view counters.
 
 **New research** is available from Research, Scripts and Scenes. It opens a fresh form;
 the previous research, captured evidence and scripts stay saved. Only **Start social
@@ -130,6 +175,14 @@ prices or performance claims. Exact product fact quotes and source IDs are check
 second model review can still miss errors, so scripts require human review before use. A rejected
 review withholds the batch of scripts and displays its reasons. Adjust the brief and start a new
 generation; retry is for interrupted work, not for repeatedly approving rejected content.
+
+Structural checks report the specific script, field limit, source mismatch or missing
+claim quotation. Response schemas constrain the selected source IDs, formats and number
+of adaptations. French typographic apostrophes, quotation marks and Unicode accents are
+normalized for quote matching; changed wording still fails. A structurally rejected
+proposal stays in a private workflow checkpoint, never in an editable script or the public
+activity API. An explicit retry with the same AI choice sends that proposal and its validation error back for
+correction, then runs the independent review. It does not retry automatically.
 
 When only the review times out, **Retry unfinished steps** reuses completed writing. No automatic
 paid retry or provider switch occurs. Usage is recorded for completed calls; reused steps retain
@@ -193,8 +246,16 @@ to remain open; its saved captures survive interruption. **Stop** requests coope
 **Retry unfinished steps** creates a linked attempt with the original metadata and
 brief, reusing completed results. Scripts still require separate approval.
 Earlier generations remain available without retroactively invented activity.
-Retry also retains the original model and AI connection. After replacing a key or
-choosing another model, start a new task. If history, activity or AI connections cannot
+For script generation, **Change provider or model** lets you choose a connected
+provider for the retry, including its current key after a connection update. Changing
+the AI choice reruns writing and review with the saved brief and sources. The earlier
+attempt remains in history; the retry shares its original operation budget. Keeping
+the original choice reuses completed steps. Browser research also offers this choice:
+changing its model creates a linked session, keeps the earlier session available,
+and copies captured publications with their original observation dates. It reanalyzes
+that evidence using the chosen model, or replans if no posts have been collected.
+Both sessions share the same operation budget.
+If history, activity or AI connections cannot
 be loaded, their reload actions fetch saved state without starting another task.
 
 `PANDA_WORKFLOW_DISPATCH=database` is the local default. Compose sets it to `celery`

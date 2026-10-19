@@ -128,6 +128,10 @@ it('loads the catalogue only during import and imports exactly the selected app'
   const view = render(<Connections {...props} />);
   await screen.findByLabelText('Account');
   expect(mockApi.mock.calls.some(([path]) => path.endsWith('/apps/'))).toBe(false);
+  expect(screen.queryByRole('button', { name: 'Import an app' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Connect Apple' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Add an Apple account' })).toBeTruthy();
+  view.rerender(<AppCatalog {...props} />);
   fireEvent.click(screen.getByRole('button', { name: 'Import an app' }));
   expect(props.navigate).toHaveBeenCalledWith('apple_store', undefined, 'import');
   view.rerender(<Connections {...props} apps={[]} page="import" />);

@@ -1,4 +1,4 @@
-"""Fetch only the connected app's imported Apple CDN images; archive bounded inputs."""
+"""Fetch imported images from supported store CDNs; archive bounded inputs."""
 
 import asyncio
 import base64

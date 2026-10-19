@@ -12,6 +12,7 @@ from panda_store.workflows import services
 from . import editorial, grounding, images, project, visual
 from .models import AuditRun
 from .rules import audit, localized_metadata
+from .stores import fields_for
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,7 @@ def review_screenshots(run, token):
         workflow_id,
         token,
         "visual",
-        "Reviewing images with the selected model and 3 dated public gallery examples. "
-        "No live web research.",
+        "Reviewing images with the selected model and saved store guidance. No live web research.",
     )
     if output is None:
         output = visual.analyze(run, manifest)
@@ -107,7 +107,9 @@ def audit_listing(workflow_id):
             workflow_id, token, "listing", "Reading the saved localization."
         )
         if saved is None:
-            text = localized_metadata(run.inputs["metadata"], run.locale)
+            text = localized_metadata(
+                run.inputs["metadata"], run.locale, run.inputs.get("platform", "ios")
+            )
             services.complete_step(
                 workflow_id,
                 token,
@@ -120,7 +122,12 @@ def audit_listing(workflow_id):
             report = review_screenshots(run, token)
         else:
             report = services.start_step(
-                workflow_id, token, "checks", "Checking field limits and exact keyword repetition."
+                workflow_id,
+                token,
+                "checks",
+                "Checking Google Play field limits."
+                if run.inputs.get("platform") == "android"
+                else "Checking field limits and exact keyword repetition.",
             )
             if report is None:
                 report = audit(run.inputs)
@@ -166,8 +173,9 @@ def audit_listing(workflow_id):
                 if validated is None:
                     validated = editorial.validate(output, run.inputs, report)
                     info = validated["editorial"]
+                    field_count = len(fields_for(run.inputs.get("platform", "ios")))
                     coverage = (
-                        f"{info['reviewed_fields']} of 5 field reviews validated. "
+                        f"{info['reviewed_fields']} of {field_count} field reviews validated. "
                         if "reviewed_fields" in info
                         else ""
                     )

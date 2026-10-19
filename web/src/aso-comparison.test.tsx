@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import ASO, { type AuditRun } from '../../addons/aso/frontend';
 import CompareAudits from '../../addons/aso/frontend/CompareAudits';
-import { fields, type DraftSeed } from '../../addons/aso/frontend/draftTypes';
+import { fields, googleFields, type DraftSeed } from '../../addons/aso/frontend/draftTypes';
 import { api } from './api';
 import type { MobileApp, ModuleProps } from './contracts';
 import { setLanguage } from './i18n';
@@ -69,6 +69,50 @@ const common = {
   onRefresh: vi.fn(),
   onCompose: vi.fn(),
 };
+
+it('combines three Google Play fields including a short description from another model', () => {
+  const android = (run: AuditRun): AuditRun => ({
+    ...run,
+    platform: 'android',
+    report: {
+      ...run.report!,
+      project: {
+        ...run.report!.project!,
+        platform: 'android',
+        reviewed_items: 4,
+        fields: googleFields.map(([field]) => ({
+          field,
+          text: `${run.ai!.provider} ${field}`,
+          rationale: 'Based on the saved project.',
+          evidence: [{ field: 'specification', quote: 'Recipes from your ingredients.' }],
+          sources: [],
+        })),
+      },
+    },
+  });
+  render(<CompareAudits {...common} runs={[android(a), android(b)]} />);
+  expect(screen.getByText('0 of 3 fields selected')).toBeTruthy();
+  expect(screen.queryByRole('heading', { name: 'Subtitle' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Keywords' })).toBeNull();
+  expect(screen.queryByRole('heading', { name: 'Hook (promotional text)' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Choose all from A' }));
+  fireEvent.click(screen.getByRole('radio', { name: 'Use B for Short description' }));
+  expect(screen.getByText('3 of 3 fields selected')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Create draft from selection' }));
+  expect(common.onCompose).toHaveBeenCalledWith(
+    expect.objectContaining({
+      comparison: {
+        base_audit_id: a.id,
+        selections: [
+          { field: 'name', audit_id: a.id, check_id: 'project.listing' },
+          { field: 'short_description', audit_id: b.id, check_id: 'project.listing' },
+          { field: 'description', audit_id: a.id, check_id: 'project.listing' },
+        ],
+      },
+    }),
+    'fr-FR',
+  );
+});
 const app = {
   id: 'app',
   name: 'Frigo',
@@ -247,7 +291,18 @@ it('compares imported listing recommendations and keeps missing replacements uns
       ],
     },
   });
-  render(<CompareAudits {...common} runs={[listing(a), listing(b)]} />);
+  const noReplacementA = listing(a);
+  noReplacementA.report!.checks[0].replacement = null;
+  const view = render(<CompareAudits {...common} runs={[noReplacementA, listing(b)]} />);
+  expect(screen.getByRole('button', { name: 'Choose all from A' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(screen.getByRole('button', { name: 'Choose all from B' })).toHaveProperty(
+    'disabled',
+    false,
+  );
+  expect(screen.getByText('No replacement text to select in this analysis.')).toBeTruthy();
   fireEvent.click(screen.getByRole('radio', { name: 'Use B for Subtitle' }));
   fireEvent.click(screen.getByRole('button', { name: 'Create draft from selection' }));
   const seed: DraftSeed = common.onCompose.mock.calls[0][0];
@@ -255,4 +310,42 @@ it('compares imported listing recommendations and keeps missing replacements uns
     { field: 'subtitle', audit_id: b.id, check_id: 'subtitle.edit' },
   ]);
   expect(screen.getByText(/Unselected fields keep the saved listing from analysis A/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Choose all from A' }));
+  expect(screen.getByRole('radio', { name: 'Use B for Subtitle' })).toHaveProperty('checked', true);
+
+  const noReplacementB = listing(b);
+  noReplacementB.report!.checks[0].replacement = null;
+  noReplacementB.report!.editorial = {
+    provider: 'google',
+    model: 'google-model',
+    resolved_model: 'google-model',
+    usage: {},
+    accepted_proposals: 0,
+    rejected_proposals: 0,
+    assessments: [
+      {
+        field: 'promotional_text',
+        verdict: 'unvalidated',
+        observed: null,
+        observation:
+          'This AI observation was withheld because its claims were not supported clearly enough by the imported listing.',
+        evidence: [],
+        sources: [],
+      },
+    ],
+  };
+  setLanguage('fr');
+  view.rerender(<CompareAudits {...common} runs={[noReplacementA, noReplacementB]} />);
+  expect(screen.getByRole('button', { name: 'Tout choisir dans A' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(screen.getByRole('button', { name: 'Tout choisir dans B' })).toHaveProperty(
+    'disabled',
+    true,
+  );
+  expect(screen.getByText(/Ces analyses ne contiennent aucun texte de remplacement/)).toBeTruthy();
+  expect(screen.getByText(/Cette observation IA a été écartée/)).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Créer un brouillon avec la sélection' })).toBeNull();
+  expect(screen.queryByRole('radio')).toBeNull();
 });

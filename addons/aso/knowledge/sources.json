@@ -46,6 +46,7 @@
     },
     {
       "id": "google-store-listing",
+      "reviewed_on": "2026-10-19",
       "publisher": "Google",
       "title": "Create and set up your app",
       "url": "https://support.google.com/googleplay/android-developer/answer/9859152?hl=en",
@@ -56,6 +57,7 @@
     },
     {
       "id": "google-listing-tests",
+      "reviewed_on": "2026-10-19",
       "publisher": "Google",
       "title": "Run A/B tests on your store listing",
       "url": "https://support.google.com/googleplay/android-developer/answer/12053285?hl=en",
@@ -143,6 +145,38 @@
       "stores": ["app_store"],
       "topics": ["metadata", "public_listing_example"],
       "use": "Dated text observations from a browser review; structural inspiration, not performance evidence."
+    },
+    {
+      "id": "google-metadata-policy",
+      "publisher": "Google",
+      "title": "Metadata policy",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9898842?hl=en",
+      "kind": "official_guidance",
+      "stores": [
+        "google_play"
+      ],
+      "topics": [
+        "metadata",
+        "claims"
+      ],
+      "use": "Scoped Google Play guidance; distinguish requirements from recommendations.",
+      "reviewed_on": "2026-10-19"
+    },
+    {
+      "id": "google-preview-assets",
+      "publisher": "Google",
+      "title": "Preview assets and short description",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151?hl=en",
+      "kind": "official_guidance",
+      "stores": [
+        "google_play"
+      ],
+      "topics": [
+        "screenshots",
+        "short_description"
+      ],
+      "use": "Scoped Google Play guidance; distinguish requirements from recommendations.",
+      "reviewed_on": "2026-10-19"
     }
   ]
 }

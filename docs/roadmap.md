@@ -28,11 +28,11 @@ establishing a publishing connection.
 | --- | --- | --- |
 | Foundation | Workspaces, modules, Markdown project descriptions, imports, languages and exports | Alpha implemented; English or French selected during setup |
 | Real app | App Store Connect, app selection, snapshots, connection errors | Import and refresh validated with a real Apple account and team key |
-| ASO audit | Proposal from an idea or analysis of an imported listing, with sources and corrections | Five Apple fields, history, model comparison, screenshot review and drafts implemented; research specific to each audit remains to be built |
+| ASO audit | Proposal from an idea or analysis of an imported listing, with sources and corrections | Five Apple fields and three Google Play fields, history, model comparison, screenshot review and drafts implemented; research specific to each audit remains to be built |
 | Workflows | Live steps, durable log, stop and retry | Shared ASO/SMM foundation and AI generation implemented; parallel branches and editor remain to be built |
 | SMM research | Relevant content found in the browser with performance evidence | History, network filters, four qualified references visible by default and expandable remaining results; live validation detailed below |
 | SMM creation | One to three adaptations of distinct references, following their formats and product facts | One adaptation per selected source; compatible references reusable across research sessions; editable and exportable scripts |
-| Google Play | Import Android listings, then extend ASO | Connection, selective import and refresh validated with a real account on October 18; Android ASO audit remains to be built |
+| Google Play | Import Android listings and prepare ASO proposals | Connection, selective import and refresh validated with a real account; Android ASO implemented on October 19 with automated coverage for text, screenshots, ideas and drafts |
 | Measurement | Campaign links, time series, reports and attribution limits | Prioritize after user feedback; outside the first public release |
 | SMM publishing (cloud) | Connected social accounts and pages, publishing and scheduling, preview and sending status | Reserved for cloud, to be built |
 | Cloud operations | Stronger isolation, billing, quotas, backups, support | To be built for the hosted offering |
@@ -46,7 +46,7 @@ now focuses on reliability, installation, interface clarity and exports. See the
 
 Remaining work includes live validation of GLM vision models, trials with other accounts
 and configurations, and human calibration of ASO recommendations. Video/audio coverage,
-reference research specific to each audit and Google Play audits remain separate work.
+reference research specific to each audit and live evaluation of Google Play AI recommendations remain separate work.
 Social publishing and hosting operations belong to the future cloud edition.
 
 ### October 18, 2026 update
@@ -218,8 +218,8 @@ Initial sources are Apple's guidance on the
 [App Store search](https://developer.apple.com/app-store/search/), and
 [Google Play listing setup](https://support.google.com/googleplay/android-developer/answer/9859152?hl=en).
 Do not present metadata compliance as a ranking or download guarantee. Apple and
-Google criteria remain distinct; a full Google audit still needs to be developed
-beyond the available Google Play import.
+Google criteria remain distinct. Google Play audits cover the name, short description,
+full description and imported screenshots using scoped Google guidance.
 
 Users review proposals before applying them. The current Apple connector remains
 read-only: corrections can be copied and applied in App Store Connect, then a new

@@ -9,12 +9,19 @@ import re
 import unicodedata
 from importlib.resources import files
 
+from .stores import APPLE_FIELDS, LIMITS, fields_for
+
 RULESET = "apple-metadata-2026-10-16.1"
 REVIEWED_ON = "2026-10-16"
-FIELDS = ("name", "subtitle", "description", "keywords", "promotional_text")
+FIELDS = APPLE_FIELDS
+GOOGLE_RULESET = "google-metadata-2026-10-19.1"
 
 
-def localized_metadata(metadata, locale):
+def ruleset_for(platform="ios"):
+    return GOOGLE_RULESET if platform == "android" else RULESET
+
+
+def localized_metadata(metadata, locale, platform="ios"):
     localizations = metadata.get("localizations")
     if localizations:
         matches = [item for item in localizations if item.get("locale") == locale]
@@ -25,10 +32,11 @@ def localized_metadata(metadata, locale):
         text = metadata
     else:
         raise ValueError("Choose a language present in the imported listing.")
-    available = text.get("available_fields", FIELDS)
+    fields = fields_for(platform)
+    available = text.get("available_fields", fields)
     return {
         field: text[field]
-        for field in FIELDS
+        for field in fields
         if field in available and isinstance(text.get(field), str)
     }
 
@@ -37,7 +45,7 @@ def source_catalog():
     data = json.loads(files("addons.aso").joinpath("knowledge/sources.json").read_text())
     return {
         source["id"]: {key: source[key] for key in ("id", "title", "publisher", "url")}
-        | {"reviewed_on": REVIEWED_ON}
+        | {"reviewed_on": source.get("reviewed_on", REVIEWED_ON)}
         for source in data["sources"]
     }
 
@@ -47,6 +55,8 @@ def normalize(value):
 
 
 def audit(inputs):
+    if inputs["platform"] == "android":
+        return google_audit(inputs)
     if inputs["ruleset"] != RULESET or inputs["platform"] != "ios":
         raise ValueError("Unsupported audit ruleset or store.")
     text = localized_metadata(inputs["metadata"], inputs["locale"])
@@ -244,6 +254,111 @@ def audit(inputs):
     return {
         "ruleset": RULESET,
         "reviewed_on": REVIEWED_ON,
+        "locale": inputs["locale"],
+        "snapshot_id": inputs["snapshot_id"],
+        "checks": checks,
+        "counts": {
+            status: sum(check["status"] == status for check in checks)
+            for status in ("issue", "recommendation", "review", "unavailable", "passed")
+        },
+    }
+
+
+def google_audit(inputs):
+    if inputs["ruleset"] != GOOGLE_RULESET:
+        raise ValueError("Unsupported audit ruleset or store.")
+    text = localized_metadata(inputs["metadata"], inputs["locale"], "android")
+    sources = source_catalog()
+    checks = []
+    for field, label in (
+        ("name", "App name"),
+        ("short_description", "Short description"),
+        ("description", "Description"),
+    ):
+        value, limit = text.get(field), LIMITS[field]
+        if value is None:
+            status = "unavailable"
+            observation = "This field is not available in the imported language."
+            action = "Refresh the listing or check this language in Play Console."
+        elif not value.strip():
+            status = "issue"
+            observation = "The imported field is empty; Google Play requires this field."
+            action = "Add accurate app information before using this listing."
+        else:
+            status = "issue" if len(value) > limit else "passed"
+            observation = f"{len(value)} / {limit} characters."
+            action = (
+                f"Shorten this field by at least {len(value) - limit} characters."
+                if status == "issue"
+                else "Within the documented length limit. Content quality is not assessed here."
+            )
+        checks.append(
+            {
+                "id": f"{field}.length",
+                "field": field,
+                "title": label,
+                "status": status,
+                "basis": "requirement",
+                "observation": observation,
+                "action": action,
+                "observed": value,
+                "sources": [sources["google-store-listing"]],
+            }
+        )
+    for key, field, title, status, basis, observation, action, source in [
+        (
+            "content.review",
+            "listing",
+            "Relevance and claims",
+            "review",
+            "recommendation",
+            "Length checks do not establish relevance, accuracy "
+            "or compliance with Google Play policy.",
+            "Review whether the text describes the app clearly and avoids misleading claims, "
+            "repetitive keywords and unsupported ranking or promotional claims.",
+            "google-metadata-policy",
+        ),
+        (
+            "screenshots.review",
+            "screenshots",
+            "Screenshot content",
+            "review"
+            if inputs["metadata"].get("screenshots")
+            and inputs["metadata"].get("screenshots_locale") == inputs["locale"]
+            else "unavailable",
+            "recommendation",
+            "Screenshot content and device coverage require a separate review.",
+            "Review the imported images against Google Play preview asset guidance. "
+            "Original upload specifications and conversion are not checked here.",
+            "google-preview-assets",
+        ),
+        (
+            "performance.unavailable",
+            "analytics",
+            "Download impact",
+            "unavailable",
+            "measurement",
+            "No store performance report or experiment is attached to this audit.",
+            "Use Play Console performance data or store listing experiments to measure changes. "
+            "This audit does not measure rankings, search demand or downloads.",
+            "google-listing-tests",
+        ),
+    ]:
+        checks.append(
+            {
+                "id": key,
+                "field": field,
+                "title": title,
+                "status": status,
+                "basis": basis,
+                "observation": observation,
+                "action": action,
+                "sources": [sources[source]],
+            }
+        )
+    return {
+        "ruleset": GOOGLE_RULESET,
+        "reviewed_on": "2026-10-19",
         "locale": inputs["locale"],
         "snapshot_id": inputs["snapshot_id"],
         "checks": checks,

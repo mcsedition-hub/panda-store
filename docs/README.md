@@ -9,6 +9,8 @@ and start from an idea, an imported app or a demo.
 
 [Connections](connections.md) covers App Store Connect, Google Play and AI providers.
 
+[AI usage](ai-usage.md) explains token tracking, estimated costs, budgets and provider balances.
+
 [ASO](aso.md) covers listing proposals from an idea, saved audits, model comparisons,
 screenshot reviews and editable drafts.
 

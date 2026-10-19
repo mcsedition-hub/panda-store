@@ -104,6 +104,8 @@ it('connects a dedicated service account and clears the key form without browser
   fireEvent.submit(screen.getByLabelText('Google connection name').closest('form')!);
   await screen.findByLabelText('Google Play account');
   const sent = mockApi.mock.calls.find(([, options]) => options?.method === 'POST')!;
+  expect(screen.queryByRole('button', { name: 'Connect Google Play' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Add a Google Play account' })).toBeTruthy();
   expect(sent[0]).toBe('/api/workspaces/workspace/apple_store/google-play/connections/');
   expect(JSON.parse(sent[1]!.body as string)).toEqual({
     name: 'Developer',
@@ -238,7 +240,7 @@ it('shows Android fields and refreshes through the Google endpoint', async () =>
   expect(screen.getByText('Short description')).toBeTruthy();
   expect(screen.queryByText('Subtitle')).toBeNull();
   expect(screen.queryByText('Keywords')).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Open ASO' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Open ASO' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Open SMM' })).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'fr-FR' } });
   expect(screen.getByText('Planifiez vos courses.')).toBeTruthy();

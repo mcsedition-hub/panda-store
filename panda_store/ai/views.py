@@ -1,4 +1,5 @@
 import uuid
+from types import SimpleNamespace
 
 from django.db import transaction
 from django.utils import timezone
@@ -12,6 +13,7 @@ from panda_store.core.credentials import credentials_ready, decrypt, encrypt
 from panda_store.core.models import AIConnection, Workspace
 
 from .providers import PROVIDERS, ProviderError, list_models
+from .usage import operation_scope
 
 
 class ConnectionRequest(serializers.Serializer):
@@ -66,7 +68,10 @@ def connection(request, workspace_id, provider):
         key = values["api_key"] if request.method == "PUT" else decrypt(original.encrypted_key)
         encrypted = encrypt(key)
         try:
-            models = list_models(provider, key)
+            with operation_scope(
+                SimpleNamespace(workspace_id=workspace.pk, pk=uuid.uuid4()), "core", "connection"
+            ):
+                models = list_models(provider, key)
         except ProviderError as exc:
             raise ValidationError(str(exc)) from None
     with transaction.atomic():

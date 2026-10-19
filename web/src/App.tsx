@@ -4,6 +4,7 @@ import { api, setCsrfToken } from './api';
 import type { MobileApp, ModuleInfo, Session, Workspace } from './contracts';
 import { moduleViews } from './modules';
 import Setup from './Setup';
+import UsageDashboard from './ai-usage/UsageDashboard';
 import LanguagePicker from './i18n/LanguagePicker';
 import { setLanguage, useLanguage } from './i18n';
 
@@ -95,7 +96,7 @@ function ModuleManager({
   return (
     <>
       <div className="page-heading">
-        <h1>{t('Modules')}</h1>
+        <h1>{t('Manage modules')}</h1>
       </div>
       {error && (
         <p className="error" role="alert">
@@ -323,6 +324,23 @@ export default function App() {
   if (!session.user) return <Login onLogin={acceptSession} />;
   const enabled = modules.filter((m) => m.enabled && m.availability !== 'planned');
   const navigationModules = enabled.filter((module) => module.id !== 'example');
+  const navigationGroups = [
+    {
+      id: 'apps',
+      label: 'Apps',
+      items: navigationModules.filter((module) => module.id === 'app_catalog'),
+    },
+    {
+      id: 'modules',
+      label: 'Modules',
+      items: navigationModules.filter((module) => module.id !== 'app_catalog'),
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      items: [],
+    },
+  ];
   const activeModule = enabled.find((m) => m.id === current);
   const ModuleView = activeModule ? moduleViews[current] : null;
   return (
@@ -349,29 +367,62 @@ export default function App() {
             ))}
           </select>
         </div>
-        <nav aria-label={t('Modules')}>
-          {navigationModules.map((module) => (
-            <button
-              key={module.id}
-              className={`nav-item ${current === module.id ? 'active' : ''}`}
-              onClick={() => {
-                navigate(module.id);
-                setError('');
-              }}
-              aria-current={current === module.id ? 'page' : undefined}
-            >
-              <img src={`/modules/${module.icon}.webp`} alt="" />
-              <span>{t(module.name)}</span>
-            </button>
-          ))}
-          <button
-            className={`nav-item ${current === 'modules' ? 'active' : ''}`}
-            onClick={() => navigate('modules')}
-            aria-current={current === 'modules' ? 'page' : undefined}
-          >
-            <img src="/modules/extensions.webp" alt="" />
-            <span>{t('Modules')}</span>
-          </button>
+        <nav aria-label={t('Main navigation')}>
+          {navigationGroups
+            .filter((group) => group.items.length || group.id === 'settings')
+            .map((group) => (
+              <div key={group.id} className="nav-section" role="group" aria-label={t(group.label)}>
+                <p className="nav-section-label" aria-hidden="true">
+                  {t(group.label)}
+                </p>
+                <div className="nav-section-items">
+                  {group.items.map((module) => (
+                    <button
+                      key={module.id}
+                      className={`nav-item ${current === module.id ? 'active' : ''}`}
+                      onClick={() => {
+                        navigate(module.id);
+                        setError('');
+                      }}
+                      aria-current={current === module.id ? 'page' : undefined}
+                    >
+                      <img src={`/modules/${module.icon}.webp`} alt="" />
+                      <span>{t(module.name)}</span>
+                    </button>
+                  ))}
+                  {group.id === 'settings' && (
+                    <>
+                      <button
+                        className={`nav-item ${current === 'modules' ? 'active' : ''}`}
+                        onClick={() => navigate('modules')}
+                        aria-current={current === 'modules' ? 'page' : undefined}
+                      >
+                        <img src="/modules/extensions.webp" alt="" />
+                        <span>{t('Manage modules')}</span>
+                      </button>
+                      <button
+                        className={`nav-item ${current === 'ai-usage' ? 'active' : ''}`}
+                        onClick={() => navigate('ai-usage')}
+                        aria-current={current === 'ai-usage' ? 'page' : undefined}
+                      >
+                        <svg
+                          width="30"
+                          height="30"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          aria-hidden="true"
+                        >
+                          <path d="M4 19h16M6 15V9m6 6V4m6 11v-4" strokeLinecap="round" />
+                        </svg>
+                        <span>{t('AI usage')}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <span className="edition">{t('Community · Alpha')}</span>
@@ -384,7 +435,13 @@ export default function App() {
         <header className="topbar">
           <span className="breadcrumb">
             {workspace?.name ?? t('Workspace')} <span>/</span>{' '}
-            {t(current === 'modules' ? t('Modules') : (activeModule?.name ?? t('Loading')))}
+            {t(
+              current === 'ai-usage'
+                ? 'AI usage'
+                : current === 'modules'
+                  ? 'Manage modules'
+                  : (activeModule?.name ?? 'Loading'),
+            )}
           </span>
           <div className="topbar-right">
             <span className="user-name">{session.user.username}</span>
@@ -414,6 +471,9 @@ export default function App() {
               </p>
             </div>
           )}
+          {workspace && current === 'ai-usage' && (
+            <UsageDashboard key={workspace.id} workspace={workspace} />
+          )}
           {workspace && current === 'modules' && (
             <ModuleManager modules={modules} workspace={workspace} reload={refreshModules} />
           )}
@@ -436,7 +496,7 @@ export default function App() {
               />
             </Suspense>
           )}
-          {workspace && current !== 'modules' && !ModuleView && (
+          {workspace && current !== 'modules' && current !== 'ai-usage' && !ModuleView && (
             <p role="status">
               {modules.length
                 ? t('This module is not enabled in this workspace.')

@@ -163,7 +163,9 @@ export default function Drafts(
                   )
                 : proposal.check_id === 'project.listing'
                   ? t(
-                      'This draft starts with all five fields proposed from your idea. You can edit every text.',
+                      app.platform === 'android'
+                        ? 'This draft starts with all three Google Play fields proposed from your idea. You can edit every text.'
+                        : 'This draft starts with all five fields proposed from your idea. You can edit every text.',
                     )
                   : t('Only the selected proposal will change the imported listing.')
               : t('Start from the saved text.')}

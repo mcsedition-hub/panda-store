@@ -2,8 +2,16 @@ import { t } from '../../../web/src/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import type { MobileApp, ModuleProps } from '../../../web/src/contracts';
-import { fields, when, type Content, type Draft, type Revision } from './draftTypes';
+import {
+  listingFields,
+  when,
+  type Content,
+  type Draft,
+  type Revision,
+  type Field,
+} from './draftTypes';
 import { notify } from '../../../web/src/notifications/store';
+import { isStoreSource } from './Sources';
 
 type Props = ModuleProps & {
   app: MobileApp;
@@ -18,7 +26,10 @@ const editable = (draft: Draft): Local => ({
   content: draft.content,
 });
 const equal = (a: Local, b: Local) =>
-  a.name === b.name && fields.every(([field]) => a.content[field] === b.content[field]);
+  a.name === b.name &&
+  (Object.keys({ ...a.content, ...b.content }) as Field[]).every(
+    (field) => a.content[field] === b.content[field],
+  );
 
 export default function DraftEditor({
   initial,
@@ -33,6 +44,8 @@ export default function DraftEditor({
   previewMode,
 }: Props) {
   const [saved, setSaved] = useState(initial);
+  const platform = saved.platform || app.platform;
+  const fields = listingFields(platform);
   const savedRef = useRef(initial);
   const [local, setLocal] = useState<Local>(() => editable(initial));
   const localRef = useRef(local);
@@ -323,7 +336,11 @@ export default function DraftEditor({
       </div>
       <p className="draft-status-note">
         {saved.locale}
-        {t(' · Ready means reviewed for manual application. Nothing is sent to Apple.')}
+        {t(
+          platform === 'android'
+            ? ' · Ready means reviewed for manual application. Nothing is sent to Google Play.'
+            : ' · Ready means reviewed for manual application. Nothing is sent to Apple.',
+        )}
       </p>
       {saved.is_demo && <p className="notice">{t('Fictional demo listing.')}</p>}
       {error && (
@@ -375,13 +392,20 @@ export default function DraftEditor({
           onClick={() =>
             void action(async () => {
               if (
-                app.sync_provider === 'apple_store' &&
+                ['apple_store', 'google_play'].includes(app.sync_provider ?? '') &&
                 availableModules?.includes('apple_store')
               ) {
-                await api(moduleUrl(workspace.id, 'apple_store', `apps/${app.id}/sync/`), {
-                  method: 'POST',
-                  feedback: { success: 'App metadata refreshed.' },
-                });
+                await api(
+                  moduleUrl(
+                    workspace.id,
+                    'apple_store',
+                    `${app.sync_provider === 'google_play' ? 'google-play/' : ''}apps/${app.id}/sync/`,
+                  ),
+                  {
+                    method: 'POST',
+                    feedback: { success: 'App metadata refreshed.' },
+                  },
+                );
                 await refreshApps();
               }
               const latest = await api<Draft>(endpoint);
@@ -401,7 +425,8 @@ export default function DraftEditor({
             })
           }
         >
-          {app.sync_provider === 'apple_store' && availableModules?.includes('apple_store')
+          {['apple_store', 'google_play'].includes(app.sync_provider ?? '') &&
+          availableModules?.includes('apple_store')
             ? t('Refresh and compare')
             : isProject
               ? t('Compare latest project version')
@@ -513,7 +538,7 @@ export default function DraftEditor({
             <img src={app.metadata.data.icon_url} alt="" referrerPolicy="no-referrer" />
           )}
           <h2>{local.content.name || t('App name')}</h2>
-          <p>{local.content.subtitle}</p>
+          <p>{platform === 'android' ? local.content.short_description : local.content.subtitle}</p>
           <p>{local.content.promotional_text}</p>
           <p className="draft-preview-description">{local.content.description}</p>
         </div>
@@ -531,7 +556,7 @@ export default function DraftEditor({
                 </p>
               )}
               <p>{t(item.check.observation)}</p>
-              {item.check.sources.map((source) => (
+              {item.check.sources.filter(isStoreSource).map((source) => (
                 <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
                   {source.title} ↗
                 </a>

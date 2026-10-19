@@ -27,13 +27,14 @@
     try {
       if (!chrome.runtime.id) return;
       const response = await chrome.runtime.sendMessage({ command, payload });
+      if (!response || typeof response !== 'object') throw new Error('Missing worker response');
       window.postMessage({ channel: 'panda-smm-response', id, ...response }, location.origin);
     } catch {
       window.postMessage(
         {
           channel: 'panda-smm-response',
           id,
-          error: 'Browser connector was reloaded. Refresh Panda Store and resume research.',
+          error: 'Connection to Panda SMM Browser was interrupted. Reconnecting automatically…',
         },
         location.origin,
       );

@@ -91,7 +91,14 @@ PROJECT_STEPS = [
 
 
 def create_workflow(
-    workspace, user, retry_of=None, ai=False, screenshots=False, project=False, reuse_steps=None
+    workspace,
+    user,
+    retry_of=None,
+    ai=False,
+    screenshots=False,
+    project=False,
+    reuse_steps=None,
+    platform="ios",
 ):
     if project:
         return create_run(
@@ -112,6 +119,12 @@ def create_workflow(
         key="aso.visual" if screenshots else "aso.editorial" if ai else "aso.audit",
         version=VISUAL_VERSION if screenshots else AI_VERSION if ai else VERSION,
         title="Review screenshots" if screenshots else "Audit store listing",
-        steps=VISUAL_STEPS if screenshots else AI_STEPS if ai else STEPS,
+        steps=[
+            {**step, "title": "Check Google Play guidance"}
+            if platform == "android" and step["key"] == "checks"
+            else step
+            for step in (VISUAL_STEPS if screenshots else AI_STEPS if ai else STEPS)
+        ],
         retry_of=retry_of,
+        reuse_steps=reuse_steps,
     )

@@ -127,10 +127,55 @@ test('reinjecting the dashboard bridge signals readiness without duplicating com
   dom.window.close();
 });
 
-test('installation and browser startup reconnect only supported dashboard tabs without reloading', async () => {
+test('a dropped worker response is reported promptly and the next ping can recover', async () => {
+  const bridge = await readFile(
+    new URL('../addons/studio/browser_extension/bridge.js', import.meta.url),
+    'utf8',
+  );
+  const dom = new JSDOM('', { url: 'http://localhost:5173', runScripts: 'outside-only' });
+  const replies = [];
+  const calls = [];
+  dom.window.chrome = {
+    runtime: {
+      id: 'panda-test',
+      sendMessage: async ({ command }) => {
+        calls.push(command);
+        return command === 'read' ? undefined : { result: { version: '0.1.11', protocol: 1 } };
+      },
+    },
+  };
+  dom.window.postMessage = (message) => replies.push(message);
+  dom.window.eval(bridge);
+  for (const command of ['read', 'ping']) {
+    dom.window.dispatchEvent(
+      new dom.window.MessageEvent('message', {
+        source: dom.window,
+        origin: dom.window.location.origin,
+        data: { channel: 'panda-smm-request', id: command, command },
+      }),
+    );
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.match(
+    replies.find((message) => message.id === 'read').error,
+    /Reconnecting automatically/,
+  );
+  assert.equal(replies.find((message) => message.id === 'ping').result.protocol, 1);
+  assert.deepEqual(calls, ['read', 'ping'], 'research is never replayed after a lost reply');
+  dom.window.close();
+});
+
+test('worker wake, installation, focus and navigation repair only missing local bridges', async () => {
   const events = {};
   const injected = [];
+  const healthy = new Set();
   const allowed = [...dashboardOrigins].map((url, index) => ({ id: index + 1, url: `${url}/` }));
+  const tabs = [
+    ...allowed,
+    { id: 30, url: 'http://localhost:8081/' },
+    { id: 31, url: 'https://www.instagram.com/' },
+    { id: 32, url: 'http://localhost.evil.test:5173/' },
+  ];
   const originalChrome = globalThis.chrome;
   globalThis.chrome = {
     runtime: {
@@ -146,27 +191,53 @@ test('installation and browser startup reconnect only supported dashboard tabs w
       },
       onMessage: { addListener() {} },
     },
+    windows: {
+      WINDOW_ID_NONE: -1,
+      onFocusChanged: {
+        addListener: (fn) => {
+          events.focus = fn;
+        },
+      },
+    },
     tabs: {
       onRemoved: { addListener() {} },
-      query: async () => [
-        ...allowed,
-        { id: 30, url: 'http://localhost:8081/' },
-        { id: 31, url: 'https://www.instagram.com/' },
-        { id: 32, url: 'http://localhost.evil.test:5173/' },
-      ],
+      onActivated: {
+        addListener: (fn) => {
+          events.activate = fn;
+        },
+      },
+      onUpdated: {
+        addListener: (fn) => {
+          events.update = fn;
+        },
+      },
+      query: async () => tabs,
+      get: async (id) => {
+        const tab = tabs.find((tab) => tab.id === id);
+        if (!tab) throw new Error('Tab closed');
+        return tab;
+      },
       reload: () => assert.fail('reconnection must preserve the dashboard form'),
     },
     scripting: {
       executeScript: async (args) => {
+        if (!args.files) return [{ result: healthy.has(args.target.tabId) }];
         injected.push(args);
-        if (args.target.tabId === 1) throw new Error('Tab closed');
+        healthy.add(args.target.tabId);
+        return [];
       },
     },
   };
   try {
     await import('../addons/studio/browser_extension/background.js?reconnect-test');
-    for (const event of Object.values(events)) {
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(
+      injected.map((item) => item.target.tabId),
+      allowed.map((tab) => tab.id),
+    );
+    for (const event of [events.install, events.startup, () => events.focus(1)]) {
       injected.length = 0;
+      healthy.clear();
       event();
       await new Promise((resolve) => setImmediate(resolve));
       assert.deepEqual(
@@ -178,7 +249,27 @@ test('installation and browser startup reconnect only supported dashboard tabs w
         assert.deepEqual(item.files, ['bridge.js']);
       }
     }
-    assert.equal(Object.keys(events).length, 2);
+    injected.length = 0;
+    events.activate({ tabId: 1 });
+    events.update(1, { status: 'complete' });
+    events.focus(1);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(injected.length, 0, 'healthy bridges and in-flight commands stay intact');
+    healthy.delete(1);
+    events.activate({ tabId: 1 });
+    events.update(1, { status: 'complete' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(injected.length, 1, 'concurrent recovery events inject only once');
+    injected.length = 0;
+    healthy.delete(2);
+    events.update(2, { status: 'loading' });
+    events.focus(-1);
+    for (const tabId of [30, 31, 32, 99]) events.activate({ tabId });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(injected.length, 0, 'foreign origins, closed tabs and loading events are ignored');
+    events.update(2, { status: 'complete' });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(injected[0].target.tabId, 2);
   } finally {
     globalThis.chrome = originalChrome;
   }
@@ -277,7 +368,11 @@ test('background rejects commands from social sites and owns only tabs it create
         },
       },
     },
+    windows: { onFocusChanged: { addListener() {} } },
     tabs: {
+      onActivated: { addListener() {} },
+      onUpdated: { addListener() {} },
+      query: async () => [],
       onRemoved: { addListener() {} },
       create: async () => {
         calls++;
@@ -457,6 +552,109 @@ test('Facebook text excludes comment reactions and small decorative images from 
   dom.window.close();
 });
 
+test('Facebook photo posts exclude avatars and comment photos from their format and counters', () => {
+  const dom = page(
+    `<div role="dialog"><h3><a><img id="avatar" src="/avatar.jpg">Creator</a></h3>
+    <div data-ad-preview="message">A meal from fridge leftovers.</div>
+    <a href="/photo/?fbid=123"><img id="photo" src="/meal.jpg"></a>
+    <button aria-label="J’aime : 700 personnes"></button>
+    <div role="article"><a href="/photo/?fbid=456"><img id="comment" src="/comment.jpg"></a>
+      <button aria-label="J’aime : 90000 personnes"></button></div></div>`,
+    'https://www.facebook.com/creator/posts/123',
+  );
+  dom.window.Element.prototype.getBoundingClientRect = () => ({ width: 400, height: 300 });
+  for (const img of dom.window.document.querySelectorAll('img')) {
+    Object.defineProperty(img, 'complete', { value: true });
+    Object.defineProperty(img, 'naturalWidth', { value: 800 });
+  }
+  const capture = dom.window.pandaSmmCollector.read();
+  assert.equal(capture.format, 'image');
+  assert.equal(capture.metrics.likes.raw, '700');
+  assert.equal(capture.metrics.views, undefined);
+  assert.equal(capture.ready, true);
+  dom.window.document.querySelector('#photo').parentElement.remove();
+  assert.equal(dom.window.pandaSmmCollector.read().format, 'text');
+  dom.window.close();
+});
+
+test('Facebook distinguishes a loaded photo gallery from pending media and external previews', () => {
+  const dom = page(
+    `<div role="dialog"><div data-ad-comet-preview="message">Two recipe photos <button>50K likes</button></div>
+    <a href="/photo.php?fbid=1"><img src="/first.jpg"></a>
+    <a href="/photo.php?fbid=2"><img src="/second.jpg"></a></div>`,
+    'https://www.facebook.com/creator/posts/123',
+  );
+  dom.window.Element.prototype.getBoundingClientRect = () => ({ width: 400, height: 300 });
+  assert.equal(dom.window.pandaSmmCollector.read().format, 'unknown');
+  for (const img of dom.window.document.querySelectorAll('img')) {
+    Object.defineProperty(img, 'complete', { value: true });
+    Object.defineProperty(img, 'naturalWidth', { value: 800 });
+  }
+  assert.equal(dom.window.pandaSmmCollector.read().format, 'carousel');
+  assert.equal(dom.window.pandaSmmCollector.read().metrics.likes, undefined);
+  for (const link of dom.window.document.querySelectorAll('a')) link.href = 'https://example.org';
+  assert.equal(dom.window.pandaSmmCollector.read().format, 'unknown');
+  dom.window.close();
+});
+
+test('Facebook Reel controls keep reactions ambiguous but capture labelled comments and shares', () => {
+  const dom = page(
+    `<div role="dialog"><div id="card"><div role="group" aria-label="Video player">
+      <video></video><h2><a>Foodly</a></h2><p>Use your leftovers.</p></div>
+      <button aria-label="J’aime">181 k</button>
+      <button aria-label="Commenter">678</button>
+      <button aria-label="Partager, 27 k partages">27 k</button></div></div>`,
+    'https://www.facebook.com/reel/123',
+  );
+  dom.window.Element.prototype.getBoundingClientRect = () => ({
+    left: 20,
+    top: 20,
+    width: 300,
+    height: 500,
+  });
+  const capture = dom.window.pandaSmmCollector.read();
+  assert.equal(capture.format, 'video');
+  assert.equal(capture.metrics.likes, undefined);
+  assert.equal(capture.metrics.views, undefined);
+  assert.equal(capture.metrics.comments.raw, '678');
+  assert.equal(capture.metrics.shares.raw, '27 k');
+  assert.ok(capture.text.includes(capture.metrics.shares.quote));
+  dom.window.document
+    .querySelector('[aria-label="Commenter"]')
+    .setAttribute('aria-label', 'Comment');
+  dom.window.document
+    .querySelector('[aria-label^="Partager"]')
+    .setAttribute('aria-label', 'Share, 27K shares');
+  assert.equal(dom.window.pandaSmmCollector.read().metrics.shares.raw, '27K');
+  assert.equal(dom.window.pandaSmmCollector.read().metrics.comments.raw, '678');
+  dom.window.close();
+});
+
+test('Facebook evidence scrolling stays within the post and never targets a comment or a Reel', () => {
+  const dom = page(
+    `<div role="dialog"><div data-ad-preview="message" id="caption">A long recipe</div>
+    <div role="article"><a href="/photo/?fbid=99" id="comment-photo">Comment image</a>
+      <button aria-label="J’aime : 90000 personnes" id="comment-likes"></button></div>
+    <a href="/photo/?fbid=123" id="photo">Post image</a>
+    <button aria-label="J’aime : 700 personnes" id="likes"></button></div>`,
+    'https://www.facebook.com/creator/posts/123',
+  );
+  const scrolled = [];
+  dom.window.Element.prototype.scrollIntoView = function () {
+    scrolled.push(this.id);
+  };
+  assert.equal(dom.window.pandaSmmCollector.facebookEvidenceTarget('media'), true);
+  assert.equal(dom.window.pandaSmmCollector.facebookEvidenceTarget('engagement'), true);
+  assert.deepEqual(scrolled, ['photo', 'likes']);
+  dom.window.document.getElementById('likes').remove();
+  assert.equal(dom.window.pandaSmmCollector.facebookEvidenceTarget('engagement'), true);
+  assert.equal(scrolled.at(-1), 'photo');
+  assert.equal(dom.window.pandaSmmCollector.facebookEvidenceTarget('arbitrary'), false);
+  dom.window.history.replaceState({}, '', '/reel/123');
+  assert.equal(dom.window.pandaSmmCollector.facebookEvidenceTarget('engagement'), false);
+  dom.window.close();
+});
+
 test('Facebook Reel closing skips obscured duplicates and uses only a scoped close control', () => {
   const dom = page(
     `<button id="unscoped" aria-label="Fermer"></button>
@@ -545,6 +743,7 @@ async function connectorHarness(
     instagramReading,
     screenshotError,
     facebookTargets,
+    facebookEvidenceTarget,
     initialUrl = 'about:blank',
   } = {},
 ) {
@@ -558,6 +757,8 @@ async function connectorHarness(
   let facebookPosts = 0;
   let profileReads = 0;
   let screenshots = 0;
+  let postReads = 0;
+  const evidenceAreas = [];
   let search;
   const sender = { url: 'http://127.0.0.1:5173/', frameId: 0, tab: { id: 1 } };
   const session = '11111111-1111-1111-1111-111111111111';
@@ -573,7 +774,11 @@ async function connectorHarness(
         },
       },
     },
+    windows: { onFocusChanged: { addListener() {} } },
     tabs: {
+      onActivated: { addListener() {} },
+      onUpdated: { addListener() {} },
+      query: async () => [],
       onRemoved: { addListener() {} },
       update: async (_, { url }) => {
         if (url) {
@@ -597,7 +802,10 @@ async function connectorHarness(
       sendCommand: async (target, command, input) => {
         assert.equal(target.tabId, 9);
         if (command === 'Page.getLayoutMetrics') {
-          if (screenshotError) throw new Error('Screenshot unavailable');
+          if (
+            typeof screenshotError === 'function' ? screenshotError(screenshots) : screenshotError
+          )
+            throw new Error('Screenshot unavailable');
           return {
             cssVisualViewport: { pageX: 0, pageY: 0, clientWidth: 1000, clientHeight: 700 },
           };
@@ -634,7 +842,11 @@ async function connectorHarness(
             },
           ];
         }
-        if (args[0] === 'read') return [{ result: reading() }];
+        if (args[0] === 'read') return [{ result: reading(++postReads) }];
+        if (args[0] === 'facebookEvidenceTarget') {
+          evidenceAreas.push(args[1]);
+          return [{ result: facebookEvidenceTarget?.(args[1]) || false }];
+        }
         if (args[0] === 'instagramViews') {
           profileReads++;
           return [
@@ -666,6 +878,8 @@ async function connectorHarness(
       navigations,
       profileReads,
       screenshots,
+      postReads,
+      evidenceAreas,
     }));
   } finally {
     globalThis.setTimeout = originalTimeout;
@@ -674,6 +888,88 @@ async function connectorHarness(
 }
 
 const platformError = 'The platform returned an error. Retry in the research tab, then resume.';
+const facebookPhoto = () => ({
+  url: 'https://www.facebook.com/creator/posts/123',
+  caption: 'A meal from leftovers.',
+  text: 'A meal from leftovers.',
+  format: 'image',
+  ready: true,
+  blocked_reason: '',
+  metrics: {},
+  coverage: 'Partial visible evidence.',
+});
+test('Facebook waits for late reactions and retains content, media and counter evidence within three frames', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('read', { url: facebookPhoto().url });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.metrics.likes.raw, '700');
+      assert.match(reply.result.text, /J’aime : 700 personnes/);
+      assert.deepEqual(reply.result.frames, ['frame-1', 'frame-2', 'frame-3']);
+      assert.match(reply.result.coverage, /last frame shows the post engagement area/);
+      assert.deepEqual(stats().evidenceAreas, ['media', 'engagement']);
+      assert.equal(stats().postReads, 5);
+    },
+    {
+      facebookEvidenceTarget: () => true,
+      reading: (attempt) => ({
+        ...facebookPhoto(),
+        metrics: attempt >= 4 ? { likes: { raw: '700', quote: 'J’aime : 700 personnes' } } : {},
+      }),
+    },
+  );
+});
+test('Facebook missing reactions stay unknown after a bounded wait', async () => {
+  await connectorHarness(
+    async (send, stats) => {
+      const reply = await send('read', { url: facebookPhoto().url });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.metrics.likes, undefined);
+      assert.equal(reply.result.frames.length, 3);
+      assert.equal(stats().postReads, 7);
+    },
+    { facebookEvidenceTarget: () => true, reading: facebookPhoto },
+  );
+});
+test('Facebook does not merge late counters without a supporting screenshot', async () => {
+  await connectorHarness(
+    async (send) => {
+      const reply = await send('read', { url: facebookPhoto().url });
+      assert.equal(reply.error, undefined);
+      assert.equal(reply.result.metrics.likes, undefined);
+      assert.deepEqual(reply.result.frames, ['frame-1']);
+    },
+    {
+      facebookEvidenceTarget: () => true,
+      screenshotError: (count) => count > 0,
+      reading: (attempt) => ({
+        ...facebookPhoto(),
+        metrics: attempt > 1 ? { likes: { raw: '700', quote: 'J’aime : 700 personnes' } } : {},
+      }),
+    },
+  );
+});
+test('Facebook stops late collection on a verification challenge and rejects a different post', async () => {
+  for (const next of [
+    { blocked_reason: 'A verification challenge needs your attention.' },
+    { url: 'https://www.facebook.com/creator/posts/456' },
+  ]) {
+    await connectorHarness(
+      async (send, stats) => {
+        const reply = await send('read', { url: facebookPhoto().url });
+        if (next.blocked_reason) assert.equal(reply.result.blocked_reason, next.blocked_reason);
+        else assert.match(reply.error, /no longer on the requested social post/);
+        assert.equal(stats().postReads, 2);
+        assert.equal(stats().screenshots, 1);
+      },
+      {
+        facebookEvidenceTarget: () => true,
+        reading: (attempt) => ({ ...facebookPhoto(), ...(attempt > 1 ? next : {}) }),
+      },
+    );
+  }
+});
+
 test('resuming preserves the exact already open search instead of reloading recovered results', async () => {
   await connectorHarness(
     async (send, stats) => {

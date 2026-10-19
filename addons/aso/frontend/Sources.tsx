@@ -37,11 +37,17 @@ export interface Knowledge {
 export const fieldNames: Record<string, string> = {
   name: 'App name',
   subtitle: 'Subtitle',
+  short_description: 'Short description',
   description: 'Description',
   promotional_text: 'Hook (promotional text)',
   keywords: 'Keywords',
   screenshots: 'Screenshots',
 };
+// Display only. Keep the complete source set in saved reports and model inputs.
+export function isStoreSource(source: { publisher?: string }) {
+  return ['apple', 'google'].includes(source.publisher?.trim().toLowerCase() ?? '');
+}
+
 export function sourceKind(source: Source) {
   return (
     {
@@ -107,6 +113,7 @@ function ReferenceEntry({ entry }: { entry: Guidance }) {
 }
 
 export function SourceReference({ source }: { source: Source }) {
+  if (!isStoreSource(source)) return null;
   return (
     <div className="aso-source-reference">
       <a href={source.url} target="_blank" rel="noreferrer">
@@ -137,10 +144,12 @@ export default function Sources({
   workspaceId,
   saved,
   mode = 'listing',
+  platform = 'ios',
 }: {
   workspaceId: string;
   saved?: Knowledge & { created_at: string };
   mode?: 'listing' | 'screenshots';
+  platform?: string;
 }) {
   const [view, setView] = useState(saved ? 'saved' : 'current');
   const [current, setCurrent] = useState<Knowledge | null>(null);
@@ -155,7 +164,7 @@ export default function Sources({
       moduleUrl(
         workspaceId,
         'aso',
-        `knowledge/${mode === 'screenshots' ? '?mode=screenshots' : ''}`,
+        `knowledge/${mode === 'screenshots' ? '?mode=screenshots' : ''}${platform === 'android' ? `${mode === 'screenshots' ? '&' : '?'}platform=android` : ''}`,
       ),
     )
       .then((data) => {
@@ -167,12 +176,15 @@ export default function Sources({
     return () => {
       active = false;
     };
-  }, [workspaceId, view, attempt, mode]);
+  }, [workspaceId, view, attempt, mode, platform]);
   const data = view === 'saved' ? saved : current;
-  const examples =
-    data?.entries.filter((entry) => entry.source.kind === 'public_listing_observation') ?? [];
-  const guidance =
-    data?.entries.filter((entry) => entry.source.kind !== 'public_listing_observation') ?? [];
+  const visibleEntries = data?.entries.filter((entry) => isStoreSource(entry.source)) ?? [];
+  const examples = visibleEntries.filter(
+    (entry) => entry.source.kind === 'public_listing_observation',
+  );
+  const guidance = visibleEntries.filter(
+    (entry) => entry.source.kind !== 'public_listing_observation',
+  );
   return (
     <section className="aso-library" aria-label={t('Reference library')}>
       <div className="aso-report-heading">
@@ -193,8 +205,12 @@ export default function Sources({
               'Notes saved for the audit started {0}.',
               new Date(saved.created_at).toLocaleString(getLocale()),
             )
-          : t('Notes supplied to new App Store AI reviews.')}{' '}
-        {t('Apple guidance takes precedence over methods and public listing examples.')}
+          : t(
+              platform === 'android'
+                ? 'Notes supplied to new Google Play AI reviews.'
+                : 'Notes supplied to new App Store AI reviews.',
+            )}{' '}
+        {t('Apple and Google references.')}
       </p>
       {error && view === 'current' ? (
         <div>
@@ -209,6 +225,8 @@ export default function Sources({
         <p role="status">{t('Loading sources…')}</p>
       ) : !data.entries.length ? (
         <p>{t('No guidance notes were saved for this audit.')}</p>
+      ) : !visibleEntries.length ? (
+        <p>{t('No Apple or Google references to display.')}</p>
       ) : (
         <>
           {guidance.map((entry) => (

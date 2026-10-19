@@ -4,16 +4,30 @@ const transientPlatformError =
   'The platform returned an error. Retry in the research tab, then resume.';
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const sessionKey = (sender) => `panda-smm-${sender.tab.id}`;
+const reconnecting = new Map();
+async function reconnectDashboard(tabId) {
+  if (reconnecting.has(tabId)) return reconnecting.get(tabId);
+  const reconnect = (async () => {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.url || !dashboardOrigins.has(new URL(tab.url).origin)) return;
+    const target = { tabId, frameIds: [0] };
+    const probe = await chrome.scripting.executeScript({
+      target,
+      func: () => Boolean(chrome.runtime.id && globalThis.pandaSmmBridgeListener),
+    });
+    // A healthy bridge may have a research command in flight. Leave it intact.
+    if (probe[0]?.result === true) return;
+    await chrome.scripting.executeScript({ target, files: ['bridge.js'], injectImmediately: true });
+  })().finally(() => reconnecting.delete(tabId));
+  reconnecting.set(tabId, reconnect);
+  return reconnect;
+}
 async function reconnectDashboards() {
   const tabs = await chrome.tabs.query({ url: ['http://127.0.0.1/*', 'http://localhost/*'] });
   await Promise.allSettled(
     tabs.map(async (tab) => {
       if (!tab.id || !tab.url || !dashboardOrigins.has(new URL(tab.url).origin)) return;
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id, frameIds: [0] },
-        files: ['bridge.js'],
-        injectImmediately: true,
-      });
+      await reconnectDashboard(tab.id);
     }),
   );
 }
@@ -21,6 +35,18 @@ async function reconnectDashboards() {
 // reloading the dashboard: its form, selected model and saved sessions stay intact.
 chrome.runtime.onInstalled.addListener(() => void reconnectDashboards().catch(() => {}));
 chrome.runtime.onStartup.addListener(() => void reconnectDashboards().catch(() => {}));
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  void reconnectDashboard(tabId).catch(() => {});
+});
+chrome.tabs.onUpdated.addListener((tabId, change) => {
+  if (change.status === 'complete') void reconnectDashboard(tabId).catch(() => {});
+});
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId !== chrome.windows.WINDOW_ID_NONE) void reconnectDashboards().catch(() => {});
+});
+// onStartup is a browser-profile event, not a service-worker wake event. Repair
+// missing bridges on each worker start as well, including re-enabling the extension.
+void reconnectDashboards().catch(() => {});
 function authorized(sender) {
   try {
     return sender.frameId === 0 && dashboardOrigins.has(new URL(sender.url).origin);
@@ -272,11 +298,52 @@ async function instagramViewEvidence(state, capture, profile, check) {
   state.destination = postUrl;
   return true;
 }
+async function facebookPostEvidence(state, capture, check) {
+  // Preserve the initial content frame, then observe media and reactions in the
+  // same post. Facebook can mount those controls after the caption has loaded.
+  for (const area of ['media', 'engagement']) {
+    if (!(await collect(state, 'facebookEvidenceTarget', check, area))) continue;
+    let observed;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await wait(800);
+      check();
+      observed = await collect(state, 'read', check);
+      if (observed.blocked_reason && observed.blocked_reason !== transientPlatformError) {
+        capture.blocked_reason = observed.blocked_reason;
+        return false;
+      }
+      if (canonicalPost(observed.url) !== canonicalPost(capture.url))
+        throw new Error('The tab is no longer on the requested social post.');
+      if (observed.ready && !observed.blocked_reason && observed.metrics?.likes) break;
+    }
+    if (!observed.ready || observed.blocked_reason) continue;
+    await validTab(state, state.destination);
+    try {
+      const frame = await screenshot(state);
+      if (!frame) continue;
+      capture.frames = [...capture.frames.slice(0, area === 'media' ? 1 : 2), frame];
+      const metrics = { ...capture.metrics, ...observed.metrics };
+      const quotes = Object.values(metrics)
+        .map((metric) => metric.quote)
+        .join('\n');
+      capture.text = capture.text.slice(0, 23999 - quotes.length) + '\n' + quotes;
+      capture.metrics = metrics;
+      if (['image', 'carousel', 'text'].includes(observed.format)) capture.format = observed.format;
+      capture.coverage +=
+        area === 'media'
+          ? '\nAn additional frame shows the post media after scrolling within the same post.'
+          : '\nThe last frame shows the post engagement area after scrolling, not another media sample. Only explicitly labelled counters were recorded.';
+    } catch {
+      capture.coverage += '\nAdditional Facebook evidence screenshot unavailable.';
+    }
+  }
+  return true;
+}
 async function command(message, sender) {
   if (!authorized(sender))
     throw new Error('Only the local Panda Store dashboard can use this connector.');
   const { command, payload = {} } = message;
-  if (command === 'ping') return { version: '0.1.8', protocol: 1 };
+  if (command === 'ping') return { version: '0.1.11', protocol: 1 };
   const key = sessionKey(sender);
   if (command === 'stop') {
     running.get(key)?.abort();
@@ -388,6 +455,12 @@ async function command(message, sender) {
           if (!(await collect(state, 'nextSlide', check))) break;
         } else if (['text', 'image'].includes(capture.format)) break;
         await wait(1800);
+      }
+      if (
+        ['image', 'carousel', 'text', 'unknown'].includes(capture.format) &&
+        new URL(url).hostname === 'www.facebook.com'
+      ) {
+        if (!(await facebookPostEvidence(state, capture, check))) return capture;
       }
       if (
         capture.format === 'video' &&

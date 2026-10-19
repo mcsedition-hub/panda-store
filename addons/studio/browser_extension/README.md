@@ -11,19 +11,26 @@
 
 ## Update and reconnect
 
-Current version: **0.1.8**, protocol **1**. Replace the installed folder with this download, click **Reload**
+Current version: **0.1.11**, protocol **1**. Replace the installed folder with this download, click **Reload**
 for Panda SMM Browser in `chrome://extensions`. If you loaded
 `addons/studio/browser_extension` directly from the project, only the reload is needed.
-Version 0.1.8 reconnects already open dashboard tabs after installation, an extension
-reload/update, or browser startup. It preserves the dashboard form and never restarts
-a research command automatically. Version 0.1.7 remains compatible, but may require a
+Version 0.1.11 checks for a missing dashboard bridge when its service worker starts,
+when you return to a tab or Chrome window, and after navigation, as well as installation
+and browser startup. Healthy bridges are left intact. The dashboard checks the connection
+every 45 seconds while visible, retries failed checks after 10 seconds, and checks on
+focus or network recovery. Only the harmless connection check is automatically repeated;
+a failed research command is paused for explicit resumption. The form is preserved.
+The connected version appears in SMM, with update instructions for older releases.
+Version 0.1.7 remains compatible, but may require a
 dashboard refresh after reloading the extension. Protocol compatibility is checked
 independently of the patch version, so compatible updates do not block research.
 Unpacked installations still require replacing files and reloading the extension to
 apply code changes. Automatic distribution updates require a Chrome Web Store release;
 the local ZIP is not such a release. If the connection is missing, open **Connection
 instructions** in SMM, check the extension is enabled, then use **Check connection**.
-These checks do not start or repeat research.
+These checks do not start or repeat research. A disabled extension, a different Chrome
+profile or revoked site access must still be corrected in Chrome. Reloading a folder
+installation is needed once per code update, not as a routine reconnection step.
 
 ## Collect evidence
 
@@ -43,6 +50,16 @@ The connector preserves an already open research page when resuming and waits fo
 transient platform errors within the existing loading timeout. Sign-in and verification
 requests still pause collection immediately. Facebook Reel evidence is scoped to the
 active video so preloaded neighbouring videos cannot supply its counters.
+Version 0.1.9 recognizes loaded Facebook photo attachments as images or galleries,
+excluding avatars and comment attachments. These use the likes-only filter rather
+than requiring video views. Reel comment and share controls are also supported in
+French and English. Aggregate Facebook reactions are not treated as likes, and an
+unobserved view count remains unknown. Saved sessions retain their original evidence.
+Version 0.1.10 revisits the media and engagement areas within a static Facebook post,
+with at most three short reads per area to wait for controls loaded after the caption.
+It keeps at most three evidence frames, identifying the engagement screenshot separately
+from the post media. Additional counters require a successful evidence capture and a
+matching post URL. It does not scroll the Reels feed or click reaction controls.
 
 Search waits for actual result links after the page shell loads. Missing results and
 platform blocks are recorded in the session history; other networks can continue.

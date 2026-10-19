@@ -14,8 +14,10 @@ from addons.studio.creative_tasks import generate_ai_scripts
 from addons.studio.models import GenerationRun, SocialPost, SocialResearch
 from addons.studio.social_evidence import count, post_url, qualify, validate_capture
 from panda_store.ai.providers import ProviderError
+from panda_store.ai.usage import operation
 from panda_store.core.credentials import encrypt
 from panda_store.core.models import AIConnection, Membership, Workspace
+from panda_store.workflows import services
 
 
 def jpeg_frame(size=(2400, 1300), fmt="JPEG"):
@@ -111,7 +113,73 @@ def test_native_search_plan_rejects_google_syntax(platform):
     output["result"]["queries"][0].update(
         platform="google", query='site:facebook.com "photo cleaner"'
     )
-    assert social_tasks.validate_plan(output, ["google"])["queries"][0]["query"].startswith("site:")
+    assert any(
+        item["query"].startswith("site:facebook.com ")
+        for item in social_tasks.validate_plan(output, ["google"])["queries"]
+    )
+
+
+def test_google_plan_separates_networks_and_keeps_both_search_angles():
+    output = {
+        "result": {
+            "queries": [
+                {"platform": "google", "query": "My Talking Tom routine", "reason": "Similar app"},
+                {"platform": "google", "query": "jeu cosy décoration", "reason": "Broader niche"},
+            ],
+            "strategy": "Look for similar apps and broader niche content.",
+        }
+    }
+    queries = social_tasks.validate_plan(output, ["google"])["queries"]
+    assert len(queries) == 6
+    for site in ("tiktok.com", "instagram.com", "facebook.com"):
+        scoped = [q for q in queries if q["query"].startswith(f"site:{site} ")]
+        assert {q["reason"] for q in scoped} == {"Similar app", "Broader niche"}
+        assert all(q["query"].count("site:") == 1 and len(q["query"]) <= 160 for q in scoped)
+    # All chosen networks remain represented when native searches share the budget.
+    output["result"]["queries"] += [
+        {"platform": p, "query": "animal virtuel routine", "reason": "Native search"}
+        for p in ("tiktok", "instagram", "facebook")
+    ]
+    queries = social_tasks.validate_plan(output, ["google", "tiktok", "instagram", "facebook"])[
+        "queries"
+    ]
+    assert len(queries) == 6
+    assert {q["platform"] for q in queries} == {"google", "tiktok", "instagram", "facebook"}
+    assert {q["query"].split()[0] for q in queries if q["platform"] == "google"} == {
+        "site:tiktok.com",
+        "site:instagram.com",
+        "site:facebook.com",
+    }
+    assert {q["reason"] for q in queries if q["platform"] == "google"} == {
+        "Similar app",
+        "Broader niche",
+    }
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        '("My Talking Tom" OR Pou) (site:tiktok.com OR site:instagram.com OR site:facebook.com)',
+        'site:facebook.com ("My Talking Tom" OR Pou)',
+        '("My Talking Tom" OR Pou) site:instagram.com',
+    ],
+)
+def test_google_plan_normalizes_old_site_filters_without_losing_topic(query):
+    result = social_tasks.google_searches(
+        [{"platform": "google", "query": query, "reason": "Similar apps"}]
+    )
+    assert len(result) == 3
+    for item in result:
+        assert item["query"].count("site:") == 1
+        assert item["query"].endswith('("My Talking Tom" OR Pou)')
+
+
+def test_google_plan_deduplicates_and_rejects_empty_or_overlong_topics():
+    query = {"platform": "google", "query": "animal virtuel", "reason": "Niche"}
+    assert len(social_tasks.google_searches([query, query])) == 3
+    for terms in ["site:facebook.com", "x" * 141]:
+        with pytest.raises(ProviderError, match="short topic keywords"):
+            social_tasks.google_searches([{**query, "query": terms}])
 
 
 @pytest.mark.parametrize(
@@ -256,6 +324,135 @@ def planned(session):
     assert session.status == "ready"
 
 
+@pytest.mark.parametrize("origin", ["ios", "android", "idea"])
+def test_automatic_context_uses_complete_saved_description_and_one_planning_call(
+    api, setup, origin
+):
+    base, app, body, _ = setup
+    snapshot = app.snapshots.first()
+    facts = "Planifier un repas avec ses ingrédients. " * 120 + "Les rappels sont facultatifs."
+    snapshot.data = {"name": "Cuisine", "locale": "fr-FR"}
+    if origin == "idea":
+        snapshot.data["project"] = {
+            "origin": "project",
+            "stage": "idea",
+            "specification": facts,
+            "audience": "",
+        }
+    else:
+        snapshot.data.update(platform=origin, description=facts)
+    snapshot.save()
+    body = {
+        **body,
+        "request_id": str(uuid.uuid4()),
+        "context_mode": "app",
+        "facts_confirmed": False,
+        "brief": {**body["brief"], "audience": "", "product_facts": ""},
+    }
+    response = api.post(f"{base}apps/{app.pk}/social-research/", body, format="json")
+    assert response.status_code == 202, response.data
+    session = SocialResearch.objects.get(pk=response.data["id"])
+    frozen_facts = session.inputs["brief"]["product_facts"]
+    assert facts in frozen_facts and len(frozen_facts) > 4000
+    assert session.inputs["context_origin"] == {"product_facts": "snapshot", "audience": "pending"}
+    plan = {
+        "queries": [
+            {"platform": "tiktok", "query": "recettes ingrédients frigo", "reason": "Niche"}
+        ],
+        "strategy": "Chercher des recettes simples.",
+        "app_understanding": {
+            "audience": "Personnes qui cuisinent avec les ingrédients disponibles",
+            "features": [
+                "Planifier un repas avec ses ingrédients.",
+                "Les rappels sont facultatifs.",
+            ],
+        },
+    }
+    with patch.object(social_tasks, "call", return_value={"result": plan}) as model:
+        social_tasks.research(str(session.workflow_id))
+    assert model.call_count == 1
+    assert model.call_args.args[2]["brief"]["product_facts"] == frozen_facts
+    assert model.call_args.args[3] == social_tasks.CONTEXT_PLAN
+    session.refresh_from_db()
+    assert session.status == "ready"
+    assert session.inputs["brief"]["product_facts"] == frozen_facts
+    assert session.inputs["brief"]["audience"] == plan["app_understanding"]["audience"]
+    assert session.inputs["context_origin"]["audience"] == "ai"
+    if origin == "idea":
+        assert session.inputs["app_context"]["stage"] == "idea"
+    # A request replay still compares the submitted inputs, not the derived audience.
+    replay = api.post(f"{base}apps/{app.pk}/social-research/", body, format="json")
+    assert str(replay.data["id"]) == str(session.pk)
+    assert session.request["brief"]["audience"] == ""
+    # New imports must not rewrite the saved source used for analysis and adaptations.
+    snapshot.data["description"] = "A completely different app description."
+    snapshot.save()
+    url = f"{base}social-research/{session.pk}/"
+    assert api.post(url, {"action": "browse"}, format="json").status_code == 200
+    captured = api.post(url + "captures/", evidence(1, "carousel"), format="json")
+    assert captured.status_code == 200
+    finished = api.post(url, {"action": "finish"}, format="json")
+    with patch.object(social_tasks, "call", side_effect=fake_analysis) as model:
+        social_tasks.research(finished.data["workflow_id"])
+    assert all(
+        c.args[2]["brief"]["audience"] == plan["app_understanding"]["audience"]
+        for c in model.call_args_list
+    )
+    adapted = api.post(
+        url + "adapt/",
+        {"request_id": str(uuid.uuid4()), "post_ids": [str(session.posts.get().pk)]},
+        format="json",
+    )
+    assert adapted.status_code == 202, adapted.data
+    run = GenerationRun.objects.get(pk=adapted.data["id"])
+    assert run.inputs["brief"]["product_facts"] == frozen_facts
+    assert run.inputs["brief"]["audience"] == plan["app_understanding"]["audience"]
+
+
+def test_automatic_context_keeps_explicit_overrides_and_rejects_missing_descriptions(api, setup):
+    base, app, body, _ = setup
+    snapshot = app.snapshots.first()
+    snapshot.data = {"name": "A name is not a product description"}
+    snapshot.save()
+    body = {
+        **body,
+        "request_id": str(uuid.uuid4()),
+        "context_mode": "app",
+        "facts_confirmed": False,
+    }
+    response = api.post(f"{base}apps/{app.pk}/social-research/", body, format="json")
+    assert response.status_code == 202, response.data
+    session = SocialResearch.objects.get(pk=response.data["id"])
+    assert session.inputs["brief"] == body["brief"]
+    assert session.inputs["context_origin"] == {"product_facts": "user", "audience": "user"}
+    body.update(
+        request_id=str(uuid.uuid4()), brief={**body["brief"], "audience": "", "product_facts": ""}
+    )
+    response = api.post(f"{base}apps/{app.pk}/social-research/", body, format="json")
+    assert response.status_code == 400 and "Add an app description" in str(response.data)
+    body.update(request_id=str(uuid.uuid4()), context_mode="manual")
+    assert api.post(f"{base}apps/{app.pk}/social-research/", body, format="json").status_code == 400
+
+
+def test_context_extraction_rejects_invented_features_and_preserves_custom_audience():
+    brief = {
+        "audience": "Home cooks",
+        "product_facts": "The app suggests recipes. Reminders are optional.",
+    }
+    output = {
+        "result": {
+            "app_understanding": {
+                "audience": "A different audience",
+                "features": ["Reminders are optional."],
+            }
+        }
+    }
+    assert social_tasks.validate_app_understanding(output, brief)["audience"] == "Home cooks"
+    output["result"]["app_understanding"]["features"] = ["The app scans receipts automatically."]
+    with pytest.raises(ProviderError, match="do not match"):
+        social_tasks.validate_app_understanding(output, brief)
+
+
 def test_skipped_post_activity_keeps_a_safe_source_link(api, setup):
     base, _, _, session = setup
     planned(session)
@@ -305,6 +502,85 @@ def collect(api, base, session, static_format="carousel"):
         )
         assert response.status_code == 200, response.data
     return url
+
+
+@pytest.mark.parametrize("phase", ["plan", "analyze"])
+def test_social_retry_can_change_provider_without_losing_evidence_or_resetting_budget(
+    api, setup, phase
+):
+    base, _, _, original = setup
+    url = base + f"social-research/{original.pk}/"
+    if phase == "analyze":
+        collect(api, base, original)
+        result = api.post(url, {"action": "finish"}, format="json")
+
+        def interrupted(*args, **kwargs):
+            if args[2]["post"]["url"].endswith("/2"):
+                raise ProviderError("Provider interrupted")
+            return fake_analysis(*args, **kwargs)
+
+        with patch.object(social_tasks, "call", side_effect=interrupted):
+            social_tasks.research(result.data["workflow_id"])
+        original.refresh_from_db()
+        assert original.posts.filter(qualification__status="qualified").count() == 1
+    else:
+        services.fail(original.workflow_id, "Provider interrupted")
+    saved_inputs = copy.deepcopy(original.inputs)
+    saved_posts = list(
+        original.posts.values("url", "evidence", "metrics", "frames", "analysis", "captured_at")
+    )
+    AIConnection.objects.create(
+        workspace=original.workspace,
+        provider="google",
+        encrypted_key=encrypt("test-google"),
+        model_catalog=[{"id": "gemini-2.5-flash"}],
+    )
+    body = {
+        "action": "retry",
+        "request_id": str(uuid.uuid4()),
+        "provider": "google",
+        "model": "gemini-2.5-flash",
+    }
+    result = api.post(url, body, format="json")
+    assert result.status_code == 200, result.data
+    fork = SocialResearch.objects.get(pk=result.data["id"])
+    assert fork.pk != original.pk
+    assert fork.inputs["ai"]["provider"] == "google"
+    assert fork.inputs["brief"] == original.inputs["brief"]
+    assert fork.plan == original.plan
+    assert (
+        operation(fork, "studio", "social")["operation_key"]
+        == operation(original, "studio", "social")["operation_key"]
+    )
+    assert api.post(url, body, format="json").data["id"] == str(fork.pk)
+    assert (
+        api.post(
+            url, {**body, "provider": "openai", "model": "gpt-4.1-mini"}, format="json"
+        ).status_code
+        == 409
+    )
+    assert SocialResearch.objects.count() == 2
+    for copied, saved in zip(fork.posts.all(), saved_posts, strict=True):
+        assert copied.analysis == {}
+        for field in ("url", "evidence", "metrics", "frames", "captured_at"):
+            assert getattr(copied, field) == saved[field]
+    original.refresh_from_db()
+    assert original.inputs == saved_inputs
+    assert (
+        list(
+            original.posts.values("url", "evidence", "metrics", "frames", "analysis", "captured_at")
+        )
+        == saved_posts
+    )
+    if phase == "analyze":
+        with patch.object(social_tasks, "call", side_effect=fake_analysis) as calls:
+            social_tasks.research(str(fork.workflow_id))
+        assert calls.call_count == 6
+        fork.refresh_from_db()
+        assert fork.status == "completed"
+    else:
+        assert fork.status == "planning"
+        assert fork.workflow.steps.get().key == "plan"
 
 
 @pytest.fixture
@@ -455,6 +731,79 @@ def test_reuse_rechecks_metrics_review_and_deduplicates_urls(api, split_research
     posts[2].save(update_fields=["analysis"])
     assert api.get(url + "references/").data["posts"] == []
     assert not GenerationRun.objects.exists()
+
+
+@pytest.mark.django_db
+def test_generated_audience_rewording_reuses_sources_without_changing_saved_context(
+    api, split_research
+):
+    base, source, target, posts = split_research
+    for session in (source, target):
+        session.inputs["context_mode"] = "app"
+        session.inputs["context_origin"] = {"audience": "ai", "product_facts": "snapshot"}
+    target.inputs["brief"]["audience"] = "People starting their first running routine"
+    source.save()
+    target.save()
+    before = copy.deepcopy(target.inputs)
+    url = base + f"social-research/{target.pk}/"
+    library = api.get(url + "references/")
+    assert {p["id"] for p in library.data["posts"]} == {str(p.pk) for p in posts[1:]}
+    response = api.post(
+        url + "adapt/",
+        {
+            "request_id": str(uuid.uuid4()),
+            "post_ids": [str(posts[1].pk)],
+        },
+        format="json",
+    )
+    assert response.status_code == 202, response.data
+    run = GenerationRun.objects.get(pk=response.data["id"])
+    assert run.inputs["brief"]["audience"] == before["brief"]["audience"]
+    assert run.inputs["sources"][0]["research_id"] == str(source.pk)
+    target.refresh_from_db()
+    assert target.inputs == before
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "mismatch",
+    ["topic", "language", "source_manual", "target_manual", "facts", "market", "snapshot"],
+)
+def test_generated_audience_reuse_still_requires_same_targeting_inputs(
+    api, split_research, mismatch
+):
+    base, source, target, posts = split_research
+    for session in (source, target):
+        session.inputs["context_mode"] = "app"
+        session.inputs["context_origin"] = {"audience": "ai", "product_facts": "snapshot"}
+    target.inputs["brief"]["audience"] = "People starting their first running routine"
+    if mismatch == "topic":
+        source.inputs["topic"] = "Running content for expert marathon runners"
+    elif mismatch == "language":
+        source.inputs["brief"]["language"] = "Spanish"
+    elif mismatch == "source_manual":
+        source.inputs["context_origin"]["audience"] = "user"
+    elif mismatch == "target_manual":
+        target.inputs["context_origin"]["audience"] = "user"
+    elif mismatch == "facts":
+        source.inputs["brief"]["product_facts"] = "Different app capabilities"
+    elif mismatch == "market":
+        source.inputs["market"] = "es-ES"
+    else:
+        source.inputs["snapshot_id"] = str(uuid.uuid4())
+    source.save()
+    target.save()
+    url = base + f"social-research/{target.pk}/"
+    assert api.get(url + "references/").data["posts"] == []
+    response = api.post(
+        url + "adapt/",
+        {
+            "request_id": str(uuid.uuid4()),
+            "post_ids": [str(posts[1].pk)],
+        },
+        format="json",
+    )
+    assert response.status_code == 400
 
 
 @pytest.mark.django_db

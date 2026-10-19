@@ -17,7 +17,8 @@ from panda_store.core.access import workspace_access
 from panda_store.core.models import Workspace
 
 from .models import AuditRun, DraftRevision, ListingDraft
-from .rules import FIELDS, RULESET, audit, localized_metadata
+from .rules import audit, localized_metadata, ruleset_for
+from .stores import ALL_FIELDS, fields_for, publisher, store_name
 
 LABELS = {
     "name": "App name",
@@ -25,6 +26,7 @@ LABELS = {
     "description": "Description",
     "keywords": "Keywords",
     "promotional_text": "Promotional text",
+    "short_description": "Short description",
 }
 
 
@@ -37,7 +39,7 @@ class Conflict(APIException):
 
 
 class ComparisonSelection(serializers.Serializer):
-    field = serializers.ChoiceField(choices=FIELDS)
+    field = serializers.ChoiceField(choices=ALL_FIELDS)
     audit_id = serializers.UUIDField()
     check_id = serializers.CharField(max_length=100)
 
@@ -92,7 +94,7 @@ class EditRequest(serializers.Serializer):
     restore_version = serializers.IntegerField(min_value=1, required=False)
 
     def validate(self, attrs):
-        if set(attrs.get("content", {})) - set(FIELDS):
+        if set(attrs.get("content", {})) - set(ALL_FIELDS):
             raise ValidationError("Only supported listing fields can be edited.")
         if "restore_version" in attrs and any(
             key in attrs for key in ("name", "content", "status")
@@ -122,20 +124,27 @@ def revision(draft, user, values, reason):
 
 
 def validation(draft):
+    platform = draft.inputs.get("platform", "ios")
+    fields = fields_for(platform)
     # Reuse the same sourced rules on precisely the proposed localization.
     data = {
         **draft.inputs,
-        "ruleset": RULESET,
+        "ruleset": ruleset_for(platform),
         "metadata": {"locale": draft.locale, **draft.content},
     }
-    checks = [check for check in audit(data)["checks"] if check["field"] in FIELDS]
+    checks = [check for check in audit(data)["checks"] if check["field"] in fields]
     blocking = [
         check
         for check in checks
         if check["status"] == "issue"
         or (check["id"] == "keywords.length" and check["status"] == "review")
         or (
-            check["field"] in {"name", "description", "keywords"}
+            check["field"]
+            in (
+                {"name", "description", "short_description"}
+                if platform == "android"
+                else {"name", "description", "keywords"}
+            )
             and check["status"] == "unavailable"
         )
     ]
@@ -143,13 +152,14 @@ def validation(draft):
         "checks": checks,
         "can_mark_ready": not blocking,
         "blocking": [check["id"] for check in blocking],
-        "ruleset": RULESET,
+        "ruleset": ruleset_for(platform),
     }
 
 
 def summary(draft):
     return {
         "id": str(draft.pk),
+        "platform": draft.inputs.get("platform", "ios"),
         "name": draft.name,
         "locale": draft.locale,
         "status": draft.status,
@@ -160,13 +170,15 @@ def summary(draft):
 
 
 def serialize(draft):
-    baseline = localized_metadata(draft.inputs["metadata"], draft.locale)
-    changed = [field for field in FIELDS if draft.content.get(field) != baseline.get(field)]
+    platform = draft.inputs.get("platform", "ios")
+    fields = fields_for(platform)
+    baseline = localized_metadata(draft.inputs["metadata"], draft.locale, platform)
+    changed = [field for field in fields if draft.content.get(field) != baseline.get(field)]
     latest = draft.app.snapshots.first()
     latest_content = None
     if latest:
         try:
-            latest_content = localized_metadata(latest.data, draft.locale)
+            latest_content = localized_metadata(latest.data, draft.locale, platform)
         except ValueError:
             pass
     matching = [
@@ -178,7 +190,7 @@ def serialize(draft):
     ]
     drift = [
         field
-        for field in FIELDS
+        for field in fields
         if latest_content is not None and latest_content.get(field) != baseline.get(field)
     ]
     return {
@@ -213,16 +225,22 @@ def comparison_seed(app, comparison):
         raise ValidationError("Choose saved analyses of this app.")
     base = runs[comparison["base_audit_id"]]
     mode = base.inputs.get("mode", "listing")
+    platform = base.inputs.get("platform", "ios")
+    fields = fields_for(platform)
     for run in runs.values():
         if not run.report or run.workflow.status != "succeeded":
             raise ValidationError("Complete the audit before creating a draft from it.")
         if run.locale != base.locale:
             raise ValidationError("Choose analyses in the same language to compose a draft.")
+        if run.inputs.get("platform", "ios") != platform:
+            raise ValidationError("Choose analyses for the same store to compose a draft.")
         if mode not in {"project", "listing"} or run.inputs.get("mode", "listing") != mode:
             raise ValidationError("Choose analyses of the same type to compose a draft.")
-    if mode == "project" and {item["field"] for item in comparison["selections"]} != set(FIELDS):
-        raise ValidationError("Choose a proposal for each of the five listing fields.")
-    content = localized_metadata(base.inputs["metadata"], base.locale)
+    if any(item["field"] not in fields for item in comparison["selections"]):
+        raise ValidationError("Only fields supported by this store can be selected.")
+    if mode == "project" and {item["field"] for item in comparison["selections"]} != set(fields):
+        raise ValidationError("Choose a proposal for every listing field.")
+    content = localized_metadata(base.inputs["metadata"], base.locale, platform)
     provenance = []
     for selection in comparison["selections"]:
         run = runs[selection["audit_id"]]
@@ -266,7 +284,7 @@ def seed(app, values):
             if run.inputs.get("mode") != "project" or not proposal.get("accepted"):
                 raise ValidationError("This project analysis has no approved listing proposal.")
             content = {item["field"]: item["text"] for item in proposal["fields"]}
-            if set(content) != set(FIELDS):
+            if set(content) != set(fields_for(run.inputs.get("platform", "ios"))):
                 raise ValidationError("The listing proposal is incomplete. Start a new analysis.")
             provenance = [
                 {
@@ -289,27 +307,35 @@ def seed(app, values):
         )
         if (
             not check
-            or check["field"] not in FIELDS
+            or check["field"] not in fields_for(run.inputs.get("platform", "ios"))
             or not isinstance(check.get("replacement"), str)
         ):
             raise ValidationError("This finding has no editable proposal.")
         inputs = run.inputs
         provenance = [{"audit_id": str(run.pk), "check": check}]
     else:
-        if app.platform != "ios" and not (app.origin == "project" and app.platform == "undecided"):
-            raise ValidationError("Drafts currently support App Store listings only.")
+        if app.platform not in {"ios", "android"} and not (
+            app.origin == "project" and app.platform == "undecided"
+        ):
+            raise ValidationError("Choose App Store or Google Play.")
         snapshot = get_object_or_404(app.snapshots, pk=values["snapshot_id"])
+        if (app.platform == "android" and snapshot.source.startswith("apple_store")) or (
+            app.platform == "ios" and snapshot.source.startswith("google_play")
+        ):
+            raise ValidationError("The imported listing does not match the application's store.")
         inputs = {
             "metadata": snapshot.data,
             "snapshot_id": str(snapshot.pk),
             "captured_at": snapshot.captured_at.isoformat(),
             "locale": values["locale"],
             "source": snapshot.source,
-            "platform": "ios" if app.origin == "project" else app.platform,
+            "platform": "ios" if app.platform == "undecided" else app.platform,
             "is_demo": app.is_demo,
         }
     try:
-        content = localized_metadata(inputs["metadata"], inputs["locale"])
+        content = localized_metadata(
+            inputs["metadata"], inputs["locale"], inputs.get("platform", "ios")
+        )
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     if provenance:
@@ -386,6 +412,8 @@ def detail(request, workspace_id, draft_id):
             return Response(serialize(draft))
         if values["version"] != draft.version:
             raise Conflict()
+        if set(values.get("content", {})) - set(fields_for(draft.inputs.get("platform", "ios"))):
+            raise ValidationError("Only fields supported by this store can be edited.")
         before = (draft.name, copy.deepcopy(draft.content), draft.status)
         reason = "Edited draft"
         if "restore_version" in values:
@@ -444,15 +472,16 @@ def export(request, workspace_id, draft_id):
     except (TypeError, ValueError) as exc:
         raise ValidationError("Choose a saved revision.") from exc
     saved = get_object_or_404(draft.revisions, version=version)
-    baseline = localized_metadata(draft.inputs["metadata"], draft.locale)
+    platform = draft.inputs.get("platform", "ios")
+    baseline = localized_metadata(draft.inputs["metadata"], draft.locale, platform)
     lines = [
         saved.name,
-        f"App Store · {draft.locale} · Revision {version}",
-        f"Status: {saved.status}. Not submitted to Apple.",
+        f"{store_name(platform)} · {draft.locale} · Revision {version}",
+        f"Status: {saved.status}. Not submitted to {publisher(platform)}.",
         f"Reference saved: {draft.inputs['captured_at']}",
         "",
     ]
-    for field in FIELDS:
+    for field in fields_for(platform):
         if field in saved.content and saved.content[field] != baseline.get(field):
             lines += [LABELS[field], saved.content[field], ""]
     response = HttpResponse("\n".join(lines), content_type="text/plain; charset=utf-8")

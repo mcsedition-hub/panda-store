@@ -17,6 +17,7 @@ from playwright.sync_api import sync_playwright
 
 from panda_store.ai.context import include_app_context
 from panda_store.ai.providers import ProviderError
+from panda_store.ai.usage import operation_scope
 from panda_store.core.credentials import CredentialsUnavailable
 from panda_store.workflows import services
 
@@ -143,21 +144,22 @@ def research(workflow_id):
         )
         if discovery is None:
             choice = run.inputs["ai"]
-            discovery = search(
-                choice["provider"],
-                analysis.connection(run),
-                choice["model"],
-                include_app_context(
-                    run.inputs,
-                    {
-                        "app": run.inputs["app"],
-                        "topic": run.inputs["topic"],
-                        "market": run.inputs["market"],
-                        "purpose": "smm_launch",
-                    },
-                ),
-                response_language=run.inputs.get("response_language", "en"),
-            )
+            with operation_scope(run, "studio", "legacy"):
+                discovery = search(
+                    choice["provider"],
+                    analysis.connection(run),
+                    choice["model"],
+                    include_app_context(
+                        run.inputs,
+                        {
+                            "app": run.inputs["app"],
+                            "topic": run.inputs["topic"],
+                            "market": run.inputs["market"],
+                            "purpose": "smm_launch",
+                        },
+                    ),
+                    response_language=run.inputs.get("response_language", "en"),
+                )
             services.complete_step(
                 workflow_id,
                 token,

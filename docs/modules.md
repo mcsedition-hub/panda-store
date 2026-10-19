@@ -13,6 +13,11 @@ Social account connections for publishing and scheduling are reserved for the
 future cloud offering. The research browser connector remains part of community SMM.
 See the [scope and release criteria](roadmap.md).
 
+**Manage modules** lists installed modules together, including Connections and
+third-party extensions. Enabled modules appear in the sidebar's **Modules** group;
+**My apps** has its own **Applications** group. The list is populated from the
+module registry, so adding a module does not require editing the navigation.
+
 ## Structure
 
 ```text

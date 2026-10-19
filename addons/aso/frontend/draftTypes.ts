@@ -6,9 +6,17 @@ export const fields = [
   ['description', 'Description', 4000],
   ['keywords', 'Keywords', 100],
 ] as const;
-export type Field = (typeof fields)[number][0];
+export const googleFields = [
+  ['name', 'App name', 30],
+  ['short_description', 'Short description', 80],
+  ['description', 'Description', 4000],
+] as const;
+export const listingFields = (platform?: string) =>
+  platform === 'android' ? googleFields : fields;
+export type Field = (typeof fields)[number][0] | (typeof googleFields)[number][0];
 export type Content = Partial<Record<Field, string>>;
 export interface DraftSummary {
+  platform?: 'ios' | 'android';
   id: string;
   name: string;
   locale: string;
@@ -34,7 +42,7 @@ export interface Draft extends DraftSummary {
     check: {
       title: string;
       observation: string;
-      sources: { url: string; title: string }[];
+      sources: { url: string; title: string; publisher?: string }[];
     };
   }[];
   validation: {

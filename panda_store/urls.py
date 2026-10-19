@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from .ai import usage_views
 from .ai import views as ai_views
 from .core import auth, views
 from .core.registry import get_registry
@@ -14,6 +15,12 @@ urlpatterns = [
     path("api/session/logout/", auth.sign_out),
     path("api/session/preferences/", auth.preferences),
     path("api/workspaces/", views.workspaces),
+    path("api/workspaces/<uuid:workspace_id>/ai-usage/", usage_views.dashboard),
+    path("api/workspaces/<uuid:workspace_id>/ai-usage/limits/", usage_views.limits),
+    path(
+        "api/workspaces/<uuid:workspace_id>/ai-usage/<uuid:usage_id>/reconcile/",
+        usage_views.reconcile,
+    ),
     path("api/workspaces/<uuid:workspace_id>/ai/", ai_views.connections),
     path("api/workspaces/<uuid:workspace_id>/ai/<slug:provider>/", ai_views.connection),
     path("api/workspaces/<uuid:workspace_id>/modules/", views.modules),

@@ -45,6 +45,7 @@ export default function AIOptions({
   emptyLabel = 'Rules only · No AI',
   capability = 'text',
   moduleContext,
+  initialChoice,
 }: {
   workspaceId: string;
   owner: boolean;
@@ -53,6 +54,7 @@ export default function AIOptions({
   emptyLabel?: string;
   capability?: Capability;
   moduleContext?: ModuleContext;
+  initialChoice?: AIChoice;
 }) {
   const [catalog, setCatalog] = useState<Catalog>({ providers: [], credentials_ready: false });
   const [provider, setProvider] = useState('');
@@ -72,6 +74,8 @@ export default function AIOptions({
   callback.current = onChange;
   const requirement = useRef(capability);
   requirement.current = capability;
+  const initial = useRef(initialChoice);
+  initial.current = initialChoice;
   const endpoint = `/api/workspaces/${workspaceId}/ai/`;
   const selected = catalog.providers.find((item) => item.id === provider);
   const connection = catalog.providers.find((item) => item.id === target);
@@ -107,15 +111,27 @@ export default function AIOptions({
       .then((next) => {
         if (!active) return;
         setCatalog(next);
-        const first = next.providers.find(
+        const available = next.providers.filter(
           (item) =>
             item.connected &&
             item.models.some((model) => compatible(item.id, model, requirement.current)),
         );
+        const first =
+          available.find((item) => item.id === initial.current?.provider) ?? available[0];
         if (first) {
           setProvider(first.id);
-          // The user explicitly chooses a model before a paid analysis can start.
-          callback.current({ provider: first.id, model: '' }, false);
+          const restored =
+            first.id === initial.current?.provider &&
+            first.models.some(
+              (item) =>
+                item.id === initial.current?.model &&
+                compatible(first.id, item, requirement.current),
+            )
+              ? initial.current.model
+              : '';
+          setModel(restored);
+          // Retry may explicitly seed the saved choice; new work still requires a selection.
+          callback.current({ provider: first.id, model: restored }, false);
         } else callback.current(null, false);
       })
       .catch((err) => {

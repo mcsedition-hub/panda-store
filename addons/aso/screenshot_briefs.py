@@ -155,7 +155,9 @@ def seed(app, values):
         "review_version": report["version"],
         "model": report["resolved_model"],
         "finding": finding,
-        "listing": localized_metadata(run.inputs["metadata"], run.locale),
+        "listing": localized_metadata(
+            run.inputs["metadata"], run.locale, run.inputs.get("platform", "ios")
+        ),
     }
     content = {key: "" for key in FIELDS}
     content["change"] = finding["recommendation"]

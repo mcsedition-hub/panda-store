@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { browserCommand } from '../../addons/studio/frontend/browserBridge';
+import {
+  browserCommand,
+  connectorMissingMessage,
+  connectorUnavailableMessage,
+} from '../../addons/studio/frontend/browserBridge';
 
 const staleError = 'Browser connector was reloaded. Refresh Panda Store and resume research.';
 beforeEach(() => {
@@ -37,9 +41,7 @@ it.each(['read', 'search', 'open'])(
     message({ channel: 'panda-smm-response', id, error: staleError });
     message({ channel: 'panda-smm-ready' });
     expect(send).toHaveBeenCalledTimes(1);
-    const rejection = expect(pending).rejects.toThrow(staleError);
-    await vi.advanceTimersByTimeAsync(5000);
-    await rejection;
+    await expect(pending).rejects.toThrow(connectorUnavailableMessage);
     expect(vi.getTimerCount()).toBe(0);
   },
 );
@@ -52,8 +54,33 @@ it('ignores foreign readiness signals and mismatched responses', async () => {
   message({ channel: 'panda-smm-ready' }, location.origin, null);
   message({ channel: 'panda-smm-response', id: 'another', result: {} });
   expect(send).toHaveBeenCalledTimes(1);
-  const rejection = expect(pending).rejects.toThrow('The browser connector did not respond.');
+  const rejection = expect(pending).rejects.toThrow(connectorMissingMessage);
   await vi.advanceTimersByTimeAsync(5000);
   await rejection;
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it('retries only the harmless ping when a worker or bridge initially misses it', async () => {
+  const send = vi.spyOn(window, 'postMessage').mockImplementation(() => {});
+  const pending = browserCommand('ping', {}, 5000);
+  const { id } = send.mock.calls[0][0];
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(send).toHaveBeenCalledTimes(2);
+  expect(send.mock.calls[1][0].id).toBe(id);
+  message({ channel: 'panda-smm-response', id, error: connectorUnavailableMessage });
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(send).toHaveBeenCalledTimes(3);
+  message({ channel: 'panda-smm-response', id, result: { version: '0.1.11', protocol: 1 } });
+  await expect(pending).resolves.toEqual({ version: '0.1.11', protocol: 1 });
+  expect(vi.getTimerCount()).toBe(0);
+});
+
+it('does not replay an uncertain research timeout', async () => {
+  const send = vi.spyOn(window, 'postMessage').mockImplementation(() => {});
+  const pending = browserCommand('search', {}, 5000);
+  const rejection = expect(pending).rejects.toThrow('The browser did not respond.');
+  await vi.advanceTimersByTimeAsync(5000);
+  await rejection;
+  expect(send).toHaveBeenCalledTimes(1);
   expect(vi.getTimerCount()).toBe(0);
 });

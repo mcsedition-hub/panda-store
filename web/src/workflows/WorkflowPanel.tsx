@@ -1,8 +1,10 @@
+import { money, count } from '../ai-usage/format';
 import { t, getLocale } from '../i18n';
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import type { WorkflowSnapshot, WorkflowStatus } from './types';
 import { trackWork } from '../notifications/store';
+import AIOptions, { type AIChoice } from '../ai/AIOptions';
 
 const labels: Record<WorkflowStatus | 'skipped', string> = {
   queued: 'Queued',
@@ -29,13 +31,20 @@ export default function WorkflowPanel({
   onStatus,
   onRetry,
   showError = true,
+  retryAI,
 }: {
   workspaceId: string;
   workflowId: string;
   canWrite: boolean;
   onStatus: (status: WorkflowStatus) => void;
-  onRetry: () => Promise<void>;
+  onRetry: (choice?: NonNullable<AIChoice>) => Promise<void>;
   showError?: boolean;
+  retryAI?: {
+    choice: NonNullable<AIChoice>;
+    owner: boolean;
+    moduleContext: 'aso' | 'smm';
+    capability?: 'text' | 'vision';
+  };
 }) {
   const [data, setData] = useState<WorkflowSnapshot | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -44,6 +53,9 @@ export default function WorkflowPanel({
   const [connectionError, setConnectionError] = useState('');
   const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [changeModel, setChangeModel] = useState(false);
+  const [retryChoice, setRetryChoice] = useState<AIChoice>(null);
+  const [retryLoading, setRetryLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const callback = useRef(onStatus);
   const receive = useRef<(next: WorkflowSnapshot) => void>(() => {});
@@ -171,8 +183,10 @@ export default function WorkflowPanel({
     setBusy(true);
     setError('');
     try {
-      if (kind === 'retry') await onRetry();
-      else {
+      if (kind === 'retry') {
+        if (changeModel && (retryLoading || !retryChoice?.model)) return;
+        await onRetry(changeModel ? retryChoice! : undefined);
+      } else {
         const next = await api<WorkflowSnapshot>(base + 'cancel/', {
           method: 'POST',
           feedback: { success: 'Stop requested.' },
@@ -221,12 +235,65 @@ export default function WorkflowPanel({
             </button>
           )}
           {canWrite && data && ['failed', 'canceled'].includes(data.status) && (
-            <button className="button secondary" disabled={busy} onClick={() => action('retry')}>
-              {busy ? t('Retrying…') : t('Retry unfinished steps')}
-            </button>
+            <>
+              {retryAI && (
+                <button
+                  className="text-button"
+                  disabled={busy}
+                  aria-expanded={changeModel}
+                  onClick={() => setChangeModel((value) => !value)}
+                >
+                  {t(changeModel ? 'Keep original model' : 'Change provider or model')}
+                </button>
+              )}
+              <button
+                className="button secondary"
+                disabled={busy || (changeModel && (retryLoading || !retryChoice?.model))}
+                onClick={() => action('retry')}
+              >
+                {busy
+                  ? t('Retrying…')
+                  : t(changeModel ? 'Retry with this model' : 'Retry unfinished steps')}
+              </button>
+            </>
           )}
         </div>
       </div>
+      {retryAI && changeModel && data && ['failed', 'canceled'].includes(data.status) && (
+        <div className="workflow-retry-options" hidden={!canWrite}>
+          <p className="note">
+            {t(
+              'Changing the provider, model or connection reruns the AI steps using the saved app context and sources. The previous attempt is kept. Your AI limits still apply.',
+            )}
+          </p>
+          <AIOptions
+            workspaceId={workspaceId}
+            owner={retryAI.owner}
+            disabled={busy || !canWrite}
+            initialChoice={retryAI.choice}
+            emptyLabel="Choose a provider"
+            moduleContext={retryAI.moduleContext}
+            capability={retryAI.capability}
+            onChange={(choice, loading) => {
+              setRetryChoice(choice);
+              setRetryLoading(loading);
+            }}
+          />
+        </div>
+      )}
+      {data?.ai_usage && data.ai_usage.calls > 0 && (
+        <p className="workflow-usage">
+          {t('AI usage')}: {count(data.ai_usage.tokens)} {t('tokens')} ·{' '}
+          {money(data.ai_usage.cost_usd)} {t('estimated')}
+          {data.ai_usage.pending + data.ai_usage.unknown > 0 && (
+            <>
+              {' '}
+              · {money(data.ai_usage.reserved_usd)} {t('reserved')}
+            </>
+          )}
+          {data.ai_usage.unpriced + data.ai_usage.unknown > 0 && <> · {t('Partial')}</>}
+        </p>
+      )}
       {data && (
         <ol className="workflow-steps" aria-label={t('Workflow steps')}>
           {data.steps.map((item) => (
@@ -288,6 +355,7 @@ export default function WorkflowPanel({
       )}
       {data &&
         ['failed', 'canceled'].includes(data.status) &&
+        !retryAI &&
         data.steps.some((item) => item.kind === 'ai') && (
           <p className="note">
             {t(

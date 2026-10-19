@@ -3,10 +3,18 @@
   "name": "ASO",
   "version": "0.1.0",
   "core": ">=0.1,<0.2",
-  "depends": {"app_catalog": ">=0.1,<0.2"},
+  "depends": {
+    "app_catalog": ">=0.1,<0.2"
+  },
   "availability": "available",
   "family": "lichen",
   "icon": "audit-aso",
-  "description": "Review App Store listings with sourced checks, AI recommendations and drafts.",
-  "capabilities": ["aso.audit", "aso.editorial", "aso.visual", "aso.drafts", "aso.screenshot_briefs"]
+  "description": "Review App Store and Google Play listings with sourced checks, AI recommendations and drafts.",
+  "capabilities": [
+    "aso.audit",
+    "aso.editorial",
+    "aso.visual",
+    "aso.drafts",
+    "aso.screenshot_briefs"
+  ]
 }

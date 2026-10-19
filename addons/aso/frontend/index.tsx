@@ -11,7 +11,13 @@ import ProjectProposal, { type ProjectProposalReport } from './ProjectProposal';
 import type { DraftSeed } from './draftTypes';
 import { readAuditView, saveAuditView } from './auditView';
 import { notify } from '../../../web/src/notifications/store';
-import Sources, { fieldNames, SourceReference, type Guidance, type Source } from './Sources';
+import Sources, {
+  fieldNames,
+  isStoreSource,
+  SourceReference,
+  type Guidance,
+  type Source,
+} from './Sources';
 import Screenshots, { type VisualReport, type VisualImage } from './Screenshots';
 import ScreenshotBriefs, { type ScreenshotBrief } from './ScreenshotBriefs';
 
@@ -45,6 +51,7 @@ const verdictLabels = {
   unvalidated: 'Review unavailable',
 };
 export interface AuditRun {
+  platform?: 'ios' | 'android';
   id: string;
   mode?: 'listing' | 'screenshots' | 'project';
   workflow_id: string;
@@ -124,7 +131,7 @@ function Finding({
     new Map(
       [...(assessment?.sources ?? []), ...check.sources].map((item) => [item.id, item]),
     ).values(),
-  );
+  ).filter(isStoreSource);
   return (
     <details
       className={`aso-finding aso-${check.status}`}
@@ -155,7 +162,7 @@ function Finding({
         {assessment?.verdict === 'improve' && !check.replacement && (
           <p className="note">
             {t(
-              'No additional replacement retained. Review this observation alongside the Apple checks below.',
+              'No additional replacement retained. Review this observation alongside the store checks below.',
             )}
           </p>
         )}
@@ -182,7 +189,7 @@ function Finding({
                 onClick={async () => {
                   try {
                     await navigator.clipboard.writeText(check.replacement!);
-                    setCopyState('Copied. Review before applying in App Store Connect.');
+                    setCopyState('Copied. Review before applying in your store console.');
                     notify('success', 'Proposal copied.');
                   } catch {
                     setCopyState('Select the proposed text to copy it.');
@@ -264,6 +271,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
   const restored = useRef(false);
   const metadata = app.metadata;
   const project = metadata?.data.project;
+  const isGoogle = app.platform === 'android';
   const locales = metadata?.data.localizations?.length
     ? metadata.data.localizations.map((item) => item.locale)
     : metadata?.data.locale
@@ -359,12 +367,12 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       if (alive.current && reloading) setLoading(false);
     }
   }
-  async function start(retry = false) {
+  async function start(retry = false, retryChoice?: NonNullable<AIChoice>) {
     if (!metadata || busy || loading || loadFailed || (retry ? !run : working)) return;
     setBusy(true);
     setError('');
     const key = retry
-      ? `retry:${run.id}`
+      ? `retry:${run.id}:${retryChoice?.provider || ''}:${retryChoice?.model || ''}`
       : `${metadata.id}:${locale}:${mode}:${ai?.provider || 'rules'}:${ai?.model || ''}`;
     if (request.current?.key !== key) request.current = { key, id: crypto.randomUUID() };
     saveAuditView(storageKey, { locale, mode, runId: '' });
@@ -376,6 +384,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
           feedback: { success: retry ? 'Audit retry started.' : 'Audit started.' },
           body: JSON.stringify({
             request_id: request.current.id,
+            ...(retry && retryChoice),
             ...(!retry && {
               snapshot_id: metadata.id,
               locale,
@@ -437,12 +446,8 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       if (alive.current) setBusy(false);
     }
   }
-  if (app.platform !== 'ios' && !(project && app.platform === 'undecided'))
-    return (
-      <p className="notice">
-        {t('Audits currently support App Store listings. Google Play is coming later.')}
-      </p>
-    );
+  if (!['ios', 'android'].includes(app.platform) && !(project && app.platform === 'undecided'))
+    return <p className="notice">{t('Choose App Store or Google Play.')}</p>;
   const checks = run?.report?.checks || [];
   const assessments = run?.report?.editorial?.assessments;
   const actionable = checks.filter(
@@ -457,7 +462,9 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
       {project && (
         <p className="notice">
           {t(
-            'Start with your idea. ASO analyzes its positioning and suggests a first App Store listing: name, subtitle, description, keywords and promotional text. You do not need to write these first.',
+            isGoogle
+              ? 'Start with your idea. ASO suggests a Google Play listing: app name, short description and full description.'
+              : 'Start with your idea. ASO analyzes its positioning and suggests a first App Store listing: name, subtitle, description, keywords and promotional text. You do not need to write these first.',
           )}
         </p>
       )}
@@ -543,6 +550,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
         <Sources
           key={run?.id || 'current'}
           workspaceId={workspace.id}
+          platform={run?.platform || app.platform}
           mode={(run?.mode ?? mode) === 'screenshots' ? 'screenshots' : 'listing'}
           saved={
             run?.ai
@@ -657,9 +665,15 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                     )
                 : ai
                   ? t(
-                      'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.',
+                      isGoogle
+                        ? 'Google Play checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.'
+                        : 'Apple checks + AI copy and evidence review · Up to 2 model calls. Listing text is sent to your provider; usage is billed there.',
                     )
-                  : t('Apple metadata checks · No AI call')}
+                  : t(
+                      isGoogle
+                        ? 'Google Play metadata checks · No AI call'
+                        : 'Apple metadata checks · No AI call',
+                    )}
           </p>
           {error && (
             <p className="error" role="alert">
@@ -743,7 +757,9 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                 {t(
                   project
                     ? 'Choose an AI model to analyze your project and propose its first listing. Your saved idea is enough to start.'
-                    : 'Choose a model for editorial recommendations, or run Apple metadata checks without AI.',
+                    : isGoogle
+                      ? 'Choose a model for editorial recommendations, or run Google Play metadata checks without AI.'
+                      : 'Choose a model for editorial recommendations, or run Apple metadata checks without AI.',
                 )}
               </p>
               {!metadata && (
@@ -773,7 +789,17 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                 workspaceId={workspace.id}
                 workflowId={run.workflow_id}
                 canWrite={canWrite && !busy}
-                onRetry={() => start(true)}
+                onRetry={(choice) => start(true, choice)}
+                retryAI={
+                  run.ai
+                    ? {
+                        choice: run.ai,
+                        owner: workspace.role === 'owner',
+                        moduleContext: 'aso',
+                        capability: run.mode === 'screenshots' ? 'vision' : 'text',
+                      }
+                    : undefined
+                }
                 onStatus={(status) => {
                   setRuns((old) =>
                     old.map((item) => (item.id === run.id ? { ...item, status } : item)),
@@ -806,7 +832,11 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                               setDraftSeed({
                                 audit_id: run.id,
                                 check_id: 'project.listing',
-                                name: t('First App Store listing'),
+                                name: t(
+                                  isGoogle
+                                    ? 'First Google Play listing'
+                                    : 'First App Store listing',
+                                ),
                               });
                               setDraftKind('listing');
                               setTab('drafts');
@@ -926,7 +956,9 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                         </p>
                       )}
                       <h3>
-                        {assessments || !run.ai ? t('Apple checks') : t('Saved recommendations')}
+                        {assessments || !run.ai
+                          ? t(isGoogle ? 'Google Play checks' : 'Apple checks')
+                          : t('Saved recommendations')}
                       </h3>
                       {actionable.length ? (
                         actionable.map((check) => (
@@ -951,7 +983,7 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                         <details className="aso-passed-group">
                           <summary>
                             {passed.length}
-                            {t(' Apple checks passed')}
+                            {t(isGoogle ? ' Google Play checks passed' : ' Apple checks passed')}
                           </summary>
                           {passed.map((check) => (
                             <Finding key={`${run.id}:${check.id}`} check={check} />
@@ -959,7 +991,11 @@ function AppAudit(props: ModuleProps & { app: MobileApp }) {
                         </details>
                       )}
                       <p className="aso-report-footnote">
-                        {t('No changes have been sent to Apple.')}{' '}
+                        {t(
+                          isGoogle
+                            ? 'No changes have been sent to Google Play.'
+                            : 'No changes have been sent to Apple.',
+                        )}{' '}
                         {run.ai
                           ? t('AI proposals require review. ')
                           : t('Editorial AI was not used. ')}

@@ -15,7 +15,9 @@ from addons.aso.models import AuditRun, ScreenshotEvidence
 from addons.aso.tasks import audit_listing
 from panda_store.ai import providers
 from panda_store.core.access import deactivate_module
-from panda_store.core.models import Membership, Workspace
+from panda_store.core.credentials import encrypt
+from panda_store.core.models import AIConnection, Membership, Workspace
+from panda_store.workflows import services
 from tests.test_ai import connection as ai_connection
 from tests.test_ai import listing as text_listing
 from tests.test_ai import start
@@ -167,8 +169,9 @@ def test_visual_review_requires_model_exact_locale_and_saved_sources(
     assert api.post(url, {**payload, "mode": "listing"}, format="json").status_code == 409
 
 
+@pytest.mark.parametrize("change_model", [False, True])
 def test_visual_retry_reuses_archived_images_and_first_call(
-    api, workspace, visual_listing, connection
+    api, workspace, visual_listing, connection, change_model
 ):
     run, _ = launch(api, workspace, visual_listing)
 
@@ -184,9 +187,14 @@ def test_visual_retry_reuses_archived_images_and_first_call(
         audit_listing(str(run.workflow_id))
     run.refresh_from_db()
     assert run.workflow.status == "failed" and run.report is None
+    choice = {}
+    if change_model:
+        connection.model_catalog.append({"id": "gpt-4.1"})
+        connection.save()
+        choice = {"provider": "openai", "model": "gpt-4.1"}
     response = api.post(
         f"/api/workspaces/{workspace.pk}/aso/runs/{run.pk}/retry/",
-        {"request_id": str(uuid.uuid4())},
+        {"request_id": str(uuid.uuid4()), **choice},
         format="json",
     )
     assert response.status_code == 202, response.data
@@ -199,9 +207,32 @@ def test_visual_retry_reuses_archived_images_and_first_call(
     retry.refresh_from_db()
     assert retry.workflow.status == "succeeded", retry.workflow.error
     fetch.assert_not_called()
-    assert generate.call_count == 1
+    assert generate.call_count == (2 if change_model else 1)
+    assert all(
+        call.args[2] == choice.get("model", "gpt-4.1-mini") for call in generate.call_args_list
+    )
     assert ScreenshotEvidence.objects.count() == 2
     assert api.get(retry.report["visual"]["images"][0]["url"]).status_code == 200
+
+
+def test_visual_retry_rejects_a_connected_text_only_model(
+    api, workspace, visual_listing, connection
+):
+    run, _ = launch(api, workspace, visual_listing)
+    services.fail(run.workflow_id, "Test interruption")
+    AIConnection.objects.create(
+        workspace=workspace,
+        provider="zai",
+        encrypted_key=encrypt("test-zai"),
+        model_catalog=[{"id": "glm-4.7-flash"}],
+    )
+    response = api.post(
+        f"/api/workspaces/{workspace.pk}/aso/runs/{run.pk}/retry/",
+        {"request_id": str(uuid.uuid4()), "provider": "zai", "model": "glm-4.7-flash"},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert AuditRun.objects.count() == 1
 
 
 def test_missing_images_are_explicit_and_all_unavailable_never_calls_ai(

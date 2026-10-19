@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 import { t } from '../../../web/src/i18n';
 import type { AuditRun } from './index';
-import { fields, when, type ComparisonSelection, type DraftSeed, type Field } from './draftTypes';
-import { SourceReference, type Source } from './Sources';
+import {
+  listingFields,
+  when,
+  type ComparisonSelection,
+  type DraftSeed,
+  type Field,
+} from './draftTypes';
+import { isStoreSource, SourceReference, type Source } from './Sources';
 
 interface Choice extends ComparisonSelection {
   text: string;
@@ -31,6 +37,22 @@ function restore(key: string): Saved | null {
 const keyOf = (choice: ComparisonSelection) => JSON.stringify([choice.audit_id, choice.check_id]);
 const modelName = (run: AuditRun) => run.ai?.model || t('Rules only');
 const auditLabel = (run: AuditRun) => `${modelName(run)} · ${when(run.created_at)} · ${run.locale}`;
+
+function AnalysisIdentity({ index, model }: { index: number; model?: string }) {
+  return (
+    <span className="aso-compare-identity">
+      <span className="aso-compare-letter" aria-hidden="true">
+        {index === 0 ? 'A' : 'B'}
+      </span>
+      <span>
+        <span className="aso-compare-side-label">
+          {t(index === 0 ? 'Analysis A' : 'Analysis B')}
+        </span>
+        {model && <strong className="aso-compare-model">{model}</strong>}
+      </span>
+    </span>
+  );
+}
 
 function choices(run: AuditRun, field: Field): Choice[] {
   const proposal = run.report?.project;
@@ -92,6 +114,7 @@ export default function CompareAudits({
     available.find((run) => run.id === pair.right && run.id !== left?.id) ||
     available.find((run) => run.id !== left?.id);
   const sides = [left, right].filter((run): run is AuditRun => !!run);
+  const fields = listingFields(left?.platform);
   useEffect(() => {
     if (loading || error || !left || !right) return;
     try {
@@ -105,7 +128,8 @@ export default function CompareAudits({
   }, [storageKey, left?.id, right?.id, selected, loading, error]);
   const sameLanguage = left?.locale === right?.locale;
   const sameType = (left?.mode || 'listing') === (right?.mode || 'listing');
-  const compatible = !!left && !!right && sameLanguage && sameType;
+  const sameStore = (left?.platform || 'ios') === (right?.platform || 'ios');
+  const compatible = !!left && !!right && sameLanguage && sameType && sameStore;
   const picked = fields.flatMap(([field]) => {
     const choice = sides
       .flatMap((run) => choices(run, field))
@@ -113,6 +137,9 @@ export default function CompareAudits({
     return choice ? [choice] : [];
   });
   const complete = left?.mode === 'project' ? picked.length === fields.length : picked.length > 0;
+  const hasProposals = sides.some((run) =>
+    fields.some(([field]) => choices(run, field).length > 0),
+  );
   function change(side: 'left' | 'right', id: string) {
     const next = { left: left?.id || '', right: right?.id || '', [side]: id };
     if (next.left === next.right)
@@ -160,50 +187,85 @@ export default function CompareAudits({
         right && (
           <>
             <div className="aso-compare-grid aso-compare-pickers">
-              {sides.map((run, index) => (
-                <div key={index}>
-                  <label>
-                    {t(index === 0 ? 'Analysis A' : 'Analysis B')}
-                    <select
-                      value={run.id}
-                      onChange={(event) =>
-                        change(index === 0 ? 'left' : 'right', event.target.value)
-                      }
-                    >
-                      {available.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {auditLabel(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <p className="note">
-                    {run.ai?.provider} · {t('Reference saved: {0}', when(run.captured_at))}
-                  </p>
-                  {run.report?.project && !run.report.project.accepted && (
-                    <p className="notice">
-                      {t(
-                        'This analysis has no approved listing proposal. Its texts cannot be selected.',
-                      )}
+              {sides.map((run, index) => {
+                const fieldChoices = fields.map(([field]) => choices(run, field));
+                const proposedFields = fieldChoices.filter((options) => options.length > 0).length;
+                const canChooseAll = fieldChoices.some((options) => options.length === 1);
+                return (
+                  <div
+                    key={index}
+                    className="aso-compare-picker"
+                    data-side={index === 0 ? 'a' : 'b'}
+                  >
+                    <label>
+                      <AnalysisIdentity index={index} />
+                      <select
+                        aria-label={t(index === 0 ? 'Analysis A' : 'Analysis B')}
+                        value={run.id}
+                        onChange={(event) =>
+                          change(index === 0 ? 'left' : 'right', event.target.value)
+                        }
+                      >
+                        {available.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {auditLabel(item)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p className="note">
+                      {run.ai?.provider} · {t('Reference saved: {0}', when(run.captured_at))}
                     </p>
-                  )}
-                  {canWrite && (
-                    <button
-                      className="button secondary"
-                      disabled={!compatible || !!error}
-                      onClick={() => chooseAll(run)}
-                    >
-                      {t(index === 0 ? 'Choose all from A' : 'Choose all from B')}
-                    </button>
-                  )}
-                </div>
-              ))}
+                    {run.report?.project && !run.report.project.accepted && (
+                      <p className="notice">
+                        {t(
+                          'This analysis has no approved listing proposal. Its texts cannot be selected.',
+                        )}
+                      </p>
+                    )}
+                    {canWrite && (
+                      <button
+                        className="button secondary"
+                        disabled={!compatible || !!error || !canChooseAll}
+                        aria-describedby={`compare-availability-${index}`}
+                        onClick={() => chooseAll(run)}
+                      >
+                        {t(index === 0 ? 'Choose all from A' : 'Choose all from B')}
+                      </button>
+                    )}
+                    <p className="note" id={`compare-availability-${index}`}>
+                      {proposedFields === 0
+                        ? t('No replacement text to select in this analysis.')
+                        : t(
+                            'Fields with a proposed replacement: {0} of {1}.',
+                            proposedFields,
+                            fields.length,
+                          )}
+                      {proposedFields > 0 &&
+                        !canChooseAll &&
+                        ` ${t('Choose a proposal for each field below.')}`}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
+            {!hasProposals && (
+              <p className="notice" role="status">
+                {t(
+                  'These analyses contain no replacement text to select. You can compare the model assessments below. The saved listing remains unchanged.',
+                )}
+              </p>
+            )}
             {!sameLanguage && (
               <p className="notice" role="status">
                 {t(
                   'These analyses use different languages. You can compare them, but cannot combine them in one draft.',
                 )}
+              </p>
+            )}
+            {!sameStore && (
+              <p className="notice" role="status">
+                {t('Choose analyses for the same store to compose a draft.')}
               </p>
             )}
             {!sameType && (
@@ -233,31 +295,37 @@ export default function CompareAudits({
                 <h3>{t('Positioning')}</h3>
                 <div className="aso-compare-grid">
                   {sides.map((run, index) => (
-                    <article key={run.id} className="aso-compare-card">
-                      <strong>
-                        {t(index === 0 ? 'Analysis A' : 'Analysis B')} · {modelName(run)}
-                      </strong>
-                      {run.report?.project?.analysis ? (
-                        <>
-                          <p>{run.report.project.analysis.positioning}</p>
-                          <h4>{t('Target audience')}</h4>
-                          <p>{run.report.project.analysis.audience}</p>
-                          <h4>{t('Search intents to explore')}</h4>
-                          <ul>
-                            {run.report.project.analysis.search_intents.map((item, i) => (
-                              <li key={i}>{item}</li>
-                            ))}
-                          </ul>
-                          <h4>{t('Details to clarify')}</h4>
-                          <ul>
-                            {run.report.project.analysis.missing_information.map((item, i) => (
-                              <li key={i}>{item}</li>
-                            ))}
-                          </ul>
-                        </>
-                      ) : (
-                        <p className="note">{t('No positioning analysis saved.')}</p>
-                      )}
+                    <article
+                      key={run.id}
+                      className="aso-compare-card"
+                      data-side={index === 0 ? 'a' : 'b'}
+                    >
+                      <header className="aso-compare-card-heading">
+                        <AnalysisIdentity index={index} model={modelName(run)} />
+                      </header>
+                      <div className="aso-compare-card-body">
+                        {run.report?.project?.analysis ? (
+                          <>
+                            <p>{run.report.project.analysis.positioning}</p>
+                            <h4>{t('Target audience')}</h4>
+                            <p>{run.report.project.analysis.audience}</p>
+                            <h4>{t('Search intents to explore')}</h4>
+                            <ul>
+                              {run.report.project.analysis.search_intents.map((item, i) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                            <h4>{t('Details to clarify')}</h4>
+                            <ul>
+                              {run.report.project.analysis.missing_information.map((item, i) => (
+                                <li key={i}>{item}</li>
+                              ))}
+                            </ul>
+                          </>
+                        ) : (
+                          <p className="note">{t('No positioning analysis saved.')}</p>
+                        )}
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -273,7 +341,7 @@ export default function CompareAudits({
                   key={field}
                   aria-label={t('Compare {0}', t(label))}
                 >
-                  <div className="heading-split">
+                  <div className="aso-compare-field-heading">
                     <h3>{t(label)}</h3>
                     {identical && <span className="pill">{t('Identical text')}</span>}
                   </div>
@@ -284,56 +352,89 @@ export default function CompareAudits({
                         (item) => item.field === field,
                       );
                       return (
-                        <div key={run.id} className="aso-compare-card">
-                          <strong>
-                            {t(index === 0 ? 'Analysis A' : 'Analysis B')} · {modelName(run)}
-                          </strong>
-                          {assessment && <p>{assessment.observation}</p>}
-                          {!options.length && (
-                            <p className="note">{t('No saved replacement for this field.')}</p>
-                          )}
-                          {options.map((choice) => {
-                            const count =
-                              field === 'keywords'
-                                ? new TextEncoder().encode(choice.text).length
-                                : Array.from(choice.text).length;
-                            return (
-                              <div key={choice.check_id} className="aso-compare-option">
-                                <p className="aso-compare-copy">{choice.text || t('Empty')}</p>
-                                <p className="note">
-                                  {field === 'keywords'
-                                    ? t('{0} / {1} bytes', count, limit)
-                                    : t('{0} / {1} characters', count, limit)}
-                                </p>
-                                {canWrite && (
-                                  <label className="aso-compare-choice">
-                                    <input
-                                      type="radio"
-                                      name={`compare-${field}`}
-                                      disabled={!compatible || !!error}
-                                      checked={selected[field] === keyOf(choice)}
-                                      onChange={() =>
-                                        setSelected((old) => ({ ...old, [field]: keyOf(choice) }))
-                                      }
-                                    />
-                                    {t(index === 0 ? 'Use A for {0}' : 'Use B for {0}', t(label))}
-                                  </label>
-                                )}
-                                <details>
-                                  <summary>{t('Rationale and sources')}</summary>
-                                  <p>{choice.rationale}</p>
-                                  {choice.evidence.map((item, i) => (
-                                    <blockquote key={i}>{item.quote}</blockquote>
-                                  ))}
-                                  <div className="aso-sources">
-                                    {choice.sources.map((source) => (
-                                      <SourceReference key={source.id} source={source} />
-                                    ))}
+                        <div
+                          key={run.id}
+                          className="aso-compare-card"
+                          data-side={index === 0 ? 'a' : 'b'}
+                        >
+                          <header className="aso-compare-card-heading">
+                            <AnalysisIdentity index={index} model={modelName(run)} />
+                            {options.some((choice) => selected[field] === keyOf(choice)) && (
+                              <span className="aso-compare-selected">{t('Selected text')}</span>
+                            )}
+                          </header>
+                          <div className="aso-compare-card-body">
+                            {!options.length && (
+                              <p className="aso-compare-empty">
+                                {t('No saved replacement for this field.')}
+                              </p>
+                            )}
+                            {options.map((choice) => {
+                              const count =
+                                field === 'keywords'
+                                  ? new TextEncoder().encode(choice.text).length
+                                  : Array.from(choice.text).length;
+                              return (
+                                <div
+                                  key={choice.check_id}
+                                  className="aso-compare-option"
+                                  data-selected={selected[field] === keyOf(choice)}
+                                >
+                                  <div className="aso-compare-proposal">
+                                    <span className="aso-compare-caption">
+                                      {t('Proposed text')}
+                                    </span>
+                                    <p className="aso-compare-copy">{choice.text || t('Empty')}</p>
+                                    <p className="note aso-compare-count">
+                                      {field === 'keywords'
+                                        ? t('{0} / {1} bytes', count, limit)
+                                        : t('{0} / {1} characters', count, limit)}
+                                    </p>
+                                    {canWrite && (
+                                      <label className="aso-compare-choice">
+                                        <input
+                                          type="radio"
+                                          name={`compare-${field}`}
+                                          disabled={!compatible || !!error}
+                                          checked={selected[field] === keyOf(choice)}
+                                          onChange={() =>
+                                            setSelected((old) => ({
+                                              ...old,
+                                              [field]: keyOf(choice),
+                                            }))
+                                          }
+                                        />
+                                        {t(
+                                          index === 0 ? 'Use A for {0}' : 'Use B for {0}',
+                                          t(label),
+                                        )}
+                                      </label>
+                                    )}
                                   </div>
-                                </details>
+                                  <details className="aso-compare-evidence">
+                                    <summary>{t('Rationale and sources')}</summary>
+                                    <p>{choice.rationale}</p>
+                                    {choice.evidence.map((item, i) => (
+                                      <blockquote key={i}>{item.quote}</blockquote>
+                                    ))}
+                                    {choice.sources.some(isStoreSource) && (
+                                      <div className="aso-sources">
+                                        {choice.sources.map((source) => (
+                                          <SourceReference key={source.id} source={source} />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </details>
+                                </div>
+                              );
+                            })}
+                            {assessment && (
+                              <div className="aso-compare-assessment">
+                                <span className="aso-compare-caption">{t('Model assessment')}</span>
+                                <p>{t(assessment.observation)}</p>
                               </div>
-                            );
-                          })}
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -341,14 +442,16 @@ export default function CompareAudits({
                 </section>
               );
             })}
-            {canWrite && (
+            {canWrite && hasProposals && (
               <div className="aso-compare-compose">
-                <strong>{t('{0} of 5 fields selected', picked.length)}</strong>
+                <strong>{t('{0} of {1} fields selected', picked.length, fields.length)}</strong>
                 <p className="note">
                   {t(
                     left.mode === 'project'
-                      ? 'Choose all five fields to compose your listing. You can edit the draft afterwards.'
-                      : 'Unselected fields keep the saved listing from analysis A. Review the combined wording and keywords before using the draft.',
+                      ? 'Choose every field to compose your listing. You can edit the draft afterwards.'
+                      : left.platform === 'android'
+                        ? 'Unselected fields keep the saved listing from analysis A. Review all text before using the draft.'
+                        : 'Unselected fields keep the saved listing from analysis A. Review the combined wording and keywords before using the draft.',
                   )}
                 </p>
                 <button

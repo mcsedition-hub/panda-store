@@ -2,16 +2,28 @@
 
 [Documentation](README.md)
 
-Prepare an App Store listing from an idea, or audit an imported listing.
+Prepare an App Store or Google Play listing from an idea, or audit an imported listing.
 Revisit saved analyses, compare models and turn proposals into editable drafts.
 
-## Audit an App Store listing
+## Audit a store listing
 
 ASO is enabled during setup. Choose an imported app and language, then select
 **Run audit**. Audits use the selected saved import, not a live store refresh.
 Each result retains its inputs, sources and review date, with a persistent activity
 log. Running a new audit checks the latest imported snapshot; retrying an interrupted
-audit keeps its original inputs and completed checks.
+audit keeps its original inputs and completed checks. **Change provider or model**
+lets you choose a connected provider for the retry. Changing the model, provider or
+connection reruns the AI steps and their dependent checks, while preserving the
+saved listing, screenshot evidence and the previous attempt. Keeping the same AI
+choice reuses completed steps. Retries remain under the original operation budget.
+
+The app's platform selects the fields and official guidance. Google Play audits cover
+the app name (30 characters), short description (80) and full description (4,000),
+with no Apple subtitle, promotional text or keyword field. They include rules-only
+checks, AI content reviews, screenshot reviews, comparisons and editable drafts.
+Google's [store listing documentation](https://support.google.com/googleplay/android-developer/answer/9859152)
+is the source of the field limits; the saved guidance also covers metadata policy
+and preview assets. Existing App Store audits retain their original rules and sources.
 
 Leaving ASO does not erase an audit. Returning restores the last viewed report,
 language and audit type, or the active audit. **History** lists saved audits across
@@ -22,7 +34,8 @@ field proposals, character counts, rationales and sources. Choose each field fro
 then **Create draft from selection** to combine the saved texts without an AI call.
 The draft retains the source analysis and model for each selected field. For imported
 listings, unselected fields keep analysis A's saved listing. Idea proposals require all
-five fields. Different source versions are flagged; different languages or review types
+fields for their store: five for App Store, three for Google Play. Different source
+versions are flagged; different stores, languages or review types
 can be compared but cannot be combined. Rejected proposals cannot be selected. Review
 the combined copy and keyword repetitions in the draft before using it.
 
@@ -31,11 +44,11 @@ the combined copy and keyword repetitions in the draft before using it.
 For an unpublished app, use **My apps → Create a project** and describe the idea,
 or paste/import its Markdown document. Then open **ASO**, select an AI model and
 choose **Analyze idea and suggest listing**. No subtitle, description or keywords
-need to be written first. This App Store preparation works for iOS projects and
-projects whose target platform is still undecided.
+need to be written first. Android projects prepare a Google Play listing. iOS projects
+and projects whose target platform is still undecided prepare an App Store listing.
 
 ASO analyzes the positioning, audience, possible search intents and missing details,
-then proposes all five listing fields. Text lengths, project quotes and source scope
+then proposes every listing field for the selected store. Text lengths, project quotes and source scope
 are checked before a second model reviews the claims. **Use this listing as a draft**
 opens an editable, versioned draft with the whole proposal. Editing and exporting
 make no AI calls. Unverified proposals are withheld. Keyword choices are hypotheses;
@@ -53,23 +66,25 @@ the original project, provider and model, and makes no automatic paid retries.
 
 ## Edit and export proposals
 
-The initial rules check name, subtitle, description and promotional-text lengths,
+For App Store, the initial rules check name, subtitle, description and promotional-text lengths,
 the keyword budget, exact keyword repetition and comma spacing. A proposed cleanup
 can be copied for review and manual application in App Store Connect. Apple's
 conflicting byte/character keyword limits are disclosed; non-ASCII overflow is
 flagged for review. Missing fields are not treated as empty store fields.
+Google Play checks all three required fields and their character limits. Proposed
+changes can be reviewed and applied manually in Play Console.
 
 Use **Add to draft** on a proposal to create a draft with only that change, or
 **Drafts → New draft** to start from an imported language. Edit beside the frozen
 reference, or switch the comparison to the latest import. Listing drafts autosave and keep
 named copies and immutable revisions. Restore creates a new revision; it does not
-change Apple or erase history. Concurrent edits return a conflict, keeping the
+change the store listing or erase history. Concurrent edits return a conflict, keeping the
 local text available to copy before reloading. Navigation waits for pending saves.
 
 **Mark ready** is a separate review action, available after required fields and
 field limits are resolved. Editing returns the copy to **Draft**. **Copy changes**
 and **Export changes** support manual application; exports pin the saved revision.
-**Refresh and compare** uses the enabled Apple connection to refresh metadata,
+**Refresh and compare** uses the app's enabled Apple or Google Play connection to refresh metadata,
 then compares modified fields without overwriting the draft. If Connections is
 disabled or the app has no connector, **Compare latest import** only reads the
 saved snapshot. Matching values do not establish publication or download impact.
@@ -86,7 +101,7 @@ changes shows its native warning.
 content and restore it as a new draft. **Mark ready for design** requires a saved
 change, a screen description and explicit confirmation that product claims were
 checked against the app. Editing resets readiness. This status does not mean a
-screenshot has been generated, a store experiment has run or Apple has approved it.
+screenshot has been generated, a store experiment has run or the store has approved it.
 **Export brief** downloads a ZIP for the selected saved revision containing
 `brief.md`, `brief.json` and the archived `reference.jpg` when available. Creation,
 editing and export make no AI calls and never publish to a store.
@@ -116,8 +131,9 @@ the original checks available without a key. All four adapters have automated
 contract tests; OpenAI and Gemini have also been exercised with live accounts.
 
 Follow the six workflow steps, then read **Content review** below the activity.
-Each of the five fields receives an observation, including when no change is
-suggested or evidence is missing. Mechanical limits remain under **Apple checks**.
+Each listing field receives an observation, including when no change is
+suggested or evidence is missing. Mechanical limits remain under **Apple checks**
+or **Google Play checks**, according to the app's platform.
 Each AI proposal includes a replacement, rationale, quoted listing evidence and
 curated references. **Add to draft** starts a separate editable draft.
 The report records the requested/resolved model and token usage, not an estimated
@@ -150,19 +166,25 @@ non-verbatim evidence, repeated proposals, field overflows, new numbers
 and changed URLs. It does not prove feature claims, semantic relevance, translation
 quality or improved conversion. The separate model review filters semantic errors,
 but is not independent app testing or a guarantee of correctness.
-Zero AI proposals is a valid result. The current
+Zero AI proposals is a valid result. The App Store
 review uses five guidance annotations from Apple, Phiture, AppTweak and SplitMetrics,
 plus three dated public listing examples from Duolingo, Spotify and Tinder.
 Apple guidance remains the primary reference; practitioner/vendor methods supplement
 it without supplying app metrics or official requirements.
-Open **ASO → Sources** to inspect the exact notes saved with the selected audit or
-the library for new audits, including field scope, source type, date and limitations.
-Each cited reference also exposes its saved annotation under **Guidance used**.
+Google Play reviews use three annotations from official Google documentation;
+App Store advice and public iOS listing examples are excluded from their model inputs.
+Open **ASO → Sources** to inspect Apple and Google notes saved with the selected
+audit or the library for new audits, including field scope, source type, date and
+limitations. Reference displays in reports, comparisons and drafts also show only
+Apple and Google. This frontend filter leaves all other references in the backend,
+saved audits and model inputs. Each visible citation exposes its saved annotation
+under **Guidance used**.
 Maintainers extend [the versioned annotations](../addons/aso/knowledge/editorial.json)
+and [Google Play annotations](../addons/aso/knowledge/google-editorial.json)
 through code review and evaluation; adding a link to the broader source catalog
 does not automatically include it in AI context. There is no live web research.
-Live competitor research, search demand, download measurement, Google Play
-audits and publishing are not implemented. No score or growth guarantee is produced.
+Live competitor research, search demand, download measurement and publishing
+are not implemented in ASO. No score or growth guarantee is produced.
 
 For images, select **Review → Screenshots**, a provider/model and the imported
 language, then **Review screenshots**. This is a separate five-step workflow:
@@ -191,8 +213,8 @@ services when upgrading. Access requires workspace membership and an active ASO 
 The [backing research](../addons/aso/knowledge/visual-research.json) records a browser
 review on October 17, 2026 (US App Store, English, iPhone gallery). Selected **text**
 observations now supplement reviews of names, subtitles and descriptions. They are
-frozen with each new AI audit, provided to both model calls and visible in
-**Sources → Public listing examples** with their date and context. They cannot
+frozen with each new AI audit and provided to both model calls with their date and
+context, but hidden from frontend reference displays. They cannot
 justify keyword or promotional-text recommendations, replace an official source,
 or establish features or performance of the audited app. Screenshot observations
 feed the separate visual reviewer, alongside scoped Apple, Phiture and AppTweak

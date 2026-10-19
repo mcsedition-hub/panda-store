@@ -160,7 +160,7 @@ export default function Connections(props: ModuleProps) {
 }
 
 function ConnectionSettings(props: ModuleProps) {
-  const { workspace, refreshApps, navigate } = props;
+  const { workspace, refreshApps } = props;
   const [connections, setConnections] = useState<Connection[]>([]);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -212,14 +212,6 @@ function ConnectionSettings(props: ModuleProps) {
     <>
       <div className="page-heading heading-split">
         <h1>{t('Connections')}</h1>
-        {workspace.role !== 'viewer' && (
-          <button
-            className="button primary"
-            onClick={() => navigate('apple_store', undefined, 'import')}
-          >
-            {t('Import an app')}
-          </button>
-        )}
       </div>
       {error && (
         <div className="catalog-feedback">
@@ -248,14 +240,14 @@ function ConnectionSettings(props: ModuleProps) {
           </div>
           {workspace.role === 'owner' && !form && (
             <button
-              className="button primary"
+              className={`button ${connections.length ? 'secondary' : 'primary'}`}
               disabled={loading || !ready}
               onClick={() => {
                 setForm('new');
                 setConfirm(false);
               }}
             >
-              {t('Connect Apple')}
+              {t(connections.length ? 'Add an Apple account' : 'Connect Apple')}
             </button>
           )}
         </div>

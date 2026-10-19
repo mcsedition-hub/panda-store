@@ -40,6 +40,89 @@
           root.contains(section) &&
           section.querySelector('svg[aria-label="Comment"], svg[aria-label="Commentaire"]'),
       );
+  function facebookPostElement(el, caption) {
+    const article = el.closest('article, [role="article"]');
+    return (
+      (!article || article.contains(caption)) &&
+      !el.closest('ul, ol, li, [role="list"], [role="listitem"], header, h2, h3')
+    );
+  }
+  function facebookStaticFormat(root, caption) {
+    if (!caption || root === document.body) return 'unknown';
+    const photoLinks = [
+      ...root.querySelectorAll('a[href*="/photo/"], a[href*="/photo.php"]'),
+    ].filter((el) => visible(el) && facebookPostElement(el, caption));
+    const images = [...root.querySelectorAll('img')].filter(
+      (el) =>
+        facebookPostElement(el, caption) &&
+        visible(el) &&
+        el.getBoundingClientRect().width > 150 &&
+        el.getBoundingClientRect().height > 150,
+    );
+    // A photo attachment is not a video: it must use the likes-only filter. Do
+    // not count avatars, comment attachments, unloaded media or link previews.
+    const photos = images.filter((el) => {
+      const link = el.closest('a[href]');
+      return el.complete && el.naturalWidth > 150 && (!link || photoLinks.includes(link));
+    });
+    if (photos.length) {
+      const identities = new Set(photos.map((el) => el.currentSrc || el.src));
+      return identities.size > 1 ? 'carousel' : 'image';
+    }
+    return images.length || photoLinks.length ? 'unknown' : 'text';
+  }
+  function facebookEvidenceTarget(kind) {
+    if (
+      location.hostname !== 'www.facebook.com' ||
+      !direct(location.href) ||
+      facebookReel() ||
+      !['media', 'engagement'].includes(kind) ||
+      blocked()
+    )
+      return false;
+    const root = postRoot();
+    const caption =
+      root && first('[data-ad-preview="message"], [data-ad-comet-preview="message"]', root);
+    if (!caption || root === document.body) return false;
+    const photos = [...root.querySelectorAll('a[href*="/photo/"], a[href*="/photo.php"]')].filter(
+      (el) => visible(el) && facebookPostElement(el, caption) && !caption.contains(el),
+    );
+    let target;
+    if (kind === 'media') target = photos[0];
+    else {
+      target = [...root.querySelectorAll('button, [role="button"]')].find(
+        (el) =>
+          visible(el) &&
+          facebookPostElement(el, caption) &&
+          !caption.contains(el) &&
+          /^(?:J[’']aime|Like|Laissez un commentaire|Leave a comment|Commenter|Comment|Partager|Share)(?:$|\s*[:,])/i.test(
+            el.getAttribute('aria-label') || '',
+          ),
+      );
+    }
+    // Long captions can leave the reactions below the fold and not yet mounted.
+    // Scroll within this post, never through the Reels feed or to a comment.
+    const fallback = !target && kind === 'engagement';
+    target ||= fallback ? photos.at(-1) || caption : null;
+    if (!target) return false;
+    target.scrollIntoView({ block: fallback ? 'end' : 'center', inline: 'nearest' });
+    if (fallback) {
+      for (
+        let parent = target.parentElement;
+        parent && root.contains(parent);
+        parent = parent.parentElement
+      ) {
+        if (
+          parent.scrollHeight > parent.clientHeight &&
+          /auto|scroll/.test(getComputedStyle(parent).overflowY)
+        ) {
+          parent.scrollBy(0, parent.clientHeight / 2);
+          break;
+        }
+      }
+    }
+    return true;
+  }
   function postRoot() {
     if (location.hostname === 'www.facebook.com') {
       const dialog = first('[role="dialog"]');
@@ -414,17 +497,8 @@
                   el.getBoundingClientRect().height > 150,
               )
             ? 'image'
-            : !instagram &&
-                !!caption &&
-                !first('[role="group"][aria-label="Video player"]', root) &&
-                ![...root.querySelectorAll('img')].some(
-                  (el) =>
-                    visible(el) &&
-                    el.getBoundingClientRect().width > 150 &&
-                    el.getBoundingClientRect().height > 150,
-                ) &&
-                !first('a[href*="/photo/"], a[href*="/photo.php"]', root)
-              ? 'text'
+            : !instagram && !first('[role="group"][aria-label="Video player"]', root)
+              ? facebookStaticFormat(root, caption)
               : 'unknown';
       // Read counter controls, never numbers asserted in captions, metadata or comments.
       const toolbar = instagram ? instagramToolbar(root) : null;
@@ -435,6 +509,7 @@
           return (
             visible(el) &&
             (instagram || !article || article.contains(caption)) &&
+            !caption?.contains(el) &&
             (!instagram ||
               (section && root.contains(section) && !section.querySelector('a[href*="/c/"]'))) &&
             !el.closest(
@@ -471,12 +546,22 @@
           }
           const facebookCounter =
             !instagram &&
-            ((key === 'comments' && /^(Laissez un commentaire|Leave a comment)$/i.test(label)) ||
+            ((key === 'comments' &&
+              /^(Laissez un commentaire|Leave a comment|Commenter|Comment)$/i.test(label)) ||
               (key === 'shares' &&
                 label === 'Share, send this to friends or post it on your profile.'));
           if (facebookCounter && /^[0-9][0-9.,\sKMBkmb]*$/.test(text(el))) {
             appendMetric(key, text(el), `${label}: ${text(el)}`);
             break;
+          }
+          if (!instagram && key === 'shares') {
+            const shares = label.match(
+              /^(?:Partager|Share),\s*([0-9][0-9.,\sKMBkmb]*?)\s+(?:partages?|shares?)$/i,
+            );
+            if (shares) {
+              appendMetric(key, shares[1], label);
+              break;
+            }
           }
         }
       }
@@ -512,6 +597,7 @@
     discover,
     facebookTarget,
     facebookCloseTarget,
+    facebookEvidenceTarget,
     instagramViews,
     read,
     blocked,

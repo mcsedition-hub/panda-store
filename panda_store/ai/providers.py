@@ -70,6 +70,17 @@ async def _request(provider, key, path, payload, params, deadline):
 
 
 def request(provider, key, path, *, payload=None, params=None):
+    from .usage import metered_request
+
+    return metered_request(
+        provider,
+        path,
+        payload,
+        lambda: _transport(provider, key, path, payload=payload, params=params),
+    )
+
+
+def _transport(provider, key, path, *, payload=None, params=None):
     # Synchronous entry point for Django views and workers; no database work is
     # performed on the temporary event loop. Catalog requests retain a short budget.
     deadline = settings.PANDA_AI_TIMEOUT_SECONDS if payload is not None else 90

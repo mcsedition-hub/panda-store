@@ -217,14 +217,14 @@ export default function GooglePlay(props: ModuleProps) {
         </div>
         {workspace.role === 'owner' && !form && (
           <button
-            className="button primary"
+            className={`button ${connections.length ? 'secondary' : 'primary'}`}
             disabled={loading || !ready || !!error}
             onClick={() => {
               setForm('new');
               setConfirm(false);
             }}
           >
-            {t('Connect Google Play')}
+            {t(connections.length ? 'Add a Google Play account' : 'Connect Google Play')}
           </button>
         )}
       </div>

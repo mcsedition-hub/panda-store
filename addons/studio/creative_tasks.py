@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
     time_limit=2 * settings.PANDA_AI_TIMEOUT_SECONDS + 90,
 )
 def generate_ai_scripts(run_id):
-    run = GenerationRun.objects.get(pk=run_id)
+    run = GenerationRun.objects.select_related("workflow__retry_of").get(pk=run_id)
     token = services.claim(run.workflow_id)
     if token is None:
         update_generation(run)
@@ -53,7 +53,9 @@ def generate_ai_scripts(run_id):
                 run.workflow_id,
                 token,
                 "context",
-                "Product facts confirmed by the author. Research is inspiration, not proof.",
+                "Saved app context loaded. Research is inspiration, not proof."
+                if run.inputs.get("context_origin")
+                else "Product facts confirmed by the author. Research is inspiration, not proof.",
                 {
                     "snapshot_id": run.inputs["snapshot_id"],
                     "research_id": run.inputs["research_id"],
@@ -66,7 +68,26 @@ def generate_ai_scripts(run_id):
             "Writing original directions from the selected observations.",
         )
         if output is None:
-            output = ai.call(run)
+            previous = (
+                run.workflow.retry_of.steps.filter(key="scripts", status="failed").first()
+                if run.workflow.retry_of_id
+                and run.inputs["ai"] == run.workflow.retry_of.generation.inputs.get("ai")
+                else None
+            )
+            if previous and previous.output is not None:
+                output = ai.call(
+                    run,
+                    correction={
+                        "proposal": previous.output.get("result"),
+                        "validation_error": previous.summary,
+                    },
+                )
+            else:
+                output = ai.call(run)
+            # Keep the rejected response private for diagnosis and an explicit
+            # retry. It is never an editable Creative or a completed checkpoint.
+            with services.execution_lock(run.workflow_id, token):
+                run.workflow.steps.filter(key="scripts", status="running").update(output=output)
             ai.validate_scripts(output, run.inputs)
             services.complete_step(
                 run.workflow_id,

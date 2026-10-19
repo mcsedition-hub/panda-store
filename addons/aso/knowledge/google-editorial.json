@@ -1,0 +1,45 @@
+{
+  "version": "google-editorial-notes-2026-10-19.1",
+  "entries": [
+    {
+      "id": "google-store-listing",
+      "stores": [
+        "google_play"
+      ],
+      "fields": [
+        "name",
+        "short_description",
+        "description"
+      ],
+      "reviewed_on": "2026-10-19",
+      "guidance": "Google Play provides a localized app name (30 characters), short description (80 characters) and full description (4000 characters). Describe the app clearly in its selected language. Avoid irrelevant or repetitive keywords.",
+      "limitations": "These limits do not establish search demand, rankings or conversion. Do not apply Apple subtitle, promotional text or keyword-field rules to Google Play."
+    },
+    {
+      "id": "google-metadata-policy",
+      "stores": [
+        "google_play"
+      ],
+      "fields": [
+        "name",
+        "short_description",
+        "description"
+      ],
+      "reviewed_on": "2026-10-19",
+      "guidance": "Metadata must accurately describe the app and be relevant and understandable. Avoid keyword lists, misleading claims and anonymous testimonials. Titles must avoid emojis, repeated special characters, rankings, price or promotional claims; capitalization has a brand-name exception.",
+      "limitations": "Apply restrictions to the fields named by the policy. A text review does not verify app behavior or guarantee policy approval."
+    },
+    {
+      "id": "google-preview-assets",
+      "stores": [
+        "google_play"
+      ],
+      "fields": [
+        "short_description"
+      ],
+      "reviewed_on": "2026-10-19",
+      "guidance": "Write a concise short description focused on the core function and value. Avoid repeating the title or making unsupported ranking, price or promotional claims. Use language suited to the intended audience.",
+      "limitations": "This note concerns the short description. Screenshot specifications and recommendation eligibility are separate; do not infer measured performance."
+    }
+  ]
+}

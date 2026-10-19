@@ -11,6 +11,7 @@ from rest_framework.response import Response
 
 from addons.app_catalog.models import MobileApp
 from panda_store.ai.providers import PROVIDERS
+from panda_store.ai.retries import AIRetryRequest, matches_retry_choice, retry_choice
 from panda_store.core.access import workspace_access
 from panda_store.core.models import AIConnection, Workspace
 from panda_store.workflows import services
@@ -19,7 +20,7 @@ from panda_store.workflows.models import WorkflowRun
 from .creative_ai import VERSION
 from .creative_context import selected_sources
 from .models import GenerationRun
-from .serializers import GenerateRequest, RunSerializer
+from .serializers import RunSerializer
 from .views import dispatch_generation
 from .workflow import AI_VERSION, create_ai_workflow
 
@@ -120,7 +121,7 @@ def generate(request, workspace_id, app_id):
 
 
 def retry_ai(request, workspace, original):
-    payload = GenerateRequest(data=request.data)
+    payload = AIRetryRequest(data=request.data)
     payload.is_valid(raise_exception=True)
     services.recover(original.workflow_id)
     with transaction.atomic():
@@ -129,6 +130,16 @@ def retry_ai(request, workspace, original):
         previous = WorkflowRun.objects.select_for_update().get(pk=original.workflow_id)
         existing = GenerationRun.objects.filter(workflow__retry_of=previous).first()
         if existing:
+            if not matches_retry_choice(
+                existing.inputs.get("ai"), original.inputs.get("ai"), payload.validated_data
+            ):
+                return Response(
+                    {
+                        "error": "A retry already exists with a different AI choice. "
+                        "Reload the latest attempt."
+                    },
+                    status=409,
+                )
             return Response(RunSerializer(existing).data)
         if previous.status not in {"failed", "canceled"}:
             raise ValidationError("Only failed or canceled generations can be retried.")
@@ -142,15 +153,18 @@ def retry_ai(request, workspace, original):
         request_id = payload.validated_data["request_id"]
         if GenerationRun.objects.filter(workspace=workspace, request_id=request_id).exists():
             return Response({"error": "This request ID has already been used."}, status=409)
+        inputs = copy.deepcopy(original.inputs)
+        inputs["ai"] = retry_choice(workspace, inputs["ai"], payload.validated_data)
+        changed = inputs["ai"] != original.inputs["ai"]
         run = GenerationRun.objects.create(
             workspace=workspace,
             app=original.app,
             created_by=request.user,
             request_id=request_id,
             request={"retry_of": str(original.pk)},
-            provider=original.provider,
-            inputs=original.inputs,
+            provider=inputs["ai"]["provider"],
+            inputs=inputs,
         )
-        create_ai_workflow(run, retry_of=previous)
+        create_ai_workflow(run, retry_of=previous, reuse_steps={"context"} if changed else None)
         transaction.on_commit(lambda: dispatch_generation(run))
     return Response(RunSerializer(run).data, status=202)

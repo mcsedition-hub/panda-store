@@ -61,7 +61,7 @@ export default function AppDetail({
           {app.is_demo && <span className="pill">{t('Demo')}</span>}
         </div>
         <div className="action-group">
-          {app.platform === 'ios' && availableModules?.includes('aso') && (
+          {['ios', 'android'].includes(app.platform) && availableModules?.includes('aso') && (
             <button
               className="button secondary"
               onClick={() => {
@@ -148,11 +148,7 @@ export default function AppDetail({
         </p>
       )}
       {app.platform === 'android' && (
-        <p className="notice">
-          {t(
-            'This Google Play listing can be used in SMM. ASO audits currently support App Store listings.',
-          )}
-        </p>
+        <p className="notice">{t('This Google Play listing can be used in ASO and SMM.')}</p>
       )}
       <section className="metadata-panel">
         <div className="heading-split metadata-heading">

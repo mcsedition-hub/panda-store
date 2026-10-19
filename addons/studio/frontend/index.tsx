@@ -1,11 +1,10 @@
 import { t, getLocale, getLanguage } from '../../../web/src/i18n';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError, download, moduleUrl } from '../../../web/src/api';
 import AIOptions, { type AIChoice } from '../../../web/src/ai/AIOptions';
 import type { Brief, Creative, ModuleProps, Run, ResearchSource } from '../../../web/src/contracts';
 import Research from './Research';
 import SocialResearch from './SocialResearch';
-import Scenes from './Scenes';
 import WorkflowPanel from '../../../web/src/workflows/WorkflowPanel';
 
 function CreativeEditor({
@@ -13,14 +12,12 @@ function CreativeEditor({
   canWrite,
   workspaceId,
   onSave,
-  onPlan,
   sources = [],
 }: {
   creative: Creative;
   canWrite: boolean;
   workspaceId: string;
   onSave: (creative: Creative) => void;
-  onPlan: () => void;
   sources?: ResearchSource[];
 }) {
   const [draft, setDraft] = useState(creative);
@@ -143,11 +140,6 @@ function CreativeEditor({
         </p>
       )}
       <div className="creative-actions">
-        {!['carousel', 'image', 'text'].includes(creative.provenance?.content_format || '') && (
-          <button className="button secondary" disabled={busy || dirty} onClick={onPlan}>
-            {t('Plan scenes')}
-          </button>
-        )}
         <button
           className="button secondary"
           onClick={() => save()}
@@ -175,29 +167,10 @@ export default function Studio({
   navigate,
   demoMode,
   previewMode,
-  registerLeaveGuard,
 }: ModuleProps) {
-  const [section, setSection] = useState<'research' | 'scripts' | 'scenes'>('research');
+  const [section, setSection] = useState<'research' | 'scripts'>('research');
   const [newResearchRequest, setNewResearchRequest] = useState(0);
   const [canOpenNewResearch, setCanOpenNewResearch] = useState(false);
-  const [sceneCreativeId, setSceneCreativeId] = useState('');
-  const scenesGuard = useRef<() => Promise<boolean>>(async () => true);
-  const registerScenesGuard = useCallback(
-    (guard: () => Promise<boolean>) => {
-      scenesGuard.current = guard;
-      const release = registerLeaveGuard?.(guard);
-      return () => {
-        scenesGuard.current = async () => true;
-        release?.();
-      };
-    },
-    [registerLeaveGuard],
-  );
-  async function openScenes(id: string) {
-    if (!(await scenesGuard.current()) || currentBase.current !== base) return;
-    setSceneCreativeId(id);
-    setSection('scenes');
-  }
   const [engine, setEngine] = useState(
     selectedApp?.is_demo || previewMode ? 'demo_templates' : 'ai',
   );
@@ -235,7 +208,6 @@ export default function Studio({
     setError('');
     setNotice('');
     setRuns([]);
-    setSceneCreativeId('');
     setRunId('');
     setBusy(false);
     setUncertain(false);
@@ -313,12 +285,12 @@ export default function Studio({
       if (currentBase.current === base) setBusy(false);
     }
   }
-  async function retry() {
+  async function retry(nextChoice?: NonNullable<AIChoice>) {
     if (!run) return;
     const next = await api<Run>(moduleUrl(workspace.id, 'studio', `runs/${run.id}/retry/`), {
       method: 'POST',
       feedback: { success: 'Generation retry started.' },
-      body: JSON.stringify({ request_id: crypto.randomUUID() }),
+      body: JSON.stringify({ request_id: crypto.randomUUID(), ...nextChoice }),
     });
     if (currentBase.current !== base) return;
     setRuns((old) => [next, ...old.filter((item) => item.id !== next.id)]);
@@ -461,70 +433,7 @@ export default function Studio({
         >
           {t('Scripts')}
         </button>
-        <button
-          aria-current={section === 'scenes' ? 'page' : undefined}
-          onClick={() => {
-            setSection('scenes');
-            if (!sceneCreativeId) setSceneCreativeId(run?.creatives[0]?.id ?? '');
-          }}
-        >
-          {t('Scenes')}
-        </button>
       </nav>
-      <div hidden={section !== 'scenes'}>
-        {section === 'scenes' || sceneCreativeId ? (
-          <>
-            {runs.some((item) => item.creatives.length) && (
-              <label className="scene-script-picker">
-                {t('Script ')}
-                <select
-                  value={sceneCreativeId}
-                  onChange={(event) => openScenes(event.target.value)}
-                >
-                  <option value="" disabled>
-                    {t('Choose a script')}
-                  </option>
-                  {runs
-                    .filter((item) => item.creatives.length)
-                    .map((item) => (
-                      <optgroup
-                        key={item.id}
-                        label={new Date(item.created_at).toLocaleString(getLocale())}
-                      >
-                        {item.creatives.map((creative) => (
-                          <option key={creative.id} value={creative.id}>
-                            {creative.angle}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                </select>
-              </label>
-            )}
-            {sceneCreativeId ? (
-              <Scenes
-                key={`${workspace.id}:${appId}:${sceneCreativeId}`}
-                workspace={workspace}
-                selectedApp={selectedApp}
-                creativeId={sceneCreativeId}
-                currentScript={runs
-                  .flatMap((item) => item.creatives)
-                  .find((item) => item.id === sceneCreativeId)}
-                active={section === 'scenes'}
-                previewMode={previewMode}
-                registerLeaveGuard={registerScenesGuard}
-              />
-            ) : (
-              <section className="storyboard-empty">
-                <h2>{t('No script selected')}</h2>
-                <button className="button secondary" onClick={() => setSection('scripts')}>
-                  {t('Open scripts')}
-                </button>
-              </section>
-            )}
-          </>
-        ) : null}
-      </div>
       <div hidden={section !== 'research'}>
         <SocialResearch
           key={`social:${workspace.id}:${selectedApp.id}`}
@@ -1006,6 +915,15 @@ export default function Studio({
                   workflowId={run.workflow_id}
                   canWrite={canWrite && !run.review?.rejected}
                   onRetry={retry}
+                  retryAI={
+                    run.context?.ai
+                      ? {
+                          choice: run.context.ai,
+                          owner: workspace.role === 'owner',
+                          moduleContext: 'smm',
+                        }
+                      : undefined
+                  }
                   onStatus={(status) => {
                     setRuns((old) =>
                       old.map((item) => (item.id === run.id ? { ...item, status } : item)),
@@ -1041,7 +959,6 @@ export default function Studio({
                       canWrite={canWrite}
                       workspaceId={workspace.id}
                       sources={run.context?.sources}
-                      onPlan={() => openScenes(creative.id)}
                       onSave={(next) =>
                         setRuns((old) =>
                           old.map((item) =>
