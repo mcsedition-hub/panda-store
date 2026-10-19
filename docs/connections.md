@@ -107,7 +107,7 @@ the previous snapshot remained available throughout.
 
 ## AI providers
 
-Open **AI settings** from ASO or SMM to connect OpenAI, Google Gemini, Anthropic Claude or Z.ai (GLM). The workspace owner manages the keys. Choose a model before starting an AI task; usage belongs to that provider account. See [model selection and recovery](aso.md#choose-an-ai-model).
+Open **Settings → AI settings** in the sidebar to connect OpenAI, Google Gemini, Anthropic Claude or Z.ai (GLM). The workspace owner manages the keys. Choose a model before starting an AI task; usage belongs to that provider account. See [model selection and recovery](aso.md#choose-an-ai-model).
 
 **Compare models by use** explains writing, ideas, reasoning and image analysis
 across providers. Each provider initially shows up to five main models available

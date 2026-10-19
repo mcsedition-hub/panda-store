@@ -2498,6 +2498,19 @@ strong {
   max-width: 100ch;
   line-height: 1.6;
 }
+.ai-settings-page {
+  max-width: 1100px;
+}
+.ai-settings-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+.ai-settings-heading h1 {
+  margin: 8px 0;
+}
 .ai-settings {
   margin-top: 18px;
   padding: 24px;
@@ -2505,7 +2518,7 @@ strong {
   border-radius: 12px;
   background: var(--paper);
 }
-.ai-settings h3 {
+.ai-settings h2 {
   margin: 0 0 8px;
 }
 .ai-settings form {
@@ -2514,15 +2527,18 @@ strong {
   max-width: 640px;
 }
 .ai-provider-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 28px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
   margin: 20px 0;
 }
 .ai-provider-status span {
   display: grid;
   gap: 4px;
   font-size: 13px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
 }
 .ai-provider-status strong {
   font-weight: 500;

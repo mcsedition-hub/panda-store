@@ -5,6 +5,7 @@ import type { MobileApp, ModuleInfo, Session, Workspace } from './contracts';
 import { moduleViews } from './modules';
 import Setup from './Setup';
 import UsageDashboard from './ai-usage/UsageDashboard';
+import AISettings from './ai/AISettings';
 import LanguagePicker from './i18n/LanguagePicker';
 import { setLanguage, useLanguage } from './i18n';
 
@@ -401,6 +402,27 @@ export default function App() {
                         <span>{t('Manage modules')}</span>
                       </button>
                       <button
+                        className={`nav-item ${current === 'ai-settings' ? 'active' : ''}`}
+                        onClick={() => navigate('ai-settings')}
+                        aria-current={current === 'ai-settings' ? 'page' : undefined}
+                      >
+                        <svg
+                          width="30"
+                          height="30"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.7"
+                          aria-hidden="true"
+                        >
+                          <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+                          <circle cx="8" cy="6" r="2" fill="var(--ink)" />
+                          <circle cx="16" cy="12" r="2" fill="var(--ink)" />
+                          <circle cx="10" cy="18" r="2" fill="var(--ink)" />
+                        </svg>
+                        <span>{t('AI settings')}</span>
+                      </button>
+                      <button
                         className={`nav-item ${current === 'ai-usage' ? 'active' : ''}`}
                         onClick={() => navigate('ai-usage')}
                         aria-current={current === 'ai-usage' ? 'page' : undefined}
@@ -438,9 +460,11 @@ export default function App() {
             {t(
               current === 'ai-usage'
                 ? 'AI usage'
-                : current === 'modules'
-                  ? 'Manage modules'
-                  : (activeModule?.name ?? 'Loading'),
+                : current === 'ai-settings'
+                  ? 'AI settings'
+                  : current === 'modules'
+                    ? 'Manage modules'
+                    : (activeModule?.name ?? 'Loading'),
             )}
           </span>
           <div className="topbar-right">
@@ -474,6 +498,12 @@ export default function App() {
           {workspace && current === 'ai-usage' && (
             <UsageDashboard key={workspace.id} workspace={workspace} />
           )}
+          {workspace && current === 'ai-settings' && (
+            <AISettings
+              workspaceId={workspace.id}
+              owner={workspace.role === 'owner' && !session.preview_mode}
+            />
+          )}
           {workspace && current === 'modules' && (
             <ModuleManager modules={modules} workspace={workspace} reload={refreshModules} />
           )}
@@ -496,13 +526,17 @@ export default function App() {
               />
             </Suspense>
           )}
-          {workspace && current !== 'modules' && current !== 'ai-usage' && !ModuleView && (
-            <p role="status">
-              {modules.length
-                ? t('This module is not enabled in this workspace.')
-                : t('Loading modules…')}
-            </p>
-          )}
+          {workspace &&
+            current !== 'modules' &&
+            current !== 'ai-usage' &&
+            current !== 'ai-settings' &&
+            !ModuleView && (
+              <p role="status">
+                {modules.length
+                  ? t('This module is not enabled in this workspace.')
+                  : t('Loading modules…')}
+              </p>
+            )}
         </main>
         <footer className="app-footer">
           <span>{t('Panda Store')}</span>

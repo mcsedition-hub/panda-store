@@ -108,7 +108,7 @@ editing and export make no AI calls and never publish to a store.
 
 ## Choose an AI model
 
-Open **ASO → Audit → AI settings**. A workspace owner can connect OpenAI, Google
+Open **Settings → AI settings** in the sidebar. A workspace owner can connect OpenAI, Google
 Gemini, Anthropic Claude or Z.ai (GLM) with their own API key. Keys are encrypted in this
 installation's database using `PANDA_CREDENTIAL_KEYS`, never returned to the browser
 or shared between workspaces. **Refresh models** reloads the provider's catalogue;

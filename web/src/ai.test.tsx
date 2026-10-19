@@ -63,43 +63,6 @@ it('does not restore a saved text model for a retry requiring images', async () 
   expect((screen.getByLabelText('Model') as HTMLSelectElement).value).toBe('');
 });
 
-it('connects Z.ai explicitly and explains its connection check and standard key', async () => {
-  mockApi.mockImplementation(async (_, options) =>
-    options?.method === 'PUT'
-      ? zaiCatalog
-      : {
-          credentials_ready: true,
-          providers: [{ ...zaiCatalog.providers[0], connected: false, revision: null, models: [] }],
-        },
-  );
-  const changed = vi.fn();
-  render(<AIOptions workspaceId="one" owner disabled={false} onChange={changed} />);
-  await waitFor(() => expect(changed).toHaveBeenLastCalledWith(null, false));
-  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
-  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'zai' } });
-  expect(screen.getByText(/Create a Standard API Key/)).toBeTruthy();
-  expect(screen.getByText(/Connecting or refreshing sends a short check/)).toBeTruthy();
-  fireEvent.change(screen.getByLabelText('API key'), {
-    target: { value: 'test-zai-key-not-real' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Connect provider' }));
-  const model = await screen.findByLabelText('Model');
-  expect((model as HTMLSelectElement).value).toBe('');
-  expect(mockApi).toHaveBeenCalledWith(
-    '/api/workspaces/one/ai/zai/',
-    expect.objectContaining({ method: 'PUT' }),
-  );
-  expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('');
-  expect(
-    screen.getByRole('option', { name: 'glm-4.7-flash · Quick writing · Text · Listed free' }),
-  ).toBeTruthy();
-  expect(
-    screen.getByRole('option', { name: 'glm-5.3 · Complex reasoning · Text · Paid' }),
-  ).toBeTruthy();
-  fireEvent.change(model, { target: { value: 'glm-4.7-flash' } });
-  expect(changed).toHaveBeenLastCalledWith({ provider: 'zai', model: 'glm-4.7-flash' }, false);
-});
-
 it('clears a selected GLM text model when switching to a visual task without selecting a paid model', async () => {
   mockApi.mockResolvedValue(zaiCatalog);
   const changed = vi.fn();
@@ -138,39 +101,6 @@ it('does not offer Z.ai for legacy web discovery', async () => {
   expect(screen.queryByLabelText('Model')).toBeNull();
 });
 
-it('lets the owner refresh models and replace the key without reading a saved secret', async () => {
-  mockApi.mockResolvedValue(catalog);
-  render(<AIOptions workspaceId="one" owner disabled={false} onChange={vi.fn()} />);
-  await screen.findByLabelText('Model');
-  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
-  expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe('');
-  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
-  await screen.findByText('Connection checked. Available models updated.');
-  const refresh = mockApi.mock.calls.find(([, options]) => options?.method === 'POST')!;
-  expect(JSON.parse(refresh[1]!.body as string)).toEqual({ revision: 'revision-one' });
-  fireEvent.change(screen.getByLabelText('API key'), {
-    target: { value: 'test-new-key-not-real' },
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Replace key' }));
-  await waitFor(() =>
-    expect((screen.getByLabelText('API key') as HTMLInputElement).value).toBe(''),
-  );
-  const save = mockApi.mock.calls.find(([, options]) => options?.method === 'PUT')!;
-  expect(JSON.parse(save[1]!.body as string)).toEqual({
-    api_key: 'test-new-key-not-real',
-    revision: 'revision-one',
-  });
-});
-
-it('does not expose connection mutations to viewers or editors', async () => {
-  mockApi.mockResolvedValue(catalog);
-  render(<AIOptions workspaceId="one" owner={false} disabled onChange={vi.fn()} />);
-  await screen.findByLabelText('Model');
-  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
-  expect(screen.queryByLabelText('API key')).toBeNull();
-  expect(screen.getByText(/Ask the workspace owner/)).toBeTruthy();
-});
-
 it('does not adopt late connection responses after unmount', async () => {
   let resolve: (value: unknown) => void = () => {};
   mockApi.mockImplementation(
@@ -185,47 +115,6 @@ it('does not adopt late connection responses after unmount', async () => {
   resolve(catalog);
   await Promise.resolve();
   expect(changed.mock.calls).toEqual([[null, true]]);
-});
-
-it('recovers a failed catalog read without reporting unavailable credential storage or writing a connection', async () => {
-  mockApi.mockRejectedValue(new Error('Cannot reach Panda Store.'));
-  const changed = vi.fn();
-  render(<AIOptions workspaceId="one" owner disabled={false} onChange={changed} />);
-  await screen.findByText(/AI connections could not be loaded/);
-  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
-  expect(screen.queryByText(/Credential storage is unavailable/)).toBeNull();
-  expect(screen.queryByLabelText('API key')).toBeNull();
-  mockApi.mockResolvedValue(catalog);
-  fireEvent.click(screen.getByRole('button', { name: 'Retry loading AI connections' }));
-  await screen.findByLabelText('Model');
-  expect(screen.queryByRole('alert')).toBeNull();
-  expect(screen.getByLabelText('API key')).toBeTruthy();
-  expect(changed).toHaveBeenLastCalledWith({ provider: 'openai', model: '' }, false);
-  expect(mockApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
-});
-
-it('reloads a changed connection before an explicit retry with its current revision', async () => {
-  mockApi.mockImplementation(async (_, options) => {
-    if (options?.method) throw new Error('This connection changed. Reload AI settings.');
-    return catalog;
-  });
-  render(<AIOptions workspaceId="one" owner disabled={false} onChange={vi.fn()} />);
-  await screen.findByLabelText('Model');
-  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
-  await screen.findByText('This connection changed. Reload AI settings.');
-  const updated = {
-    ...catalog,
-    providers: [{ ...catalog.providers[0], revision: 'revision-two' }],
-  };
-  mockApi.mockResolvedValue(updated);
-  fireEvent.click(screen.getByRole('button', { name: 'Reload AI connections' }));
-  await screen.findByRole('button', { name: 'Refresh models' });
-  expect(mockApi.mock.calls.filter(([, options]) => options?.method)).toHaveLength(1);
-  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
-  await screen.findByText('Connection checked. Available models updated.');
-  const writes = mockApi.mock.calls.filter(([, options]) => options?.method);
-  expect(JSON.parse(String(writes[1][1]?.body))).toEqual({ revision: 'revision-two' });
 });
 
 const googleCatalog = {
@@ -540,4 +429,26 @@ it('does not label an unreviewed model recommended or introduce unavailable mode
   const models = [{ id: 'gpt-future', name: 'Future' }];
   expect(primaryModels('openai', models)).toEqual(models);
   expect(recommendedModel('openai', models, 'aso')).toBeUndefined();
+});
+
+it('keeps model selection in the module and directs unconnected workspaces to sidebar settings', async () => {
+  mockApi.mockResolvedValue({ credentials_ready: true, providers: [] });
+  const changed = vi.fn();
+  render(<AIOptions workspaceId="one" disabled={false} onChange={changed} />);
+  await screen.findByText('Connect providers in Settings → AI settings in the sidebar.');
+  expect(screen.queryByRole('button', { name: 'AI settings' })).toBeNull();
+  expect(screen.queryByLabelText('API key')).toBeNull();
+  expect(changed).toHaveBeenLastCalledWith(null, false);
+  expect(mockApi.mock.calls.every(([, options]) => !options?.method)).toBe(true);
+});
+
+it('retries a failed selector catalog read without opening connection settings', async () => {
+  mockApi.mockRejectedValueOnce(new Error('Cannot reach Panda Store.'));
+  render(<AIOptions workspaceId="one" disabled={false} onChange={vi.fn()} />);
+  await screen.findByText(/AI connections could not be loaded/);
+  mockApi.mockResolvedValue(catalog);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry loading AI connections' }));
+  await screen.findByLabelText('Model');
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.queryByLabelText('API key')).toBeNull();
 });

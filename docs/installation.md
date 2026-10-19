@@ -11,11 +11,11 @@ With Git installed, download the Community release:
 ```sh
 git clone https://github.com/mcsedition-hub/panda-store.git
 cd panda-store
-git checkout v0.1.0-alpha.2
+git checkout v0.1.0-alpha.3
 ```
 
 You can also extract the source ZIP from the
-[release page](https://github.com/mcsedition-hub/panda-store/releases/tag/v0.1.0-alpha.2)
+[release page](https://github.com/mcsedition-hub/panda-store/releases/tag/v0.1.0-alpha.3)
 and open a terminal in that folder. Choose one installation method below;
 both use port 5173, so run only one frontend at a time.
 
@@ -108,9 +108,10 @@ New briefs default to the account language. Imported listings and earlier result
 
 ## Connect AI
 
-Open **AI settings** in ASO or SMM and connect a provider with your own API key.
+Open **Settings → AI settings** in the sidebar and connect a provider with your own API key.
 OpenAI, Google Gemini, Anthropic Claude and Z.ai (GLM) are supported. Keys and model
-catalogues are saved for your workspace; choose a model before starting a task.
+catalogues are saved for your workspace and available immediately, without a server
+restart. Choose a model in ASO or SMM before starting a task.
 The provider charges your account according to its pricing. Panda's
 [AI usage and limits](ai-usage.md) page tracks usage and lets you set a local budget.
 
@@ -128,7 +129,7 @@ preserves existing `.env` files; this file contains secrets and must never be pu
 
 For a Git installation, fetch tags and check out the release you want to install.
 For example, update to this Community alpha with `git fetch --tags` followed by
-`git checkout v0.1.0-alpha.2`. Preserve local configuration and data. If you use a
+`git checkout v0.1.0-alpha.3`. Preserve local configuration and data. If you use a
 source ZIP, extract the new version separately and transfer your existing configuration
 and database according to your installation method.
 

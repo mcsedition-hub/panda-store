@@ -56,18 +56,41 @@ it('waits for module edits before navigation and stays put when saving fails', a
         { id: 'studio', name: 'SMM', enabled: true },
       ];
     if (path.endsWith('/apps/')) return [];
+    if (path.endsWith('/ai/')) return { credentials_ready: true, providers: [] };
     throw new Error(path);
   });
   render(<App />);
   fireEvent.click(await screen.findByRole('button', { name: 'SMM' }));
   await screen.findByRole('heading', { name: 'Script workspace' });
   guardMock.mockResolvedValue(false);
-  fireEvent.click(screen.getByRole('button', { name: 'Manage modules' }));
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
   await waitFor(() => expect(guardMock).toHaveBeenCalled());
   expect(screen.getByRole('heading', { name: 'Script workspace' })).toBeTruthy();
   guardMock.mockResolvedValue(true);
-  fireEvent.click(screen.getByRole('button', { name: 'Manage modules' }));
-  await screen.findByRole('heading', { name: 'Manage modules' });
+  fireEvent.click(screen.getByRole('button', { name: 'AI settings' }));
+  await screen.findByRole('heading', { name: 'AI settings' });
+});
+
+it('opens AI settings from the sidebar without an app or an enabled growth module', async () => {
+  const original = mockApi.getMockImplementation()!;
+  mockApi.mockImplementation(async (path, options) => {
+    if (path === '/api/session/') return { ...configured, language: 'fr' };
+    if (path.endsWith('/ai/')) return { credentials_ready: true, providers: [] };
+    return original(path, options);
+  });
+  render(<App />);
+  await screen.findByRole('heading', { name: 'Your apps' });
+  const settings = within(screen.getByRole('group', { name: 'Paramètres' }));
+  const button = settings.getByRole('button', { name: 'Paramètres IA' });
+  fireEvent.click(button);
+  await screen.findByLabelText('Clé API');
+  expect(screen.getByRole('heading', { name: 'Paramètres IA' })).toBeTruthy();
+  expect(button.getAttribute('aria-current')).toBe('page');
+  expect(screen.queryByText('This module is not enabled in this workspace.')).toBeNull();
+  expect(mockApi.mock.calls.some(([, options]) => options?.method)).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Mes applications' }));
+  await screen.findByRole('heading', { name: 'Your apps' });
+  expect(screen.queryByLabelText('Clé API')).toBeNull();
 });
 
 async function fillSetup() {

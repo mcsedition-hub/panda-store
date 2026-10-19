@@ -40,8 +40,9 @@ establishing a publishing connection.
 ## Next milestone
 
 **Community alpha: gather feedback from independent first-time installations.**
-Version `v0.1.0-alpha.2` is the first published Community prerelease. Its
-[release notes](https://github.com/mcsedition-hub/panda-store/releases/tag/v0.1.0-alpha.2)
+Version `v0.1.0-alpha.2` was the first published Community prerelease.
+The current [Community alpha](https://github.com/mcsedition-hub/panda-store/releases/tag/v0.1.0-alpha.3)
+centralizes provider connections in **Settings → AI settings**. Its release notes
 describe installation and known limits. ASO and SMM are the two business modules.
 SMM exposes Research and Scripts; its Scenes interface is disabled while the
 existing implementation and saved data remain in the backend. Live collection
